@@ -6,19 +6,21 @@
   "type": "object",
   "required": [
     "schemaVersion", "audio", "grid", "bpmGlobal", "meter",
-    "beatTimestampsMs", "downbeatTimestampsMs", "sections", "curves"
+    "beatTimestampsMs", "downbeatTimestampsMs", "downbeatConfidence", "sections", "curves"
   ],
   "additionalProperties": false,
   "properties": {
-    "schemaVersion": { "type": "integer", "const": 1 },
+    "schemaVersion": { "type": "integer", "const": 2 },
     "audio": {
       "type": "object",
-      "required": ["path", "sampleRate", "durationMs"],
+      "required": ["path", "sampleRate", "durationMs", "peakDbfs", "rmsDbfs"],
       "additionalProperties": false,
       "properties": {
         "path": { "type": "string" },
         "sampleRate": { "type": "integer", "exclusiveMinimum": 0 },
-        "durationMs": { "type": "integer", "minimum": 0 }
+        "durationMs": { "type": "integer", "minimum": 0 },
+        "peakDbfs": { "type": "number", "description": "Absolute peak level in dBFS (cross-song intensity reference)." },
+        "rmsDbfs": { "type": "number", "description": "Absolute overall RMS in dBFS." }
       }
     },
     "grid": {
@@ -40,7 +42,11 @@
     "downbeatTimestampsMs": {
       "type": "array",
       "items": { "type": "integer", "minimum": 0 },
-      "description": "Estimated bar starts (ms). HEURISTIC: best meter-phase by onset strength; can be off by a beat on pickups/odd meters."
+      "description": "Estimated bar starts (ms). HEURISTIC: best meter-phase by LOW-BAND onset strength; can be off by a beat on pickups/odd meters/uniform four-on-the-floor."
+    },
+    "downbeatConfidence": {
+      "type": "number", "minimum": 0, "maximum": 1,
+      "description": "(best-second)/best of the per-phase onset scores. ~0 = no bar contrast (downbeat phase unreliable, e.g. uniform 4-on-floor); trust this over the phase."
     },
     "sections": {
       "type": "array",
@@ -57,10 +63,11 @@
           "bpm": { "type": "number", "minimum": 0, "description": "Median tempo within the section (0 if too few beats)." },
           "summary": {
             "type": "object",
-            "required": ["energy", "onsetDensity", "spectralCentroid", "bandEnergy"],
+            "required": ["energy", "energyAbs", "onsetDensity", "spectralCentroid", "bandEnergy"],
             "additionalProperties": true,
             "properties": {
-              "energy": { "type": "number", "description": "Mean normalized RMS energy (0-1)." },
+              "energy": { "type": "number", "description": "Mean normalized RMS energy (0-1, robust 99th-pct reference)." },
+              "energyAbs": { "type": "number", "description": "Mean absolute RMS (linear, un-normalized) for cross-section/song comparison." },
               "onsetDensity": { "type": "number", "description": "Mean normalized onset strength (0-1)." },
               "spectralCentroid": { "type": "number", "description": "Mean spectral centroid (Hz) = perceived brightness." },
               "bandEnergy": {
