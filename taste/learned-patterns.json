@@ -1,0 +1,426 @@
+{
+  "note": "Audio-INDEPENDENT structural taste mined from src/songs/* via parse-song (recorder). Reference material for the translator, not a model. Rules in taste/rules.yaml OVERRIDE these on conflict.",
+  "pendingAudioAlignment": "The effect<->section/energy alignment (which effect appears under which intro/build/drop + energy band) needs per-song audio run through scripts/analyze_music.py; add audio and re-run with alignment to complete it.",
+  "generatedFromSongs": [
+    "agent",
+    "aladdin",
+    "buttons",
+    "loop",
+    "togual"
+  ],
+  "aggregate": {
+    "timeframes": 442,
+    "effectFreq": {
+      "fadeOut": 242,
+      "hueShiftStartToEnd": 85,
+      "position_hue": 76,
+      "fadeIn": 42,
+      "brightness": 35,
+      "pulse": 25,
+      "snakeFillGrow": 21,
+      "blink": 21,
+      "snake": 20,
+      "fadeInOut": 16,
+      "staticHueShift": 14,
+      "snakeInOut": 6,
+      "staticSnake": 6,
+      "timed_hue": 5,
+      "fadeOutIn": 4,
+      "fade": 4,
+      "snakeHeadMove": 2,
+      "snakeHeadSin": 2,
+      "snake_brightness": 2,
+      "timed_brightness": 1,
+      "snakeHeadSteps": 1,
+      "snakeSlowFast": 1
+    },
+    "topCoOccurrence": {
+      "fadeOut": 74,
+      "(color-only)": 66,
+      "hueShiftStartToEnd+position_hue": 64,
+      "fadeIn": 41,
+      "brightness": 33,
+      "pulse": 25,
+      "blink": 21,
+      "snake": 18,
+      "fadeInOut": 15,
+      "staticHueShift": 14,
+      "hueShiftStartToEnd+snakeFillGrow": 12,
+      "snakeFillGrow": 9,
+      "position_hue": 7,
+      "hueShiftStartToEnd": 7,
+      "staticSnake": 6
+    },
+    "mapping": {
+      "all": 295,
+      "arc": 48,
+      "rand": 32,
+      "ind": 24,
+      "centric": 20,
+      "b1": 13,
+      "b2": 6,
+      "updown": 4
+    },
+    "hueBuckets": {
+      "red": 89,
+      "blue": 23,
+      "violet": 21,
+      "azure": 11,
+      "cyan": 11,
+      "orange": 8,
+      "yellow-green": 5,
+      "spring": 4,
+      "yellow": 3,
+      "rose": 3,
+      "green": 1
+    },
+    "explicitColor": {
+      "yes": 218,
+      "no": 224
+    },
+    "cycleBeats": {
+      "1": 108,
+      "2": 6,
+      "4": 3,
+      "6": 8,
+      "8": 3,
+      "12": 1,
+      "0.25": 5,
+      "0.1": 2,
+      "0.2": 2,
+      "0.6": 1,
+      "0.3": 1,
+      "0.5": 1
+    },
+    "windowedCycles": 36,
+    "movement": {
+      "spread/forward": 5,
+      "sweep/forward": 2,
+      "spread/edges-in": 2
+    },
+    "phaseTimeframes": 13,
+    "ringMode": {
+      "all": 140,
+      "subset": 182,
+      "single": 120
+    },
+    "durationBeats": {
+      "min": 0,
+      "p25": 1,
+      "median": 4,
+      "p75": 6,
+      "max": 444,
+      "mean": 13.57
+    }
+  },
+  "perSong": {
+    "agent": {
+      "skipped": "0 timeframes (empty/stub)"
+    },
+    "aladdin": {
+      "bpm": 64.725,
+      "variableBpm": false,
+      "timeframes": 134,
+      "effectFreq": {
+        "fadeOut": 21,
+        "hueShiftStartToEnd": 16,
+        "staticHueShift": 14,
+        "fadeInOut": 13,
+        "snakeFillGrow": 12,
+        "position_hue": 7,
+        "fadeIn": 6,
+        "snakeInOut": 5,
+        "snake": 4,
+        "staticSnake": 4,
+        "brightness": 3,
+        "fadeOutIn": 2,
+        "blink": 2,
+        "snakeHeadMove": 2,
+        "fade": 1
+      },
+      "topCoOccurrence": {
+        "(color-only)": 41,
+        "fadeOut": 21,
+        "staticHueShift": 14,
+        "hueShiftStartToEnd+snakeFillGrow": 12,
+        "fadeInOut": 12,
+        "fadeIn": 6,
+        "hueShiftStartToEnd": 4,
+        "staticSnake": 4,
+        "position_hue+snakeInOut": 3,
+        "position_hue": 2,
+        "snake": 2,
+        "snakeInOut": 2,
+        "brightness+position_hue": 2,
+        "blink": 2,
+        "snakeHeadMove": 2
+      },
+      "mapping": {
+        "all": 99,
+        "arc": 20,
+        "ind": 6,
+        "b1": 4,
+        "b2": 4,
+        "updown": 1
+      },
+      "hueBuckets": {
+        "red": 21,
+        "blue": 14,
+        "azure": 3,
+        "violet": 2,
+        "orange": 1
+      },
+      "explicitColor": {
+        "yes": 74,
+        "no": 60
+      },
+      "cycleBeats": {
+        "2": 1,
+        "8": 1,
+        "12": 1,
+        "0.25": 4,
+        "0.6": 1,
+        "0.3": 1
+      },
+      "windowedCycles": 0,
+      "movement": {},
+      "phaseTimeframes": 0,
+      "ringMode": {
+        "all": 49,
+        "subset": 25,
+        "single": 60
+      },
+      "durationBeats": {
+        "min": 0,
+        "p25": 0.5,
+        "median": 1,
+        "p75": 3,
+        "max": 16,
+        "mean": 2.36
+      }
+    },
+    "buttons": {
+      "bpm": 95,
+      "variableBpm": false,
+      "timeframes": 213,
+      "effectFreq": {
+        "fadeOut": 212,
+        "position_hue": 69,
+        "hueShiftStartToEnd": 66,
+        "brightness": 32,
+        "fadeIn": 18,
+        "snake": 10,
+        "snakeFillGrow": 8,
+        "pulse": 2,
+        "fade": 2,
+        "fadeInOut": 2,
+        "staticSnake": 2,
+        "timed_hue": 1,
+        "snakeHeadSin": 1,
+        "blink": 1
+      },
+      "topCoOccurrence": {
+        "hueShiftStartToEnd+position_hue": 64,
+        "fadeOut": 44,
+        "brightness": 32,
+        "(color-only)": 19,
+        "fadeIn": 18,
+        "snake": 10,
+        "snakeFillGrow": 8,
+        "position_hue": 5,
+        "pulse": 2,
+        "fade": 2,
+        "fadeInOut": 2,
+        "staticSnake": 2,
+        "hueShiftStartToEnd": 2,
+        "timed_hue": 1,
+        "snakeHeadSin": 1
+      },
+      "mapping": {
+        "all": 115,
+        "rand": 25,
+        "arc": 25,
+        "centric": 18,
+        "ind": 17,
+        "b1": 9,
+        "b2": 2,
+        "updown": 2
+      },
+      "hueBuckets": {
+        "red": 66,
+        "cyan": 9,
+        "violet": 7,
+        "blue": 6,
+        "azure": 3,
+        "yellow": 3,
+        "yellow-green": 2,
+        "green": 1
+      },
+      "explicitColor": {
+        "yes": 103,
+        "no": 110
+      },
+      "cycleBeats": {
+        "1": 108,
+        "2": 5,
+        "4": 3,
+        "8": 1,
+        "0.25": 1,
+        "0.5": 1,
+        "0.1": 1
+      },
+      "windowedCycles": 35,
+      "movement": {
+        "spread/forward": 4,
+        "sweep/forward": 2
+      },
+      "phaseTimeframes": 2,
+      "ringMode": {
+        "single": 25,
+        "all": 53,
+        "subset": 135
+      },
+      "durationBeats": {
+        "min": 0,
+        "p25": 4,
+        "median": 4,
+        "p75": 6,
+        "max": 104,
+        "mean": 11.84
+      }
+    },
+    "loop": {
+      "bpm": 300,
+      "variableBpm": true,
+      "timeframes": 87,
+      "effectFreq": {
+        "pulse": 23,
+        "blink": 18,
+        "fadeIn": 17,
+        "fadeOut": 9,
+        "snake": 6,
+        "timed_hue": 4,
+        "fadeOutIn": 2,
+        "timed_brightness": 1,
+        "hueShiftStartToEnd": 1,
+        "snakeHeadSteps": 1
+      },
+      "topCoOccurrence": {
+        "pulse": 23,
+        "blink": 18,
+        "fadeIn": 17,
+        "fadeOut": 9,
+        "snake": 6,
+        "(color-only)": 5,
+        "timed_hue": 4,
+        "fadeOutIn": 2,
+        "timed_brightness": 1,
+        "hueShiftStartToEnd": 1,
+        "snakeHeadSteps": 1
+      },
+      "mapping": {
+        "all": 77,
+        "rand": 5,
+        "centric": 2,
+        "arc": 2,
+        "ind": 1
+      },
+      "hueBuckets": {
+        "violet": 12,
+        "azure": 5,
+        "spring": 4,
+        "orange": 4,
+        "blue": 3,
+        "yellow-green": 3,
+        "rose": 2,
+        "red": 1
+      },
+      "explicitColor": {
+        "yes": 34,
+        "no": 53
+      },
+      "cycleBeats": {
+        "6": 8,
+        "8": 1,
+        "0.2": 2,
+        "0.1": 1
+      },
+      "windowedCycles": 1,
+      "movement": {
+        "spread/edges-in": 2,
+        "spread/forward": 1
+      },
+      "phaseTimeframes": 10,
+      "ringMode": {
+        "all": 30,
+        "subset": 22,
+        "single": 35
+      },
+      "durationBeats": {
+        "min": 1,
+        "p25": 4,
+        "median": 6,
+        "p75": 22,
+        "max": 444,
+        "mean": 35.71
+      }
+    },
+    "togual": {
+      "bpm": 86,
+      "variableBpm": false,
+      "timeframes": 8,
+      "effectFreq": {
+        "snake_brightness": 2,
+        "hueShiftStartToEnd": 2,
+        "fadeInOut": 1,
+        "fadeIn": 1,
+        "snakeInOut": 1,
+        "snakeFillGrow": 1,
+        "fade": 1,
+        "snakeSlowFast": 1,
+        "snakeHeadSin": 1
+      },
+      "topCoOccurrence": {
+        "fadeInOut": 1,
+        "snake_brightness": 1,
+        "fadeIn+snake_brightness": 1,
+        "hueShiftStartToEnd+snakeInOut": 1,
+        "(color-only)": 1,
+        "snakeFillGrow": 1,
+        "fade+snakeSlowFast": 1,
+        "hueShiftStartToEnd+snakeHeadSin": 1
+      },
+      "mapping": {
+        "all": 4,
+        "rand": 2,
+        "arc": 1,
+        "updown": 1
+      },
+      "hueBuckets": {
+        "orange": 3,
+        "cyan": 2,
+        "rose": 1,
+        "red": 1
+      },
+      "explicitColor": {
+        "yes": 7,
+        "no": 1
+      },
+      "cycleBeats": {},
+      "windowedCycles": 0,
+      "movement": {},
+      "phaseTimeframes": 1,
+      "ringMode": {
+        "all": 8
+      },
+      "durationBeats": {
+        "min": 2,
+        "p25": 6,
+        "median": 8,
+        "p75": 8,
+        "max": 12,
+        "mean": 6.75
+      }
+    }
+  }
+}

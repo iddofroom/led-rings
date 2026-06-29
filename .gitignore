@@ -10,6 +10,15 @@ src/.tmp-sequence-runner.ts
 .roundtrip-tmp/
 src/songs/__rtcheck_tmp.ts
 
+# Audio inputs — large binaries kept local, not committed
+src/audio/*.mp3
+src/audio/*.wav
+src/audio/*.ogg
+src/audio/*.flac
+src/audio/*.m4a
+# Generated analysis artifacts
+*.analysis.json
+
 # Logs
 logs
 *.log
