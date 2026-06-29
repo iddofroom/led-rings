@@ -6,6 +6,10 @@
 .tmp-sequence-out.json
 src/.tmp-sequence-runner.ts
 
+# Round-trip guard test temp files (scripts/roundtrip-check.ts)
+.roundtrip-tmp/
+src/songs/__rtcheck_tmp.ts
+
 # Logs
 logs
 *.log

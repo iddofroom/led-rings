@@ -19,7 +19,8 @@
     "agent": "ts-node-dev --respawn src/songs/agent.ts",
     "control-server": "ts-node-dev --respawn src/control-server.ts",
     "export-song": "ts-node src/export-song.ts",
-    "gen-ui-song": "ts-node src/generate-category-ui-song.ts"
+    "gen-ui-song": "ts-node src/generate-category-ui-song.ts",
+    "roundtrip": "ts-node --transpile-only scripts/roundtrip-check.ts"
   },
   "dependencies": {
     "@types/node": "^22.10.10",

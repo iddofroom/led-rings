@@ -31,7 +31,7 @@ export async function parseSongFile(absolutePath: string) {
       startOffsetMs: this.startOffsetMs,
       beatTimestampsMs: this.beatTimestampsMs,
     };
-    recorder.setBpm(this.bpm, this.startOffsetMs, !!(this.beatTimestampsMs && this.beatTimestampsMs.length > 0));
+    recorder.setBpm(this.bpm, this.startOffsetMs, this.beatTimestampsMs);
     return originalSync.call(this, cb);
   };
 

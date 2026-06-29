@@ -3,8 +3,11 @@ import { als } from "../async-local-storage";
 interface CycleInfo {
   type: "cycle" | "cycleBeats";
   beatsInCycle: number;
-  startBeatInCycle?: number;
-  endBeatInCycle?: number;
+  // Field names MUST match the UI/generator TimeframeCycleEntry type
+  // (ui/src/generateSequenceTs.ts) and App.tsx normalizeCycles so cycleBeats
+  // round-trips. Do NOT rename to *InCycle.
+  startBeat?: number;
+  endBeat?: number;
 }
 
 interface RecordedEffect {
@@ -37,8 +40,38 @@ interface SongMeta {
   beatTimestampsMs?: number[];
 }
 
-function msToBeats(ms: number, bpm: number): number {
-  return Math.round(ms * bpm / 60000 * 10) / 10;
+/**
+ * Convert absolute ms back to a beat number.
+ * When beatTimestampsMs is present this is the TRUE inverse of time.ts beatToMs
+ * (3 branches: clamp <= table[0] -> 0, extrapolate >= last via avgBeatMs=lastMs/maxIndex,
+ * else binary-search + linear interpolation). Without a table, falls back to fixed BPM.
+ * Result is snapped to a 0.1-beat grid (stable; matches the forward grid).
+ */
+function msToBeats(ms: number, bpm: number, beatTimestampsMs?: number[]): number {
+  let beat: number;
+  if (!beatTimestampsMs || beatTimestampsMs.length === 0) {
+    beat = ms * bpm / 60000;
+  } else {
+    const maxIndex = beatTimestampsMs.length - 1;
+    if (ms <= beatTimestampsMs[0]) {
+      beat = 0; // forward clamp is many-to-one; beats <= 0 all map here (irreversible)
+    } else if (ms >= beatTimestampsMs[maxIndex]) {
+      const lastMs = beatTimestampsMs[maxIndex];
+      const avgBeatMs = maxIndex > 0 ? lastMs / maxIndex : 60000 / bpm;
+      beat = maxIndex + (ms - lastMs) / avgBeatMs;
+    } else {
+      let lo = 0;
+      let hi = maxIndex;
+      while (hi - lo > 1) {
+        const mid = (lo + hi) >> 1;
+        if (beatTimestampsMs[mid] <= ms) lo = mid;
+        else hi = mid;
+      }
+      const span = beatTimestampsMs[lo + 1] - beatTimestampsMs[lo];
+      beat = lo + (span > 0 ? (ms - beatTimestampsMs[lo]) / span : 0);
+    }
+  }
+  return Math.round(beat * 10) / 10;
 }
 
 function hsvToHex(h: number, s: number, v: number): string {
@@ -74,6 +107,7 @@ class Recorder {
   private bpm = 120;
   private startOffsetMs = 0;
   private hasBeatTimestamps = false;
+  private beatTimestampsMs?: number[];
 
   reset() {
     this.timeframes = [];
@@ -82,10 +116,11 @@ class Recorder {
     this.effectCounter = 0;
   }
 
-  setBpm(bpm: number, startOffsetMs: number, hasBeatTimestamps = false) {
+  setBpm(bpm: number, startOffsetMs: number, beatTimestampsMs?: number[]) {
     this.bpm = bpm;
     this.startOffsetMs = startOffsetMs;
-    this.hasBeatTimestamps = hasBeatTimestamps;
+    this.beatTimestampsMs = beatTimestampsMs && beatTimestampsMs.length > 0 ? beatTimestampsMs : undefined;
+    this.hasBeatTimestamps = !!this.beatTimestampsMs;
   }
 
   recordEffect(effectKey: string, params: Record<string, any>) {
@@ -95,8 +130,8 @@ class Recorder {
     const effectConfig = store.effectConfig || {};
     // When beat timestamps are present, times are already absolute — no offset to subtract
     const offset = this.hasBeatTimestamps ? 0 : this.startOffsetMs;
-    const startBeat = msToBeats((effectConfig.start_time ?? 0) - offset, this.bpm);
-    const endBeat = msToBeats((effectConfig.end_time ?? 0) - offset, this.bpm);
+    const startBeat = msToBeats((effectConfig.start_time ?? 0) - offset, this.bpm, this.beatTimestampsMs);
+    const endBeat = msToBeats((effectConfig.end_time ?? 0) - offset, this.bpm, this.beatTimestampsMs);
     const rings: number[] = store.elements || [];
     const mapping: string = effectConfig.segments || "all";
     const phaseValue: number = store.phase || 0;
@@ -111,8 +146,8 @@ class Recorder {
           cycles.push({
             type: "cycleBeats",
             beatsInCycle: entry.beatsInCycle,
-            startBeatInCycle: entry.startBeat,
-            endBeatInCycle: entry.endBeat,
+            startBeat: entry.startBeat,
+            endBeat: entry.endBeat,
           });
         }
       }
@@ -128,8 +163,8 @@ class Recorder {
         cycles.push({
           type: "cycleBeats",
           beatsInCycle,
-          startBeatInCycle: Math.round(repeatStart * beatsInCycle * 10) / 10,
-          endBeatInCycle: Math.round(repeatEnd * beatsInCycle * 10) / 10,
+          startBeat: Math.round(repeatStart * beatsInCycle * 10) / 10,
+          endBeat: Math.round(repeatEnd * beatsInCycle * 10) / 10,
         });
       }
     }

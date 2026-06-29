@@ -5,6 +5,13 @@
 > is safe for a generator to emit. The composition pipeline (Phases 1–5) may **only** emit
 > effects/structures marked ✅ SAFE below. Anything ⚠️ or ❌ must be fixed first or avoided.
 >
+> **Fixes landed (2026-06-29):** #1 `beatTimestampsMs` inversion, #2 `cycleBeats` field rename, and
+> #7 the executable guard test (`yarn roundtrip` → [scripts/roundtrip-check.ts](../scripts/roundtrip-check.ts))
+> are **implemented**. Post-fix round-trip: `loop` 0/120 → **86/87** (variable-BPM timing restored,
+> beat 0 stays 0), `buttons` 172/213 → **206/213**, `togual` 8/8 and `aladdin` 134/134 unchanged.
+> Remaining mismatches are the still-deferred movement (§3.3) and rainbow+phase (§3.4) breaks.
+> Fixes #4 (movement) and #6 (snakeBrightness helpers) remain open.
+>
 > **Scope of "round-trip":** the canonical loop the pipeline depends on is
 > `{song, timeframes}` JSON → **generator** ([ui/src/generateSequenceTs.ts](../ui/src/generateSequenceTs.ts)) → `.ts` → **recorder** ([src/recorder/recorder.ts](../src/recorder/recorder.ts) via [src/recorder/parse-song.ts](../src/recorder/parse-song.ts)) → JSON.
 > The contract is **JSON↔JSON stability** through that loop.
@@ -307,9 +314,9 @@ on a 0.1-beat grid; `phase` **only on a color-only timeframe (no `effects[]` in 
 
 ---
 
-## 5. Proposed minimal fixes (NOT built in Phase 0 — for review)
+## 5. Minimal fixes (#1, #2, #7 ✅ implemented; #3–#6 open)
 
-1. **Fix `beatTimestampsMs` inversion (recorder).** *Highest priority — the pipeline's premise.*
+1. ✅ **DONE — Fix `beatTimestampsMs` inversion (recorder).** *Highest priority — the pipeline's premise.*
    - **Plumbing precondition:** `setBpm` currently takes only a boolean `hasBeatTimestamps`
      ([recorder.ts:85](../src/recorder/recorder.ts#L85)); the array is discarded. Extend
      `setBpm(bpm, startOffsetMs, beatTimestampsMs?: number[])`, store it, and pass it into **both**
@@ -328,7 +335,7 @@ on a 0.1-beat grid; `phase` **only on a color-only timeframe (no `effects[]` in 
    - Verified: a corrected inverse recovers exact beats across integer/fractional/extrapolation
      cases and is idempotent on the real 1392-entry `loop` table.
 
-2. **Fix `cycleBeats` — recorder only.** Rename `recorder.ts` output `startBeatInCycle`/
+2. ✅ **DONE — Fix `cycleBeats` — recorder only.** Rename `recorder.ts` output `startBeatInCycle`/
    `endBeatInCycle` → `startBeat`/`endBeat`. The entire UI (`App.tsx` `normalizeCycles` + type,
    `Timeline.formatCyclesLine`, `RingVisualization.computeT`, `TimeframePanel` editor) **and** the
    generator already use `startBeat`/`endBeat`; do **not** change them or the cycleBeats editor/
@@ -356,9 +363,9 @@ on a 0.1-beat grid; `phase` **only on a color-only timeframe (no `effects[]` in 
 6. **Resolve the `snakeBrightness/Saturation/Hue` drop (§2.7)** — alias camelCase → raw `snake_*` in
    the recorder's `EFFECT_KEY_ALIASES`, or teach the generator the camelCase keys. Low cost.
 
-7. **Add an executable round-trip test** (`JSON → generate → parse → JSON`, assert structural
-   equality on the safe set) so this contract can't silently regress. Cheap; would have caught every
-   break above. (The 52-case synthetic grid built during this audit is a ready starting point.)
+7. ✅ **DONE — Executable round-trip guard test.** [scripts/roundtrip-check.ts](../scripts/roundtrip-check.ts)
+   (`yarn roundtrip`) round-trips the SAFE per-effect grid + the clean song corpus and exits non-zero
+   on regression. 27/27 passing. Run it before changing the recorder, generator, or effect helpers.
 
 ---
 
