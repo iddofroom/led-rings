@@ -1,0 +1,112 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://kivsee.led-rings/analysis-schema.json",
+  "title": "Music analysis output (scripts/analyze_music.py)",
+  "description": "Deterministic MIR analysis of one audio file. All times in milliseconds; curves sampled on a fixed grid AND summarized per section. Produced by PHASE 1; consumed by PHASE 2/3.",
+  "type": "object",
+  "required": [
+    "schemaVersion", "audio", "grid", "bpmGlobal", "meter",
+    "beatTimestampsMs", "downbeatTimestampsMs", "sections", "curves"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "schemaVersion": { "type": "integer", "const": 1 },
+    "audio": {
+      "type": "object",
+      "required": ["path", "sampleRate", "durationMs"],
+      "additionalProperties": false,
+      "properties": {
+        "path": { "type": "string" },
+        "sampleRate": { "type": "integer", "exclusiveMinimum": 0 },
+        "durationMs": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "grid": {
+      "type": "object",
+      "required": ["stepMs", "count"],
+      "additionalProperties": false,
+      "properties": {
+        "stepMs": { "type": "integer", "exclusiveMinimum": 0, "description": "Curve sampling interval in ms (default 100)." },
+        "count": { "type": "integer", "minimum": 0, "description": "Number of grid points; equals the length of every curves[*] array." }
+      }
+    },
+    "bpmGlobal": { "type": "number", "minimum": 0, "description": "Single global tempo estimate. Prefer per-section bpm / curves.localBpm for variable-tempo songs." },
+    "meter": { "type": "integer", "minimum": 1, "description": "Beats per bar assumed for downbeat estimation." },
+    "beatTimestampsMs": {
+      "type": "array",
+      "items": { "type": "integer", "minimum": 0 },
+      "description": "Detected beat positions (ms). Directly usable as the song.beatTimestampsMs the timeline/recorder consume."
+    },
+    "downbeatTimestampsMs": {
+      "type": "array",
+      "items": { "type": "integer", "minimum": 0 },
+      "description": "Estimated bar starts (ms). HEURISTIC: best meter-phase by onset strength; can be off by a beat on pickups/odd meters."
+    },
+    "sections": {
+      "type": "array",
+      "description": "Structural segments (agglomerative over chroma+MFCC). Labels are a transparent heuristic first draft with confidence; re-labelable from the exposed features.",
+      "items": {
+        "type": "object",
+        "required": ["startMs", "endMs", "label", "confidence", "bpm", "summary"],
+        "additionalProperties": true,
+        "properties": {
+          "startMs": { "type": "integer", "minimum": 0 },
+          "endMs": { "type": "integer", "minimum": 0 },
+          "label": { "type": "string", "description": "intro | build | drop | breakdown | chorus | verse | outro (heuristic)." },
+          "confidence": { "type": "number", "minimum": 0, "maximum": 1 },
+          "bpm": { "type": "number", "minimum": 0, "description": "Median tempo within the section (0 if too few beats)." },
+          "summary": {
+            "type": "object",
+            "required": ["energy", "onsetDensity", "spectralCentroid", "bandEnergy"],
+            "additionalProperties": true,
+            "properties": {
+              "energy": { "type": "number", "description": "Mean normalized RMS energy (0-1)." },
+              "onsetDensity": { "type": "number", "description": "Mean normalized onset strength (0-1)." },
+              "spectralCentroid": { "type": "number", "description": "Mean spectral centroid (Hz) = perceived brightness." },
+              "bandEnergy": {
+                "type": "object",
+                "required": ["sub", "low", "mid", "high"],
+                "additionalProperties": false,
+                "properties": {
+                  "sub": { "type": "number" },
+                  "low": { "type": "number" },
+                  "mid": { "type": "number" },
+                  "high": { "type": "number" }
+                }
+              }
+            }
+          },
+          "features": {
+            "type": "object",
+            "description": "Cross-section normalized features used by the labeler (re-labeling aid).",
+            "additionalProperties": true
+          }
+        }
+      }
+    },
+    "curves": {
+      "type": "object",
+      "description": "Time-aligned curves; every array has grid.count entries indexed by timeMs.",
+      "required": ["timeMs", "energy", "onsetDensity", "spectralCentroid", "localBpm", "bandEnergy"],
+      "additionalProperties": false,
+      "properties": {
+        "timeMs": { "type": "array", "items": { "type": "integer", "minimum": 0 } },
+        "energy": { "type": "array", "items": { "type": "number" }, "description": "Normalized RMS (0-1)." },
+        "onsetDensity": { "type": "array", "items": { "type": "number" }, "description": "Normalized onset strength (0-1)." },
+        "spectralCentroid": { "type": "array", "items": { "type": "number" }, "description": "Spectral centroid (Hz)." },
+        "localBpm": { "type": "array", "items": { "type": "number" }, "description": "Local tempo from inter-beat intervals." },
+        "bandEnergy": {
+          "type": "object",
+          "required": ["sub", "low", "mid", "high"],
+          "additionalProperties": false,
+          "properties": {
+            "sub": { "type": "array", "items": { "type": "number" }, "description": "20-60 Hz, normalized 0-1." },
+            "low": { "type": "array", "items": { "type": "number" }, "description": "60-250 Hz, normalized 0-1." },
+            "mid": { "type": "array", "items": { "type": "number" }, "description": "250-2000 Hz, normalized 0-1." },
+            "high": { "type": "array", "items": { "type": "number" }, "description": "2000-8000 Hz, normalized 0-1." }
+          }
+        }
+      }
+    }
+  }
+}

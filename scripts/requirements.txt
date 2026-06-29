@@ -1,2 +1,15 @@
+# Core MIR (detect_beats.py, analyze_music.py)
 librosa
 numpy
+scipy
+soundfile
+scikit-learn        # librosa.segment.agglomerative (structural segmentation)
+
+# Optional — analyze_music.py extras
+matplotlib          # --plot visualization (analysis is fully usable without it)
+jsonschema          # validate output against docs/analysis-schema.json
+
+# Downbeats: madmom would give a trained downbeat tracker, but it does not install
+# cleanly on Python 3.12 (needs an old Cython/numpy). analyze_music.py therefore
+# uses a 4/4 onset-strength phase heuristic instead (documented in the script).
+# To use madmom where it installs:  pip install cython numpy && pip install madmom
