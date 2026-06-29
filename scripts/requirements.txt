@@ -10,7 +10,9 @@ matplotlib          # --plot visualization (analysis is fully usable without it)
 jsonschema          # validate output against docs/analysis-schema.json
 
 # Translation layer (translate.py, PHASE 3)
-pyyaml              # read taste/rules.yaml
+pyyaml                  # read taste/rules.yaml
+google-generativeai     # OPTIONAL — only for `translate.py --llm` (Gemini). Set GEMINI_API_KEY
+                        # (or GOOGLE_API_KEY) in the environment that runs the control server.
 
 # Downbeats: madmom would give a trained downbeat tracker, but it does not install
 # cleanly on Python 3.12 (needs an old Cython/numpy). analyze_music.py therefore

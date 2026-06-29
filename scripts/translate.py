@@ -124,6 +124,86 @@ def section_rule(rules, label):
     return merge(rules.get("defaults"), sections.get(label) or {})
 
 
+def det_content(rule, palette):
+    """Deterministic per-section content: {color, mapping, effects[], cycle}."""
+    effects = []
+    for builder in (build_brightness, build_hue):
+        e = builder(rule)
+        if e:
+            effects.append(e)
+    effects.extend(build_motion(rule))
+    return {"color": resolve_color(rule, palette), "mapping": rule.get("mapping", "all"),
+            "effects": effects, "cycle": rule.get("cycle"), "source": "rule"}
+
+
+def validate_content(content, palette, rule):
+    """Clamp any content (deterministic or LLM) to the SAFE list. Returns cleaned content."""
+    effects = []
+    for e in content.get("effects") or []:
+        if not isinstance(e, dict):
+            continue
+        k = e.get("effectKey")
+        if k not in SAFE_EFFECTS:
+            sys.stderr.write(f"[translate] WARN: effect '{k}' off SAFE list; dropped.\n")
+            continue
+        ne = {"effectKey": k}
+        if isinstance(e.get("params"), dict):
+            ne["params"] = {pk: pv for pk, pv in e["params"].items() if isinstance(pv, (int, float, bool))}
+        effects.append(ne)
+    mapping = content.get("mapping", "all")
+    if mapping not in SAFE_MAPPING:
+        mapping = "all"
+    color = content.get("color")
+    if not (isinstance(color, str) and color.startswith("#") and len(color) == 7):
+        color = resolve_color(rule, palette)
+    cyc = content.get("cycle")
+    if cyc and not (isinstance(cyc, dict) and cyc.get("beatsInCycle")):
+        cyc = None
+    return {"color": color, "mapping": mapping, "effects": effects, "cycle": cyc, "source": content.get("source", "rule")}
+
+
+def _llm_prompt(section, rule):
+    feats = section.get("summary", {})
+    palette_help = ", ".join(sorted(SAFE_BRIGHTNESS)) + " | " + ", ".join(sorted(SAFE_HUE)) + " | " + ", ".join(sorted(SAFE_MOTION))
+    return f"""You design ONE LED timeframe for a song section, applying the human's taste rule to the section's measured features. Output STRICT JSON only.
+
+SECTION: {section.get('label')}  ({section.get('startMs')}–{section.get('endMs')} ms, bpm {section.get('bpm')})
+FEATURES (0..1 unless noted): energy={feats.get('energy')}, onsetDensity={feats.get('onsetDensity')}, spectralCentroidHz={feats.get('spectralCentroid')}, bandEnergy={feats.get('bandEnergy')}
+HUMAN RULE for this section (authoritative — honor its intent): {json.dumps(rule)}
+
+Return JSON: {{"color":"#rrggbb","mapping":"<one of {sorted(SAFE_MAPPING)}>","effects":[{{"effectKey":"<name>","params":{{...}}}}],"cycle":{{"beatsInCycle":N}}|null}}
+effectKey MUST be one of: {palette_help}
+Rules: at most one brightness + one hue + one motion effect. params are numbers/booleans only. brighter/more-saturated color for higher energy; warmer hue for drops, cooler for intros/breakdowns. Honor the rule's intent. NO other effects, NO movement, NO cycleBeats."""
+
+
+def llm_content(section, rule, palette, model):
+    try:
+        resp = model.generate_content(
+            _llm_prompt(section, rule),
+            generation_config={"response_mime_type": "application/json", "temperature": 0.6},
+        )
+        data = json.loads(resp.text)
+        data["source"] = "llm"
+        return validate_content(data, palette, rule)
+    except Exception as e:
+        sys.stderr.write(f"[translate] LLM section '{section.get('label')}' failed ({e}); using deterministic.\n")
+        return det_content(rule, palette)
+
+
+def make_gemini_model(model_name):
+    """Lazily build a Gemini model; raises with a clear message if unavailable."""
+    import os
+    key = os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY")
+    if not key:
+        raise RuntimeError("GEMINI_API_KEY (or GOOGLE_API_KEY) not set in the environment.")
+    try:
+        import google.generativeai as genai
+    except Exception:
+        raise RuntimeError("google-generativeai not installed. Run: pip install google-generativeai")
+    genai.configure(api_key=key)
+    return genai.GenerativeModel(model_name)
+
+
 def beat_indexer(beat_ms):
     def ms_to_beat(ms):
         if not beat_ms:
@@ -134,7 +214,7 @@ def beat_indexer(beat_ms):
     return ms_to_beat
 
 
-def translate(analysis, rules, only_section=None):
+def translate(analysis, rules, only_section=None, model=None):
     beat_ms = analysis.get("beatTimestampsMs") or []
     downbeats = analysis.get("downbeatTimestampsMs") or []
     bpm = float(analysis.get("bpmGlobal") or 120.0)
@@ -169,40 +249,27 @@ def translate(analysis, rules, only_section=None):
         end_b = starts[idx + 1] if idx + 1 < len(starts) else total_beats
         if end_b is None or end_b <= start_b:
             end_b = (start_b + max(1, ms_to_beat(s["endMs"]) - start_b)) if beat_ms else start_b + 4
-        effects = []
-        for builder in (build_brightness, build_hue):
-            e = builder(rule)
-            if e:
-                effects.append(e)
-        effects.extend(build_motion(rule))
-        # tag + validate
+        content = llm_content(s, rule, palette, model) if model else det_content(rule, palette)
+        content = validate_content(content, palette, rule)
         clean = []
-        for e in effects:
-            if e["effectKey"] not in SAFE_EFFECTS:
-                sys.stderr.write(f"[translate] WARN: effect '{e['effectKey']}' off SAFE list; dropped.\n")
-                continue
+        for e in content["effects"]:
             e = dict(e, id=f"s{idx}-e{eff_counter}")
             eff_counter += 1
             clean.append(e)
-        mapping = rule.get("mapping", "all")
-        if mapping not in SAFE_MAPPING:
-            sys.stderr.write(f"[translate] WARN: mapping '{mapping}' invalid; using 'all'.\n")
-            mapping = "all"
         tf = {
             "id": f"s{idx}-{label}",
             "startTime": int(start_b),
             "endTime": int(end_b),
             "label": f"{label} ({rule.get('intent','')})".strip(),
-            "color": resolve_color(rule, palette),
+            "color": content["color"],
             "hasExplicitColor": True,
             "rings": list(RINGS_ALL),
-            "mapping": mapping,
+            "mapping": content["mapping"],
             "effects": clean,
-            "_source": f"rule:{label}",
+            "_source": f"{content['source']}:{label}",
         }
-        cyc = rule.get("cycle")
-        if cyc and cyc.get("beatsInCycle"):
-            tf["cycles"] = [{"type": "cycle", "beatsInCycle": float(cyc["beatsInCycle"])}]
+        if content["cycle"] and content["cycle"].get("beatsInCycle"):
+            tf["cycles"] = [{"type": "cycle", "beatsInCycle": float(content["cycle"]["beatsInCycle"])}]
         timeframes.append(tf)
 
     audio_path = analysis.get("audio", {}).get("path", "song")
@@ -237,7 +304,8 @@ def main():
     p.add_argument("--section", type=int, default=None, help="Regenerate only this section index")
     p.add_argument("--explain", action="store_true")
     p.add_argument("--name", default=None, help="Override song name")
-    p.add_argument("--llm", action="store_true", help="(stub) LLM path needs Anthropic SDK + ANTHROPIC_API_KEY")
+    p.add_argument("--llm", action="store_true", help="Use Gemini to design each section (needs GEMINI_API_KEY + google-generativeai)")
+    p.add_argument("--model", default="gemini-2.0-flash", help="Gemini model for --llm (default gemini-2.0-flash)")
     args = p.parse_args()
 
     try:
@@ -245,15 +313,18 @@ def main():
     except Exception:
         pass
 
+    model = None
     if args.llm:
-        sys.stderr.write("[translate] --llm not available: no Anthropic SDK / ANTHROPIC_API_KEY in this env. "
-                         "Use the deterministic default; wire the LLM path when credentials exist.\n")
-        sys.exit(2)
+        try:
+            model = make_gemini_model(args.model)
+        except Exception as e:
+            sys.stderr.write(f"[translate] --llm unavailable: {e}\n")
+            sys.exit(2)
 
     analysis = json.loads(Path(args.analysis).read_text(encoding="utf-8"))
     rules = yaml.safe_load(Path(args.rules).read_text(encoding="utf-8")) or {}
 
-    result = translate(analysis, rules, only_section=args.section)
+    result = translate(analysis, rules, only_section=args.section, model=model)
     if args.name:
         result["song"]["name"] = args.name
 

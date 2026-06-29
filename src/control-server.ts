@@ -60,7 +60,20 @@ function resolveAudioPath(rawPath: string): string | null {
   if (fs.existsSync(publicPath) && fs.statSync(publicPath).isFile()) return publicPath;
   const songsPath = path.resolve(ROOT, "src", "songs", path.basename(rawPath));
   if (fs.existsSync(songsPath) && fs.statSync(songsPath).isFile()) return songsPath;
+  const audioPath = path.resolve(ROOT, "src", "audio", path.basename(rawPath));
+  if (fs.existsSync(audioPath) && fs.statSync(audioPath).isFile()) return audioPath;
   return null;
+}
+
+/** Spawn a Python script, resolve with {code, stdout, stderr}. */
+function runPython(args: string[]): Promise<{ code: number; stdout: string; stderr: string }> {
+  return new Promise((resolve) => {
+    const child = spawn(PYTHON_CMD, args, { cwd: ROOT, stdio: ["ignore", "pipe", "pipe"] });
+    let stdout = "", stderr = "";
+    child.stdout?.on("data", (d) => { stdout += d.toString(); });
+    child.stderr?.on("data", (d) => { stderr += d.toString(); });
+    child.on("close", (code) => resolve({ code: code ?? 1, stdout, stderr }));
+  });
 }
 
 function cors(res: http.ServerResponse) {
@@ -498,6 +511,70 @@ const server = http.createServer(async (req, res) => {
     }
     const value = setBrightness(payload.value);
     send(res, 200, JSON.stringify({ value, connected: getBrightnessState().connected }));
+    return;
+  }
+
+  // POST /api/analyze — full MIR analysis (scripts/analyze_music.py) -> analysis.json
+  if (req.method === "POST" && pathname === "/api/analyze") {
+    const body = await parseBody(req);
+    let payload: { audioFilePath?: string; bpm?: number; meter?: number; sections?: number };
+    try { payload = JSON.parse(body); } catch { send(res, 400, JSON.stringify({ error: "Invalid JSON" })); return; }
+    if (typeof payload.audioFilePath !== "string") { send(res, 400, JSON.stringify({ error: "Missing audioFilePath" })); return; }
+    const audioPath = resolveAudioPath(payload.audioFilePath);
+    if (!audioPath) { send(res, 404, JSON.stringify({ error: "Audio file not found" })); return; }
+    const outPath = path.join(ROOT, `.tmp-analysis-${Date.now()}.json`);
+    const args = [path.join(ROOT, "scripts", "analyze_music.py"), audioPath, "-o", outPath];
+    if (typeof payload.bpm === "number" && payload.bpm > 0) args.push("--bpm", String(payload.bpm));
+    if (typeof payload.meter === "number" && payload.meter >= 1) args.push("--meter", String(payload.meter));
+    if (typeof payload.sections === "number" && payload.sections >= 2) args.push("--sections", String(payload.sections));
+    const r = await runPython(args);
+    if (r.code !== 0) { console.error("analyze failed", r.stderr); send(res, 500, JSON.stringify({ error: "analyze failed", stderr: r.stderr.slice(0, 800) })); return; }
+    try { const raw = fs.readFileSync(outPath, "utf8"); fs.unlinkSync(outPath); send(res, 200, raw); }
+    catch (e) { send(res, 500, JSON.stringify({ error: "Failed to read analysis output" })); }
+    return;
+  }
+
+  // GET /api/taste-rules — read taste/rules.yaml
+  if (req.method === "GET" && pathname === "/api/taste-rules") {
+    try {
+      const content = fs.readFileSync(path.join(ROOT, "taste", "rules.yaml"), "utf8");
+      send(res, 200, JSON.stringify({ content }));
+    } catch (e) { send(res, 500, JSON.stringify({ error: "Failed to read taste/rules.yaml" })); }
+    return;
+  }
+
+  // POST /api/taste-rules — save taste/rules.yaml
+  if (req.method === "POST" && pathname === "/api/taste-rules") {
+    const body = await parseBody(req);
+    let payload: { content?: string };
+    try { payload = JSON.parse(body); } catch { send(res, 400, JSON.stringify({ error: "Invalid JSON" })); return; }
+    if (typeof payload.content !== "string") { send(res, 400, JSON.stringify({ error: "Missing content" })); return; }
+    try {
+      fs.writeFileSync(path.join(ROOT, "taste", "rules.yaml"), payload.content, "utf8");
+      send(res, 200, JSON.stringify({ ok: true }));
+    } catch (e) { send(res, 500, JSON.stringify({ error: "Failed to write taste/rules.yaml" })); }
+    return;
+  }
+
+  // POST /api/translate — analysis (+ current rules) -> canonical {song, timeframes}
+  if (req.method === "POST" && pathname === "/api/translate") {
+    const body = await parseBody(req);
+    let payload: { analysis?: unknown; section?: number; useLlm?: boolean };
+    try { payload = JSON.parse(body); } catch { send(res, 400, JSON.stringify({ error: "Invalid JSON" })); return; }
+    if (!payload.analysis || typeof payload.analysis !== "object") { send(res, 400, JSON.stringify({ error: "Missing analysis object" })); return; }
+    const ts = Date.now();
+    const inPath = path.join(ROOT, `.tmp-analysis-in-${ts}.json`);
+    const outPath = path.join(ROOT, `.tmp-song-out-${ts}.json`);
+    try { fs.writeFileSync(inPath, JSON.stringify(payload.analysis), "utf8"); }
+    catch (e) { send(res, 500, JSON.stringify({ error: "Failed to write analysis temp" })); return; }
+    const args = [path.join(ROOT, "scripts", "translate.py"), inPath, "-o", outPath];
+    if (typeof payload.section === "number") args.push("--section", String(payload.section));
+    if (payload.useLlm) args.push("--llm");
+    const r = await runPython(args);
+    try { fs.unlinkSync(inPath); } catch {}
+    if (r.code !== 0) { console.error("translate failed", r.stderr); send(res, 500, JSON.stringify({ error: "translate failed", stderr: r.stderr.slice(0, 800) })); return; }
+    try { const raw = fs.readFileSync(outPath, "utf8"); fs.unlinkSync(outPath); send(res, 200, raw); }
+    catch (e) { send(res, 500, JSON.stringify({ error: "Failed to read song output" })); }
     return;
   }
 

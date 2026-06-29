@@ -3,6 +3,7 @@ import Timeline from './components/Timeline'
 import TimeframePanel from './components/TimeframePanel'
 import PlaybackRingsPanel from './components/PlaybackRingsPanel'
 import Spectrogram from './components/Spectrogram'
+import ComposePanel from './components/ComposePanel'
 import { useViewRange } from './hooks/useViewRange'
 import { useUndoHistory } from './hooks/useUndoHistory'
 import { generateSequenceTs } from './generateSequenceTs'
@@ -366,6 +367,7 @@ function App() {
   const [headerHeight, setHeaderHeight] = useState(56)
   const [lightTheme, setLightTheme] = useState(() => localStorage.getItem('kivsee-theme') === 'light')
   const [resizing, setResizing] = useState<'playback' | 'details' | 'spectrogram' | 'header' | null>(null)
+  const [showCompose, setShowCompose] = useState(false)
   const headerRef = React.useRef<HTMLDivElement>(null)
   const spectrogramContainerRef = React.useRef<HTMLDivElement>(null)
 
@@ -1674,8 +1676,17 @@ function App() {
           <button className="secondary-button" onClick={handleLoadTimeframes}>Load</button>
           <button className="secondary-button" onClick={handleImportTs} disabled={!API_BASE} title={!API_BASE ? 'Set VITE_API_URL and run control server' : 'Import a .ts song file'}>Import .ts</button>
           <button className="secondary-button" onClick={handleSaveTimeframes}>Save</button>
+          <button className="secondary-button" onClick={() => setShowCompose(true)} disabled={!API_BASE} title={!API_BASE ? 'Set VITE_API_URL and run control server' : 'Analyze audio + taste rules → composition'}>🎵 Compose</button>
         </div>
       </div>
+      {showCompose && (
+        <ComposePanel
+          apiBase={API_BASE}
+          song={song}
+          onLoad={loadCategoryPreview}
+          onClose={() => setShowCompose(false)}
+        />
+      )}
       <div
         className="app-resize-handle app-resize-handle-header"
         onMouseDown={() => setResizing('header')}
