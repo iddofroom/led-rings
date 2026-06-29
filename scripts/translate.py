@@ -193,6 +193,8 @@ def llm_content(section, rule, palette, model):
 def make_gemini_model(model_name):
     """Lazily build a Gemini model; raises with a clear message if unavailable."""
     import os
+    import warnings
+    warnings.filterwarnings("ignore", category=FutureWarning)  # SDK EOL notice is noise
     key = os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY")
     if not key:
         raise RuntimeError("GEMINI_API_KEY (or GOOGLE_API_KEY) not set in the environment.")
@@ -305,7 +307,7 @@ def main():
     p.add_argument("--explain", action="store_true")
     p.add_argument("--name", default=None, help="Override song name")
     p.add_argument("--llm", action="store_true", help="Use Gemini to design each section (needs GEMINI_API_KEY + google-generativeai)")
-    p.add_argument("--model", default="gemini-2.0-flash", help="Gemini model for --llm (default gemini-2.0-flash)")
+    p.add_argument("--model", default="gemini-2.5-flash", help="Gemini model for --llm (default gemini-2.5-flash)")
     args = p.parse_args()
 
     try:

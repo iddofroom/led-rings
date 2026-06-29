@@ -3,6 +3,7 @@
  * Run from repo root: npx ts-node-dev src/control-server.ts
  * Set CONTROL_SERVER_PORT (default 3080).
  */
+import "dotenv/config"; // load repo .env (e.g. GEMINI_API_KEY) so spawned scripts inherit it
 import http from "http";
 import path from "path";
 import fs from "fs";
@@ -580,6 +581,12 @@ const server = http.createServer(async (req, res) => {
 
   send(res, 404, JSON.stringify({ error: "Not found" }));
 });
+
+// A flaky/aborted client (e.g. a long Gemini translate that the browser cancels)
+// must never take down the whole control server.
+process.on("uncaughtException", (e) => console.error("[control-server] uncaughtException:", e));
+process.on("unhandledRejection", (e) => console.error("[control-server] unhandledRejection:", e));
+server.on("clientError", (_err, socket) => { try { socket.destroy(); } catch {} });
 
 initMqttBrightness();
 
