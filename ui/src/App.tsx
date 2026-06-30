@@ -358,6 +358,11 @@ function App() {
   const [showHistory, setShowHistory] = useState(false)
   const liveSendTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [liveStrip, setLiveStrip] = useState<{ beats: number[]; energy: number[]; sub: number[]; low: number[]; mid: number[]; high: number[] } | null>(null)
+  // Saved (edited) patterns — reusable, shown in the main pattern library. Persisted locally.
+  const [savedPatterns, setSavedPatterns] = useState<{ id: string; name: string; timeframes: Timeframe[] }[]>(() => {
+    try { return JSON.parse(localStorage.getItem('led:savedPatterns') || '[]') } catch { return [] }
+  })
+  useEffect(() => { try { localStorage.setItem('led:savedPatterns', JSON.stringify(savedPatterns)) } catch {} }, [savedPatterns])
   // Cloud-library auto-save status, shown next to the floating actions.
   const [librarySaveState, setLibrarySaveState] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
   // Git-like version history: which branch we commit to + the version the working timeline
@@ -660,6 +665,13 @@ function App() {
       setFocusedTimeframeId(shifted[0].id)
     }
   }
+
+  /** Save an edited pattern to the reusable library (upsert by name). */
+  const saveEditedPattern = (name: string, tfs: Timeframe[]) => {
+    const nm = (name || '').trim() || 'pattern'
+    setSavedPatterns((prev) => [{ id: `saved-${Date.now()}`, name: nm, timeframes: tfs }, ...prev.filter((p) => p.name !== nm)])
+  }
+  const deleteSavedPattern = (id: string) => setSavedPatterns((prev) => prev.filter((p) => p.id !== id))
 
   const focusedTimeframe = timeframes.find(tf => tf.id === focusedTimeframeId) || null
 
@@ -2446,6 +2458,9 @@ function App() {
                 bpm={song.bpm}
                 onApplyPreset={addTimeframesFromPreset}
                 onApplyEdited={addEditedTimeframes}
+                savedPatterns={savedPatterns}
+                onSavePattern={saveEditedPattern}
+                onDeleteSaved={deleteSavedPattern}
                 onHideForSong={hidePatternForSong}
                 onHideGlobal={hidePatternGlobal}
                 onRestoreForSong={restorePatternForSong}

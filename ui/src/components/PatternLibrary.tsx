@@ -36,6 +36,10 @@ interface PatternLibraryProps {
   onApplyPreset: (preset: PresetMetadata) => void
   /** Add an EDITED version of a pattern (renamed / re-sped / recolored) to the song. */
   onApplyEdited?: (timeframes: Timeframe[], name: string) => void
+  /** Saved (edited) patterns — reusable, shown at the top of the library. */
+  savedPatterns?: { id: string; name: string; timeframes: Timeframe[] }[]
+  onSavePattern?: (name: string, tfs: Timeframe[]) => void
+  onDeleteSaved?: (id: string) => void
   onHideForSong: (id: string) => void
   onHideGlobal: (id: string) => void
   onRestoreForSong: (id: string) => void
@@ -56,12 +60,13 @@ const isPresetData = (v: unknown): v is PresetData =>
 /** Animated preview of a single pattern on the 12 rings — loops at the song's tempo.
  *  Editable: rename, change speed, recolor (via a palette) before adding to the song. */
 const PatternPreview = ({
-  preset, bpm, onApply, onApplyEdited, onClose,
+  preset, bpm, onApply, onApplyEdited, onSave, onClose,
 }: {
   preset: PresetMetadata
   bpm: number
   onApply: (p: PresetMetadata) => void
   onApplyEdited?: (tfs: Timeframe[], name: string) => void
+  onSave?: (name: string, tfs: Timeframe[]) => void
   onClose: () => void
 }) => {
   const baseTfs = useMemo(() => presetToTimeframes(preset, 0, bpm), [preset, bpm])
@@ -123,8 +128,15 @@ const PatternPreview = ({
         <div style={{ position: 'relative', zIndex: 2, flexShrink: 0, background: 'var(--surface)', display: 'flex', alignItems: 'center', gap: 12, padding: '8px 14px', flexWrap: 'wrap', borderTop: '1px solid #2c3645' }}>
           <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: '#9ab' }}>
             מהירות
-            <input type="range" min={0.25} max={4} step={0.05} value={speed} onChange={(e) => setSpeed(parseFloat(e.target.value))} style={{ width: 120, accentColor: '#f59e0b' }} />
-            <span style={{ width: 34, textAlign: 'center', fontVariantNumeric: 'tabular-nums' }}>{speed}×</span>
+            <input type="range" min={0.1} max={8} step={0.05} value={speed} onChange={(e) => setSpeed(parseFloat(e.target.value))} style={{ width: 130, accentColor: '#f59e0b' }} />
+            <input type="number" min={0.1} max={16} step={0.05} value={speed}
+              onChange={(e) => { const n = parseFloat(e.target.value); if (!isNaN(n) && n > 0) setSpeed(Math.min(16, Math.max(0.1, n))) }}
+              style={{ width: 56, background: '#0d1117', color: '#e8eef5', border: '1px solid #2c3645', borderRadius: 5, padding: '3px 5px', fontSize: 12 }} />
+            <span>×</span>
+            {[0.5, 1, 2, 4].map((m) => (
+              <button key={m} type="button" onClick={() => setSpeed(m)}
+                style={{ border: 'none', borderRadius: 5, padding: '2px 6px', fontSize: 11, fontWeight: 700, cursor: 'pointer', background: speed === m ? '#f59e0b' : '#2a3340', color: speed === m ? '#1b1200' : '#cdd' }}>{m}×</button>
+            ))}
           </label>
           <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: '#9ab' }}>
             צבעים
@@ -138,6 +150,10 @@ const PatternPreview = ({
         <div className="pattern-preview-foot">
           <span className="pattern-preview-summary">{summarizePresetEffects(preset.data) || '—'}</span>
           <span style={{ flex: 1 }} />
+          {onSave && (
+            <button onClick={() => onSave(name, tfs)} title="שמור את הפאטרן הערוך לרשימה (לשימוש חוזר)"
+              style={{ border: '1px solid #34d399', background: 'transparent', color: '#34d399', borderRadius: 8, padding: '8px 14px', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>💾 שמור</button>
+          )}
           <button className="pattern-preview-add"
             onClick={() => { if (onApplyEdited) onApplyEdited(tfs, name); else onApply(preset); onClose() }}>＋ הוסף לשיר</button>
         </div>
@@ -201,7 +217,8 @@ const PatternCard = ({
 
 const PatternLibrary = ({
   imported, globalHidden, songHidden, songName, bpm,
-  onApplyPreset, onApplyEdited, onHideForSong, onHideGlobal, onRestoreForSong, onRestoreGlobal, onImport,
+  onApplyPreset, onApplyEdited, savedPatterns = [], onSavePattern, onDeleteSaved,
+  onHideForSong, onHideGlobal, onRestoreForSong, onRestoreGlobal, onImport,
 }: PatternLibraryProps) => {
   const [searchTerm, setSearchTerm] = useState('')
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set())
@@ -301,7 +318,35 @@ const PatternLibrary = ({
       </div>
 
       <div className="pattern-library-scroll">
-        {orderedCats.length === 0 && (
+        {savedPatterns.length > 0 && (
+          <div className="pattern-library-category">
+            <div className="preset-browser-category-header" style={{ cursor: 'default' }}>
+              <span>💾 השמורים שלי</span>
+              <span className="preset-browser-category-count">{savedPatterns.length}</span>
+            </div>
+            <div className="pattern-library-grid">
+              {savedPatterns.map((sp) => {
+                const colors = Array.from(new Set(sp.timeframes.map((t) => t.color).filter(Boolean))).slice(0, 3)
+                return (
+                  <div key={sp.id} className="pattern-card-wrap">
+                    <div className="preset-card pattern-card" onClick={() => onApplyEdited?.(sp.timeframes, sp.name)} title="הוסף לשיר">
+                      <div className="preset-card-colors">
+                        {colors.map((c, i) => <div key={i} className="preset-card-color-swatch" style={{ background: c }} />)}
+                      </div>
+                      <div className="preset-card-info">
+                        <span className="preset-card-name">{sp.name}</span>
+                        <span className="preset-card-effects">שמור · {sp.timeframes.length} tf</span>
+                      </div>
+                      <button className="pattern-card-add" title="הוסף לשיר" onClick={(e) => { e.stopPropagation(); onApplyEdited?.(sp.timeframes, sp.name) }}>＋</button>
+                      <button className="pattern-card-delete" title="מחק" onClick={(e) => { e.stopPropagation(); onDeleteSaved?.(sp.id) }}>🗑</button>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        )}
+        {orderedCats.length === 0 && savedPatterns.length === 0 && (
           <div className="pattern-library-empty">אין פאטרנים להצגה. נסה לייבא, או לשחזר מוסתרים למטה.</div>
         )}
         {orderedCats.map((cat) => {
@@ -358,7 +403,7 @@ const PatternLibrary = ({
       )}
 
       {preview && (
-        <PatternPreview preset={preview} bpm={bpm} onApply={onApplyPreset} onApplyEdited={onApplyEdited} onClose={() => setPreview(null)} />
+        <PatternPreview preset={preview} bpm={bpm} onApply={onApplyPreset} onApplyEdited={onApplyEdited} onSave={onSavePattern} onClose={() => setPreview(null)} />
       )}
     </div>
   )
