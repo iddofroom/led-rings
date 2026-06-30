@@ -3,8 +3,11 @@
 # analyzed structure to emit BEAT-SYNCED, loop.ts-style LED animations.
 #
 # Each section picks (randomly, per run) one PATTERN + one PALETTE from its lists.
-# Patterns emit per-ring, beat-aligned timeframes (build-ups, sweeps, blinks,
-# snakes, pulses). `randomness` controls variety; `--seed` reproduces a run.
+# By DEFAULT every section now offers ALL patterns, so the composer can use the
+# full vocabulary anywhere; Gemini picks the pattern that fits the section's energy
+# and the translator avoids repeating the previous section's pattern, so a composed
+# song gets VARIED patterns across its parts. Narrow a section's `patterns` list if
+# you want to constrain it. `randomness` controls variety; `--seed` reproduces a run.
 #
 # PATTERNS (all SAFE / round-trip-safe):
 #   build_up       rings light up ONE BY ONE on beats and stay on (loop.ts intro)
@@ -34,36 +37,38 @@ palettes:
   sunset:  { hueRange: [0.92, 1.12], sat: [0.8, 1.0],   val: 1.0, hueSpread: 0.18 }   # pink→orange spread
   rainbow: { hueRange: [0.0, 1.0],   sat: 1.0,           val: 1.0, hueSpread: 0.9 }    # full spectrum across rings
 
+# Default: ALL patterns + a broad palette set, so any section (matched or not) draws
+# from the full vocabulary unless it narrows the list below.
 defaults:
-  patterns: [solid_fade]
-  palette:  [cool]
+  patterns: [build_up, accumulate, sweep, per_ring_blink, snake_seg, pulse_beat, solid_fade]
+  palette:  [cool, warm, gold, sunset, deep, neon, hot, ice, forest]
 
 sections:
 
   intro:
-    patterns: [build_up, solid_fade, snake_seg]
+    patterns: [build_up, accumulate, sweep, per_ring_blink, snake_seg, pulse_beat, solid_fade]
     palette:  [cool, ice, deep]
 
   build:
-    patterns: [build_up, accumulate, per_ring_blink, sweep]   # rising — add a ring on beats
+    patterns: [build_up, accumulate, sweep, per_ring_blink, snake_seg, pulse_beat, solid_fade]
     palette:  [warm, gold, sunset, cool]
 
   drop:
-    patterns: [pulse_beat, per_ring_blink, accumulate, snake_seg]
+    patterns: [build_up, accumulate, sweep, per_ring_blink, snake_seg, pulse_beat, solid_fade]
     palette:  [hot, neon, warm, gold]
 
   breakdown:
-    patterns: [solid_fade, snake_seg, sweep]
+    patterns: [build_up, accumulate, sweep, per_ring_blink, snake_seg, pulse_beat, solid_fade]
     palette:  [cool, ice, deep]
 
   chorus:
-    patterns: [pulse_beat, snake_seg, accumulate, build_up]
+    patterns: [build_up, accumulate, sweep, per_ring_blink, snake_seg, pulse_beat, solid_fade]
     palette:  [warm, gold, sunset, neon]
 
   verse:
-    patterns: [per_ring_blink, sweep, snake_seg, solid_fade]
+    patterns: [build_up, accumulate, sweep, per_ring_blink, snake_seg, pulse_beat, solid_fade]
     palette:  [cool, deep, forest, sunset]
 
   outro:
-    patterns: [solid_fade, sweep]
+    patterns: [build_up, accumulate, sweep, per_ring_blink, snake_seg, pulse_beat, solid_fade]
     palette:  [ice, cool, deep]

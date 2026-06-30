@@ -320,6 +320,7 @@ def translate(analysis, rules, seed=0, num_variants=1, only_section=None, model=
     timeframes = []
     counter = [0]
     explain_rows = []
+    prev_pattern = None
     for sidx, s in enumerate(secs):
         if only_section is not None and sidx != only_section:
             continue
@@ -340,6 +341,15 @@ def translate(analysis, rules, seed=0, num_variants=1, only_section=None, model=
                 if g:
                     pattern = g[0] or pattern
                     pal_name = g[1] or pal_name
+            # Variety: avoid repeating the previous section's pattern when the rule offers
+            # alternatives, so a composed song uses DIFFERENT patterns across its parts.
+            if vidx == 0 and only_section is None:
+                opts = [p for p in (rule.get("patterns") or []) if p in PATTERN_FN]
+                if pattern == prev_pattern and len(set(opts)) > 1:
+                    alts = [p for p in opts if p != prev_pattern]
+                    if alts:
+                        pattern = rng.choice(alts)
+                prev_pattern = pattern
             pal = resolve_palette(rng, palettes, pal_name, randomness)
             ctx = dict(start=start_b, end=end_b, rng=rng, pal=pal, randomness=randomness,
                        downbeats=downbeats, label=label)
