@@ -2088,7 +2088,15 @@ function App() {
           onLoad={loadCategoryPreview}
           onReplaceSection={replaceSection}
           onAnalyzed={handleComposeAnalyzed}
-          onComposeFromLibrary={(a) => { lastAnalysisRef.current = a; return recomposeFromLibrary() }}
+          onComposeFromLibrary={(a) => {
+            lastAnalysisRef.current = a
+            const ok = recomposeFromLibrary()
+            if (ok) { setShowCompose(false); setShowLiveConsole(true) } // show the result in the editor
+            return ok
+          }}
+          onLoadSavedAnalysis={async () =>
+            lastAnalysisRef.current ?? (song.librarySlug ? await library.getAnalysis(song.librarySlug).catch(() => null) : null)
+          }
           alreadyComposed={timeframes.some((tf) => typeof tf._section === 'number')}
           onClose={() => setShowCompose(false)}
         />

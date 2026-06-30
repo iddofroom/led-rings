@@ -36,6 +36,9 @@ interface Props {
   /** Compose the song from the user's named pattern LIBRARY (a different pattern per part)
    *  instead of the abstract generator patterns. Needs an analysis (for the section split). */
   onComposeFromLibrary?: (analysis: unknown) => boolean | void
+  /** Returns the song's already-saved analysis (from this session or the cloud library),
+   *  so the same song never has to be analyzed twice. */
+  onLoadSavedAnalysis?: () => Promise<unknown | null>
   /** True when the current timeline already holds a composition (this song was composed
    *  before, e.g. loaded from the library) — so the action reads "Recompose". */
   alreadyComposed?: boolean
@@ -48,7 +51,7 @@ const LABEL_COLORS: Record<string, string> = {
 }
 const fmtTime = (ms: number) => `${Math.floor(ms / 60000)}:${String(Math.floor((ms % 60000) / 1000)).padStart(2, '0')}`
 
-export default function ComposePanel({ apiBase, song, onLoad, onReplaceSection, onAnalyzed, onComposeFromLibrary, alreadyComposed, onClose }: Props) {
+export default function ComposePanel({ apiBase, song, onLoad, onReplaceSection, onAnalyzed, onComposeFromLibrary, onLoadSavedAnalysis, alreadyComposed, onClose }: Props) {
   const [audioPath, setAudioPath] = useState(song.audioFilePath || 'ODESZA - A Moment Apart.mp3')
   const [bpmHint, setBpmHint] = useState<string>('')
   const [sectionsK, setSectionsK] = useState<string>('')
@@ -68,6 +71,26 @@ export default function ComposePanel({ apiBase, song, onLoad, onReplaceSection, 
       .then((j) => setRulesText(j.content || ''))
       .catch(() => setError('Could not load taste/rules.yaml (is the control server running?)'))
   }, [apiBase])
+
+  // Reuse the song's saved analysis if it already has one — no need to re-analyze the
+  // same song every time you open Compose. (Falls through to manual Analyze if there's none.)
+  useEffect(() => {
+    if (!onLoadSavedAnalysis) return
+    let cancelled = false
+    onLoadSavedAnalysis()
+      .then((a) => {
+        if (cancelled || !a) return
+        const an = a as Analysis
+        if (Array.isArray(an.sections) && an.sections.length) {
+          setAnalysis(an)
+          setStatus('Loaded the song’s saved analysis — no need to re-analyze.')
+        }
+      })
+      .catch(() => {})
+    return () => { cancelled = true }
+    // mount-only: load once when the panel opens
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const audioUrl = `${apiBase}/api/audio?path=${encodeURIComponent(audioPath)}`
 
