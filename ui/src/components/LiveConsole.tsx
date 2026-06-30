@@ -165,6 +165,30 @@ export default function LiveConsole({
   const [armed, setArmed] = useState<string | null>(null) // pad selected by click (apply on lane click)
   const [padSearch, setPadSearch] = useState('') // filter for the song's preset pads
   const presetById = useMemo(() => new Map(presetPads.map((p) => [p.id, p])), [presetPads])
+  // Editable/curatable rail: rename overrides + which pads are pinned to the top section.
+  const [railLabels, setRailLabels] = useState<Record<string, string>>({})
+  const [pinned, setPinned] = useState<string[]>(PATTERNS.map((p) => p.key))
+  const [editPads, setEditPads] = useState(false)
+  React.useEffect(() => {
+    try {
+      const raw = localStorage.getItem('liveConsole:rail')
+      if (raw) { const j = JSON.parse(raw); if (j.labels) setRailLabels(j.labels); if (Array.isArray(j.pinned)) setPinned(j.pinned) }
+    } catch {}
+  }, [])
+  React.useEffect(() => {
+    try { localStorage.setItem('liveConsole:rail', JSON.stringify({ labels: railLabels, pinned })) } catch {}
+  }, [railLabels, pinned])
+  const labelFor = (key: string, fallback: string) => railLabels[key] ?? fallback
+  const padInfo = (key: string): { label: string; icon?: string; color: string } | null => {
+    if (key.startsWith('preset:')) {
+      const p = presetById.get(key.slice('preset:'.length))
+      return p ? { label: labelFor(key, p.displayName), color: extractPresetColor(p.data) } : null
+    }
+    const p = PAT_BY_KEY.get(key)
+    return p ? { label: labelFor(key, p.label), icon: p.icon, color: p.color } : null
+  }
+  const renamePad = (key: string, label: string) => setRailLabels((m) => ({ ...m, [key]: label }))
+  const togglePin = (key: string) => setPinned((arr) => (arr.includes(key) ? arr.filter((k) => k !== key) : [...arr, key]))
   const [dropPreview, setDropPreview] = useState<{ laneKey: string; start: number; end: number } | null>(null)
   const [timelineCollapsed, setTimelineCollapsed] = useState(false)
   const [gridBeats, setGridBeats] = useState(0) // 0 = off; else snap-line spacing in beats
@@ -604,17 +628,44 @@ export default function LiveConsole({
       <div style={{ flex: 1, minHeight: 0, display: 'flex' }}>
         {/* ── Left rail ── */}
         <div style={rail}>
-          <div style={railLabel}>Patterns</div>
-          {PATTERNS.map((p) => (
-            <div key={p.key} draggable
-              onDragStart={(e) => { e.dataTransfer.setData(DT_KEY, p.key); e.dataTransfer.effectAllowed = 'copy' }}
-              onClick={() => setArmed((cur) => (cur === p.key ? null : p.key))}
-              title={`Drag onto a lane, or click to arm then click a lane`}
-              style={{ ...padV, outline: armed === p.key ? '2px solid #34d399' : '1px solid #2c3645', background: `linear-gradient(160deg, ${p.color}22, #1b2230)` }}>
-              <span style={{ fontSize: 18, width: 22, textAlign: 'center' }}>{p.icon}</span>
-              <span style={{ fontSize: 12, fontWeight: 600 }}>{p.label}</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 2 }}>
+            <span style={{ ...railLabel, flex: 1 }}>Patterns</span>
+            <button onClick={() => setEditPads((v) => !v)} title="Rename pads / pin patterns to this rail"
+              style={{ ...miniBtn, padding: '2px 7px', background: editPads ? '#34d399' : '#2a3340', color: editPads ? '#04150f' : '#cdd' }}>
+              {editPads ? '✓ Done' : '✎ Edit'}
+            </button>
+          </div>
+          {pinned.map((key) => {
+            const info = padInfo(key)
+            if (!info) return null
+            return (
+              <div key={key} draggable={!editPads}
+                onDragStart={(e) => { e.dataTransfer.setData(DT_KEY, key); e.dataTransfer.effectAllowed = 'copy' }}
+                onClick={() => { if (!editPads) setArmed((cur) => (cur === key ? null : key)) }}
+                title={editPads ? 'Rename, or × to remove from the rail' : 'Drag onto a lane, or click to arm then click a lane'}
+                style={{ ...padV, cursor: editPads ? 'default' : 'grab', outline: armed === key ? '2px solid #34d399' : '1px solid #2c3645', background: `linear-gradient(160deg, ${info.color}22, #1b2230)` }}>
+                {info.icon
+                  ? <span style={{ fontSize: 18, width: 22, textAlign: 'center', flexShrink: 0 }}>{info.icon}</span>
+                  : <span style={{ width: 11, height: 11, borderRadius: 3, background: info.color, flexShrink: 0 }} />}
+                {editPads ? (
+                  <>
+                    <input value={info.label} onChange={(e) => renamePad(key, e.target.value)} onClick={(e) => e.stopPropagation()} style={padRenameInput} />
+                    <button onClick={(e) => { e.stopPropagation(); togglePin(key) }} title="Remove from rail" style={pinBtn}>×</button>
+                  </>
+                ) : (
+                  <span style={{ fontSize: 12, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{info.label}</span>
+                )}
+              </div>
+            )
+          })}
+          {editPads && PATTERNS.some((p) => !pinned.includes(p.key)) && (
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, padding: '2px 0 4px' }}>
+              {PATTERNS.filter((p) => !pinned.includes(p.key)).map((p) => (
+                <button key={p.key} onClick={() => togglePin(p.key)} title={`Add ${labelFor(p.key, p.label)} back to the rail`}
+                  style={{ ...miniBtn, fontSize: 11 }}>＋ {p.icon} {labelFor(p.key, p.label)}</button>
+              ))}
             </div>
-          ))}
+          )}
           <div onClick={onRandomize}
             title={`Random pattern → replace the current section (${currentSection?.label ?? 'song'}) on ALL rings`}
             style={{ ...padV, cursor: 'pointer', outline: '1px solid #f59e0b88', background: 'linear-gradient(160deg, #f59e0b33, #2a1f10)' }}>
@@ -637,14 +688,22 @@ export default function LiveConsole({
                 .map((p) => {
                   const k = `preset:${p.id}`
                   const c = extractPresetColor(p.data)
+                  const isPinned = pinned.includes(k)
                   return (
-                    <div key={p.id} draggable
+                    <div key={p.id} draggable={!editPads}
                       onDragStart={(e) => { e.dataTransfer.setData(DT_KEY, k); e.dataTransfer.effectAllowed = 'copy' }}
-                      onClick={() => setArmed((cur) => (cur === k ? null : k))}
-                      title={`${p.displayName} — גרור ללֵיין, או לחץ לחימוש ואז לחץ על לֵיין`}
-                      style={{ ...padV, height: 32, outline: armed === k ? '2px solid #34d399' : '1px solid #2c3645', background: `linear-gradient(160deg, ${c}33, #1b2230)` }}>
+                      onClick={() => { if (!editPads) setArmed((cur) => (cur === k ? null : k)) }}
+                      title={editPads ? 'Rename, or ★ to pin to the top rail' : `${p.displayName} — גרור ללֵיין, או לחץ לחימוש ואז לחץ על לֵיין`}
+                      style={{ ...padV, height: 32, cursor: editPads ? 'default' : 'grab', outline: armed === k ? '2px solid #34d399' : '1px solid #2c3645', background: `linear-gradient(160deg, ${c}33, #1b2230)` }}>
                       <span style={{ width: 11, height: 11, borderRadius: 3, background: c, flexShrink: 0 }} />
-                      <span style={{ fontSize: 12, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.displayName}</span>
+                      {editPads ? (
+                        <>
+                          <input value={labelFor(k, p.displayName)} onChange={(e) => renamePad(k, e.target.value)} onClick={(e) => e.stopPropagation()} style={padRenameInput} />
+                          <button onClick={(e) => { e.stopPropagation(); togglePin(k) }} title={isPinned ? 'Unpin from top rail' : 'Pin to top rail'} style={{ ...pinBtn, color: isPinned ? '#fbbf24' : '#9ab' }}>{isPinned ? '★' : '☆'}</button>
+                        </>
+                      ) : (
+                        <span style={{ fontSize: 12, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{labelFor(k, p.displayName)}</span>
+                      )}
                     </div>
                   )
                 })}
@@ -998,5 +1057,7 @@ const transportBtn: React.CSSProperties = { color: '#fff', border: 'none', borde
 const editor: React.CSSProperties = { borderTop: '1px solid #1b2230', background: '#11161f', padding: '10px 16px' }
 const editLbl: React.CSSProperties = { fontSize: 11, color: '#8aa', marginRight: 2 }
 const ctxItem: React.CSSProperties = { display: 'block', width: '100%', textAlign: 'left', background: 'none', border: 'none', color: '#e8eef5', fontSize: 12, padding: '5px 8px', borderRadius: 5, cursor: 'pointer' }
+const padRenameInput: React.CSSProperties = { flex: 1, minWidth: 0, background: '#0d1117', color: '#e8eef5', border: '1px solid #2c3645', borderRadius: 4, padding: '2px 6px', fontSize: 12 }
+const pinBtn: React.CSSProperties = { background: 'none', border: 'none', cursor: 'pointer', fontSize: 14, padding: '0 2px', flexShrink: 0, color: '#9ab' }
 // Right-hand drawer that hosts the full TimeframePanel inside the fullscreen console.
 const advancedDrawer: React.CSSProperties = { flexShrink: 0, height: '100%', display: 'flex', borderLeft: '1px solid #1b2230', background: '#0d1117' }
