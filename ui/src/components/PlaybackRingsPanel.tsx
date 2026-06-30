@@ -84,6 +84,13 @@ const PlaybackRingsPanel = ({
 
   const [zoom, setZoom] = React.useState(1.0)
   const [resetPanToken, setResetPanToken] = React.useState(0)
+  const [fullscreen, setFullscreen] = React.useState(false)
+  React.useEffect(() => {
+    if (!fullscreen) return
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setFullscreen(false) }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [fullscreen])
   const clampZoom = (z: number) => Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, Math.round(z * 100) / 100))
   const [brightnessInput, setBrightnessInput] = React.useState<string | null>(null)
   React.useEffect(() => { setBrightnessInput(null) }, [brightness])
@@ -283,6 +290,7 @@ const PlaybackRingsPanel = ({
                 <span className="playback-zoom-value" title="Ctrl+scroll over visualizer to zoom">{Math.round(zoom * 100)}%</span>
                 <button className="playback-zoom-btn" onClick={() => setZoom(z => clampZoom(z + ZOOM_STEP))} disabled={zoom >= ZOOM_MAX} title="Zoom in">+</button>
                 <button className="playback-zoom-btn" onClick={() => { setZoom(1.0); setResetPanToken(t => t + 1) }} title="Reset zoom" style={{ fontSize: 10 }}>1:1</button>
+                <button className="playback-zoom-btn" onClick={() => setFullscreen(true)} title="View LEDs fullscreen" style={{ fontSize: 13 }}>⛶</button>
               </div>
             </div>
             <div className="playback-rings-panel-visualization">
@@ -306,6 +314,7 @@ const PlaybackRingsPanel = ({
                 <span className="playback-zoom-value" title="Ctrl+scroll over visualizer to zoom">{Math.round(zoom * 100)}%</span>
                 <button className="playback-zoom-btn" onClick={() => setZoom(z => clampZoom(z + ZOOM_STEP))} disabled={zoom >= ZOOM_MAX} title="Zoom in">+</button>
                 <button className="playback-zoom-btn" onClick={() => { setZoom(1.0); setResetPanToken(t => t + 1) }} title="Reset zoom" style={{ fontSize: 10 }}>1:1</button>
+                <button className="playback-zoom-btn" onClick={() => setFullscreen(true)} title="View LEDs fullscreen" style={{ fontSize: 13 }}>⛶</button>
               </div>
             </div>
             <div className="playback-rings-panel-visualization">
@@ -330,6 +339,27 @@ const PlaybackRingsPanel = ({
           </div>
         )}
       </div>
+      {fullscreen && (
+        <div style={{ position: 'fixed', inset: 0, background: '#0a0c10', zIndex: 2000, display: 'flex', flexDirection: 'column' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 18px', color: '#cde3ff', borderBottom: '1px solid #222' }}>
+            <span style={{ fontWeight: 600, fontSize: 14 }}>
+              {clockMode ? 'Clock preview' : activeTimeframes.length > 0
+                ? `${activeTimeframes.length} active segment${activeTimeframes.length > 1 ? 's' : ''} · ${activeRings.length} rings · ${currentTime.toFixed(1)}b`
+                : 'No active segment'}
+            </span>
+            <button onClick={() => setFullscreen(false)} style={{ background: '#3a3f4b', color: '#fff', border: 'none', borderRadius: 8, padding: '8px 16px', fontSize: 14, fontWeight: 600, cursor: 'pointer' }}>✕ Close (Esc)</button>
+          </div>
+          <div style={{ flex: 1, minHeight: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+            {clockMode && clockColors ? (
+              <RingVisualizationCanvas colors={clockColors} zoom={zoom} onZoomChange={(z) => setZoom(clampZoom(z))} resetPanToken={resetPanToken} fit="box" />
+            ) : activeTimeframes.length > 0 ? (
+              <RingVisualization mapping="all" activeRings={activeRings} timeframes={activeTimeframes} currentTime={currentTime} zoom={zoom} onZoomChange={(z) => setZoom(clampZoom(z))} resetPanToken={resetPanToken} globalBrightness={brightness} />
+            ) : (
+              <div style={{ color: '#789' }}>No active segment — scrub the timeline or press Run.</div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   )
 }
