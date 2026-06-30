@@ -53,3 +53,6 @@ body {
   align-items: center;
   justify-content: center;
 }
+
+/* Shared spinner keyframe used by Compose/Library panels (available app-wide). */
+@keyframes composeSpin { to { transform: rotate(360deg); } }

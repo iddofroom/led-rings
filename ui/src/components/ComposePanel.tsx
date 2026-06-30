@@ -30,6 +30,8 @@ interface Props {
   onLoad: (payload: { song: Record<string, unknown>; timeframes: unknown[] }) => void
   /** Surgically replace one section's timeframes in the live timeline (preserves manual edits elsewhere). */
   onReplaceSection?: (sectionIdx: number, timeframes: unknown[]) => void
+  /** Fired after a successful analyze — lets the app archive the song + analysis in the library. */
+  onAnalyzed?: (analysis: unknown, audioPath: string) => void
   onClose: () => void
 }
 
@@ -39,7 +41,7 @@ const LABEL_COLORS: Record<string, string> = {
 }
 const fmtTime = (ms: number) => `${Math.floor(ms / 60000)}:${String(Math.floor((ms % 60000) / 1000)).padStart(2, '0')}`
 
-export default function ComposePanel({ apiBase, song, onLoad, onReplaceSection, onClose }: Props) {
+export default function ComposePanel({ apiBase, song, onLoad, onReplaceSection, onAnalyzed, onClose }: Props) {
   const [audioPath, setAudioPath] = useState(song.audioFilePath || 'ODESZA - A Moment Apart.mp3')
   const [bpmHint, setBpmHint] = useState<string>('')
   const [sectionsK, setSectionsK] = useState<string>('')
@@ -81,6 +83,7 @@ export default function ComposePanel({ apiBase, song, onLoad, onReplaceSection, 
       const a = await call<Analysis>('/api/analyze', body)
       setAnalysis(a)
       setStatus(`Analyzed: ${a.bpmGlobal} BPM, ${a.sections.length} sections, ${a.beatTimestampsMs.length} beats.`)
+      onAnalyzed?.(a, audioPath)
     } catch (e) { setError(e instanceof Error ? e.message : String(e)) }
     finally { setBusy(null) }
   }

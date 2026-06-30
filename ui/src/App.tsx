@@ -4,6 +4,8 @@ import TimeframePanel from './components/TimeframePanel'
 import PlaybackRingsPanel from './components/PlaybackRingsPanel'
 import Spectrogram from './components/Spectrogram'
 import ComposePanel from './components/ComposePanel'
+import LibraryPanel from './components/LibraryPanel'
+import { library, fileToBase64 } from './lib/library'
 import { useViewRange } from './hooks/useViewRange'
 import { useUndoHistory } from './hooks/useUndoHistory'
 import { generateSequenceTs } from './generateSequenceTs'
@@ -14,6 +16,13 @@ import type { PresetMetadata } from './presets'
 import './App.css'
 
 const API_BASE = (import.meta as any).env?.VITE_API_URL ?? ''
+
+/** Shared pill style for the floating action dock (Library / Compose). */
+const fabBase: React.CSSProperties = {
+  display: 'inline-flex', alignItems: 'center', gap: 8, height: 42,
+  color: '#fff', border: '1px solid rgba(255,255,255,0.25)', borderRadius: 999,
+  padding: '0 18px', fontSize: 14, fontWeight: 700, letterSpacing: '0.01em', cursor: 'pointer',
+}
 
 export class AppErrorBoundary extends Component<{ children: React.ReactNode }, { error: Error | null }> {
   state = { error: null as Error | null }
@@ -117,6 +126,8 @@ export interface Song {
   audioFilePath?: string
   /** Detected beat positions in milliseconds. When present, beatToMs uses lookup instead of fixed-BPM formula. */
   beatTimestampsMs?: number[]
+  /** When this song lives in the cloud library, its slug. Drives auto-save + audio resolution. (Client-only.) */
+  librarySlug?: string
 }
 
 const LAST_SONG_STORAGE_KEY = 'timelineManager:lastSong'
@@ -156,6 +167,21 @@ function normalizeCycles(cycles: unknown): TimeframeCycleEntry[] | undefined {
     }
   }
   return out.length ? out : undefined
+}
+
+/** Strip client-only fields so the song stored in the library is clean/portable. */
+function cleanSongForLibrary(song: Song): Record<string, unknown> {
+  const { librarySlug: _slug, ...rest } = song
+  return rest
+}
+
+/** Stable-ish serialization of the working state, used as the auto-save change baseline. */
+function stableWorkingJson(song: Song, timeframes: Timeframe[]): string {
+  try {
+    return JSON.stringify({ song: cleanSongForLibrary(song), timeframes })
+  } catch {
+    return ''
+  }
 }
 
 function App() {
@@ -373,6 +399,13 @@ function App() {
   const [lightTheme, setLightTheme] = useState(() => localStorage.getItem('kivsee-theme') === 'light')
   const [resizing, setResizing] = useState<'playback' | 'details' | 'spectrogram' | 'header' | null>(null)
   const [showCompose, setShowCompose] = useState(false)
+  const [showLibrary, setShowLibrary] = useState(false)
+  // Cloud-library auto-save status, shown next to the floating actions.
+  const [librarySaveState, setLibrarySaveState] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
+  const lastSavedWorkingRef = useRef<string>('')
+  const lastSavedMetaRef = useRef<string>('')
+  const autosaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const lastAnalysisRef = useRef<unknown>(null)
   const headerRef = React.useRef<HTMLDivElement>(null)
   const spectrogramContainerRef = React.useRef<HTMLDivElement>(null)
 
@@ -1211,11 +1244,22 @@ function App() {
       animationType: (s.animationType === 'trigger' ? 'trigger' : 'song') as AnimationType,
       audioFilePath: typeof s.audioFilePath === 'string' ? s.audioFilePath : undefined,
       beatTimestampsMs: Array.isArray(s.beatTimestampsMs) ? s.beatTimestampsMs as number[] : undefined,
+      librarySlug: typeof s.librarySlug === 'string' ? s.librarySlug : undefined,
     }
   }
 
-  const loadCategoryPreview = (payload: { song: Record<string, unknown>; timeframes: unknown[] }) => {
-    const s = normalizeLoadedSong(payload.song)
+  const loadCategoryPreview = (
+    payload: { song: Record<string, unknown>; timeframes: unknown[] },
+    opts?: { librarySlug?: string; suppressAutosave?: boolean },
+  ) => {
+    const incoming = normalizeLoadedSong(payload.song)
+    // Preserve the current library association + audio when the incoming payload omits them
+    // (e.g. a fresh Compose result carries no librarySlug — it's still the same song).
+    const s: Song = { ...incoming }
+    if (opts?.librarySlug) s.librarySlug = opts.librarySlug
+    else if (!s.librarySlug) s.librarySlug = song.librarySlug
+    if (!s.audioFilePath) s.audioFilePath = song.audioFilePath
+    if (!s.beatTimestampsMs) s.beatTimestampsMs = song.beatTimestampsMs
     setSong(s)
     const mapped: Timeframe[] = (payload.timeframes as any[])
       .filter((item: any) => item && typeof item === 'object')
@@ -1257,7 +1301,161 @@ function App() {
     setTimeframes(mapped)
     setFocusedTimeframeId(null)
     setCurrentTime(0)
+    // When loading an already-saved working timeline, prime the autosave baseline so we
+    // don't immediately re-write identical data back to the library.
+    if (opts?.suppressAutosave) {
+      lastSavedWorkingRef.current = stableWorkingJson(s, mapped)
+    }
   }
+
+  // ── Cloud song library ────────────────────────────────────────────────────
+  const metaSnapshot = (s: Song) =>
+    JSON.stringify([s.name, s.bpm, s.lengthSeconds, s.startOffsetMs, s.animationType, s.audioFilePath, s.beatTimestampsMs?.length])
+
+  /** Fetch an audio URL (or the resolved current source) as base64 for upload to the library. */
+  const fetchAudioBase64 = async (url?: string): Promise<{ base64: string; contentType: string } | null> => {
+    const src = url || effectiveAudioSrc || audioBlobUrlRef.current || ''
+    if (!src) return null
+    try {
+      const resp = await fetch(src)
+      if (!resp.ok) return null
+      const blob = await resp.blob()
+      if (blob.size === 0) return null
+      return { base64: await fileToBase64(blob), contentType: blob.type || 'audio/mpeg' }
+    } catch {
+      return null
+    }
+  }
+
+  /** Ensure a song exists in the library (creating + uploading audio on first save).
+   *  Returns its slug. Reads from `songOverride` when given so it isn't bitten by stale state. */
+  const ensureSongInLibrary = async (opts?: {
+    analysis?: unknown
+    forceAudio?: boolean
+    songOverride?: Song
+    audioUrl?: string
+  }): Promise<string | null> => {
+    const s = opts?.songOverride ?? song
+    const name = s.name?.trim() || 'Untitled'
+    setLibrarySaveState('saving')
+    try {
+      const existingSlug = s.librarySlug
+      let audio: { base64: string; contentType: string } | null = null
+      if (!existingSlug || opts?.forceAudio) audio = await fetchAudioBase64(opts?.audioUrl)
+      const res = await library.saveSong({
+        slug: existingSlug,
+        name,
+        bpm: s.bpm,
+        lengthSeconds: s.lengthSeconds,
+        startOffsetMs: s.startOffsetMs,
+        animationType: s.animationType,
+        audioFilename: s.audioFilePath || (audio ? `${name}.mp3` : undefined),
+        audioBase64: audio?.base64,
+        audioContentType: audio?.contentType,
+        beatTimestampsMs: s.beatTimestampsMs,
+        analysis: opts?.analysis,
+      })
+      const slug = res.slug
+      if (slug !== existingSlug) setSong((prev) => ({ ...prev, librarySlug: slug }))
+      lastSavedMetaRef.current = metaSnapshot({ ...s, librarySlug: slug })
+      setLibrarySaveState('saved')
+      return slug
+    } catch (e) {
+      console.warn('ensureSongInLibrary failed', e)
+      setLibrarySaveState('error')
+      return null
+    }
+  }
+
+  /** Called by ComposePanel after a successful analyze: park the song + its analysis in the library. */
+  const handleComposeAnalyzed = (analysis: unknown, audioPath: string) => {
+    lastAnalysisRef.current = analysis
+    const beatTimestampsMs = (analysis as { beatTimestampsMs?: number[] })?.beatTimestampsMs
+    const bpm = (analysis as { bpmGlobal?: number })?.bpmGlobal
+    // Align the app's song with what was actually analyzed, then archive THAT (no stale state).
+    const merged: Song = { ...song }
+    if (audioPath && audioPath !== song.audioFilePath) {
+      merged.audioFilePath = audioPath
+      if (!song.name || song.name === 'New Song') merged.name = audioPath.replace(/\.[^.]+$/, '').replace(/^.*[\\/]/, '')
+    }
+    if (Array.isArray(beatTimestampsMs) && beatTimestampsMs.length) merged.beatTimestampsMs = beatTimestampsMs
+    if (typeof bpm === 'number' && bpm > 0) merged.bpm = bpm
+    setSong(merged)
+    const audioUrl = audioPath && API_BASE ? `${API_BASE}/api/audio?path=${encodeURIComponent(audioPath)}` : undefined
+    void ensureSongInLibrary({ analysis, songOverride: merged, audioUrl })
+  }
+
+  /** Save the current timeline as a named animation snapshot. */
+  const saveCurrentAnimation = async () => {
+    const name = window.prompt('Name this animation:', `${song.name || 'animation'} ${new Date().toTimeString().slice(0, 5)}`)
+    if (name == null) return
+    const trimmed = name.trim()
+    if (!trimmed) return
+    setLibrarySaveState('saving')
+    try {
+      let slug = song.librarySlug
+      if (!slug) slug = (await ensureSongInLibrary({ forceAudio: true })) || undefined
+      if (!slug) throw new Error('Could not create the song entry')
+      await library.saveComposition({
+        slug,
+        name: trimmed,
+        method: 'manual',
+        song: cleanSongForLibrary(song),
+        timeframes,
+      })
+      setLibrarySaveState('saved')
+    } catch (e) {
+      setLibrarySaveState('error')
+      window.alert('Save animation failed: ' + (e instanceof Error ? e.message : String(e)))
+    }
+  }
+
+  /** Load a saved composition (working timeline or a named animation) from the library. */
+  const loadCompositionFromLibrary = async (slug: string, comp: string) => {
+    const payload = await library.getComposition(slug, comp)
+    loadCategoryPreview(payload as { song: Record<string, unknown>; timeframes: unknown[] }, {
+      librarySlug: slug,
+      suppressAutosave: comp === 'working',
+    })
+  }
+
+  // Debounced auto-save of the working timeline + meta, once a song lives in the library.
+  useEffect(() => {
+    if (!hasLoadedInitialStateRef.current) return
+    const slug = song.librarySlug
+    if (!slug) return
+    const snapshot = stableWorkingJson(song, timeframes)
+    if (snapshot === lastSavedWorkingRef.current) return
+    if (autosaveTimerRef.current) clearTimeout(autosaveTimerRef.current)
+    autosaveTimerRef.current = setTimeout(async () => {
+      setLibrarySaveState('saving')
+      try {
+        await library.saveComposition({ slug, working: true, song: cleanSongForLibrary(song), timeframes })
+        const metaSnap = metaSnapshot(song)
+        if (metaSnap !== lastSavedMetaRef.current) {
+          await library.saveSong({
+            slug,
+            name: song.name,
+            bpm: song.bpm,
+            lengthSeconds: song.lengthSeconds,
+            startOffsetMs: song.startOffsetMs,
+            animationType: song.animationType,
+            audioFilename: song.audioFilePath,
+            beatTimestampsMs: song.beatTimestampsMs,
+          })
+          lastSavedMetaRef.current = metaSnap
+        }
+        lastSavedWorkingRef.current = snapshot
+        setLibrarySaveState('saved')
+      } catch (e) {
+        console.warn('library autosave failed', e)
+        setLibrarySaveState('error')
+      }
+    }, 2500)
+    return () => {
+      if (autosaveTimerRef.current) clearTimeout(autosaveTimerRef.current)
+    }
+  }, [song, timeframes])
 
   /** Surgically replace one analyzed section's timeframes in the LIVE timeline,
    *  preserving manual edits to other sections (used by the Compose per-part reroll). */
@@ -1306,12 +1504,19 @@ function App() {
         timeframes?: Timeframe[]
         windowSizes?: { playbackPanelWidth?: number; detailsPanelWidth?: number; spectrogramHeight?: number }
       }
+      let restoredSong: Song | null = null
       if (parsed.song && typeof parsed.song === 'object') {
-        const s = normalizeLoadedSong(parsed.song)
-        setSong(s)
+        restoredSong = normalizeLoadedSong(parsed.song)
+        setSong(restoredSong)
       }
       if (parsed.timeframes && Array.isArray(parsed.timeframes) && parsed.timeframes.length > 0) {
         setTimeframes(parsed.timeframes)
+      }
+      // If the restored song is a library song, prime the autosave baseline so we don't
+      // immediately re-write the (unchanged) working timeline to the cloud on every load.
+      if (restoredSong?.librarySlug) {
+        lastSavedWorkingRef.current = stableWorkingJson(restoredSong, (parsed.timeframes as Timeframe[]) || [])
+        lastSavedMetaRef.current = metaSnapshot(restoredSong)
       }
       const minPlayback = 240, maxPlayback = 900, minDetails = 240, maxDetails = 600, minSpectrogram = 80, maxSpectrogram = 500
       const ws = parsed.windowSizes
@@ -1408,16 +1613,27 @@ function App() {
     })
   }, [])
 
-  // Keep spectrogram audio URL in sync: blob from Browse, or resolved path from song
+  // Keep spectrogram audio URL in sync: blob from Browse, the cloud library copy, or a resolved path.
   useEffect(() => {
     if (song.animationType !== 'song') { setEffectiveAudioSrc(''); return }
-    const audioPath = song.audioFilePath?.trim()
-    if (!audioPath) { setEffectiveAudioSrc(''); return }
     if (audioBlobUrlRef.current) { setEffectiveAudioSrc(audioBlobUrlRef.current); return }
+    const audioPath = song.audioFilePath?.trim()
+    const slug = song.librarySlug
     let cancelled = false
-    resolveAudioSrc(audioPath).then((src) => { if (!cancelled) setEffectiveAudioSrc(src) })
+    ;(async () => {
+      // Prefer the library copy when this song lives in the cloud (works local + remote).
+      if (slug) {
+        try {
+          const r = await fetch(library.audioUrl(slug), { method: 'HEAD' })
+          if (!cancelled && r.ok) { setEffectiveAudioSrc(library.audioUrl(slug)); return }
+        } catch {}
+      }
+      if (!audioPath) { if (!cancelled) setEffectiveAudioSrc(''); return }
+      const src = await resolveAudioSrc(audioPath)
+      if (!cancelled) setEffectiveAudioSrc(src)
+    })()
     return () => { cancelled = true }
-  }, [song.animationType, song.audioFilePath, resolveAudioSrc])
+  }, [song.animationType, song.audioFilePath, song.librarySlug, resolveAudioSrc])
 
   // Keep audio element src in sync with resolved audio URL
   useEffect(() => {
@@ -1722,7 +1938,7 @@ function App() {
           <button className="secondary-button" onClick={handleLoadTimeframes}>Load</button>
           <button className="secondary-button" onClick={handleImportTs} disabled={!API_BASE} title={!API_BASE ? 'Set VITE_API_URL and run control server' : 'Import a .ts song file'}>Import .ts</button>
           <button className="secondary-button" onClick={handleSaveTimeframes}>Save</button>
-          <button className="secondary-button" onClick={() => setShowCompose(true)} disabled={!API_BASE} title={!API_BASE ? 'Set VITE_API_URL and run control server' : 'Analyze audio + taste rules → composition'}>🎵 Compose</button>
+          <button className="secondary-button" onClick={() => void saveCurrentAnimation()} title="שמור את ציר הזמן הנוכחי כאנימציה בספרייה">💾 Save animation</button>
         </div>
       </div>
       {showCompose && (
@@ -1731,28 +1947,57 @@ function App() {
           song={song}
           onLoad={loadCategoryPreview}
           onReplaceSection={replaceSection}
+          onAnalyzed={handleComposeAnalyzed}
           onClose={() => setShowCompose(false)}
         />
       )}
-      {/* Always-visible entry point, pinned in the header's reserved right slot
-          (the header toolbar itself can clip its inline buttons off-screen). */}
-      <button
-        type="button"
-        onClick={() => setShowCompose(true)}
-        disabled={!API_BASE}
-        title={!API_BASE ? 'Run the control server (VITE_API_URL)' : 'Compose from audio: analyze + taste rules → timeline'}
-        style={{
-          position: 'fixed', top: 8, right: 14, zIndex: 950, height: 40,
-          display: 'inline-flex', alignItems: 'center', gap: 7,
-          background: API_BASE ? 'linear-gradient(135deg,#34d399 0%,#10b981 100%)' : '#6b7280',
-          color: '#fff', border: '1px solid rgba(255,255,255,0.25)',
-          borderRadius: 10, padding: '0 18px', fontSize: 14, fontWeight: 700,
-          cursor: API_BASE ? 'pointer' : 'not-allowed',
-          boxShadow: '0 4px 14px rgba(16,185,129,0.45)', letterSpacing: '0.01em',
-        }}
-      >
-        <span style={{ fontSize: 16, lineHeight: 1 }}>🎵</span> Compose
-      </button>
+      {showLibrary && (
+        <LibraryPanel
+          activeSlug={song.librarySlug}
+          onLoadComposition={loadCompositionFromLibrary}
+          onClose={() => setShowLibrary(false)}
+        />
+      )}
+      {/* Floating action dock — always above the workspace, never clipped by the header. */}
+      <div style={{ position: 'fixed', right: 20, bottom: 20, zIndex: 950, display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 10 }}>
+        {(librarySaveState !== 'idle' || song.librarySlug) && (
+          <div style={{
+            display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 600,
+            padding: '4px 10px', borderRadius: 999, backdropFilter: 'blur(6px)',
+            background: librarySaveState === 'error' ? '#7f1d1d' : '#0f172acc',
+            color: librarySaveState === 'error' ? '#fecaca' : '#cbd5e1',
+            border: '1px solid rgba(255,255,255,0.12)', boxShadow: '0 4px 14px rgba(0,0,0,0.35)',
+          }}>
+            {librarySaveState === 'saving'
+              ? '☁️ שומר…'
+              : librarySaveState === 'error'
+                ? '⚠️ שמירה נכשלה'
+                : '☁️ נשמר בספרייה'}
+          </div>
+        )}
+        <button
+          type="button"
+          onClick={() => setShowLibrary(true)}
+          title="ספריית השירים: שירים, אנליזות ואנימציות שמורות"
+          style={{ ...fabBase, background: 'linear-gradient(135deg,#818cf8 0%,#6366f1 100%)', boxShadow: '0 4px 14px rgba(99,102,241,0.45)' }}
+        >
+          <span style={{ fontSize: 16, lineHeight: 1 }}>📚</span> ספרייה
+        </button>
+        <button
+          type="button"
+          onClick={() => setShowCompose(true)}
+          disabled={!API_BASE}
+          title={!API_BASE ? 'הרץ את שרת השליטה (VITE_API_URL)' : 'הלחנה משיר: אנליזה + חוקי טעם ← ציר הזמן'}
+          style={{
+            ...fabBase,
+            background: API_BASE ? 'linear-gradient(135deg,#34d399 0%,#10b981 100%)' : '#6b7280',
+            cursor: API_BASE ? 'pointer' : 'not-allowed',
+            boxShadow: '0 6px 18px rgba(16,185,129,0.5)', fontSize: 15, padding: '0 22px', height: 46,
+          }}
+        >
+          <span style={{ fontSize: 18, lineHeight: 1 }}>🎵</span> Compose
+        </button>
+      </div>
       <div
         className="app-resize-handle app-resize-handle-header"
         onMouseDown={() => setResizing('header')}
