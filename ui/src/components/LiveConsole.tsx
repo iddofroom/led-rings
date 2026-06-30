@@ -85,6 +85,23 @@ const LABEL_W = 38 // gutter width for lane labels (px)
 const LANE_H = 18
 const ZOOM_MIN = 1
 const ZOOM_MAX = 40
+const SPEED_CURVE_N = 8 // segments a speed curve is baked into
+const SPEED_MIN = 0.25
+const SPEED_MAX = 4
+// xLights-style value-curve presets → per-segment speed multipliers (higher = faster).
+function genSpeedCurve(kind: string): number[] {
+  const n = SPEED_CURVE_N
+  return Array.from({ length: n }, (_, i) => {
+    const x = n > 1 ? i / (n - 1) : 0
+    switch (kind) {
+      case 'accel': return SPEED_MIN + (SPEED_MAX - SPEED_MIN) * x
+      case 'decel': return SPEED_MAX - (SPEED_MAX - SPEED_MIN) * x
+      case 'easeInOut': return SPEED_MIN + (SPEED_MAX - SPEED_MIN) * Math.sin(Math.PI * x) // slow-fast-slow
+      case 'bounce': return SPEED_MIN + (SPEED_MAX - SPEED_MIN) * Math.abs(Math.sin(2 * Math.PI * x))
+      default: return 1
+    }
+  })
+}
 
 // Lanes: one ALL row + one row per ring.
 const LANES: { key: string; label: string; rings: number[]; ring?: number }[] = [
@@ -192,6 +209,7 @@ export default function LiveConsole({
   const [dropPreview, setDropPreview] = useState<{ laneKey: string; start: number; end: number } | null>(null)
   const [timelineCollapsed, setTimelineCollapsed] = useState(false)
   const [gridBeats, setGridBeats] = useState(0) // 0 = off; else snap-line spacing in beats
+  const [speedCurve, setSpeedCurve] = useState<number[]>(() => Array(SPEED_CURVE_N).fill(1)) // per-segment speed multipliers
   const [recomposing, setRecomposing] = useState(false)
   const panMovedRef = useRef(false)
   const [flash, setFlash] = useState<string | null>(null)
@@ -438,6 +456,30 @@ export default function LiveConsole({
   function setSelectedFade(fadeIn: boolean, fadeOut: boolean) {
     if (!selectedTf) return
     onApplyTimeframes(timeframes.map((t) => (t.id === selectedTf.id ? withFade(t, fadeIn, fadeOut) : t)))
+  }
+
+  // Bake a speed CURVE into the selected block: split it into N segments, each with a rate
+  // sampled from the curve (xLights value-curve style). Stays SAFE (just more timeframes).
+  function applySpeedCurve(mults: number[]) {
+    if (!selectedTf || !mults.length) return
+    const tf = selectedTf
+    const s = tf.startTime, e = tf.endTime
+    const n = mults.length
+    const seg = (e - s) / n
+    if (!(seg > 0)) return
+    const baseRate = rateOf(tf) ?? rate
+    const patKey = patternKeyOf(tf)
+    const fade = fadeOf(tf)
+    const segs: Timeframe[] = mults.map((m, i) => {
+      const a = i === 0 ? s : +(s + i * seg).toFixed(3)
+      const b = i === n - 1 ? e : +(s + (i + 1) * seg).toFixed(3)
+      let g = withPattern({ ...tf, id: uid('spd'), startTime: a, endTime: b }, patKey, Math.max(0.1, +(baseRate / Math.max(0.1, m)).toFixed(2)))
+      g = withFade(g, fade.fadeIn && i === 0, fade.fadeOut && i === n - 1)
+      return g
+    })
+    onApplyTimeframes([...timeframes.filter((t) => t.id !== tf.id), ...segs])
+    setSelectedId(segs[0].id)
+    setFlash('⚡ speed curve applied'); window.setTimeout(() => setFlash(null), 1100)
   }
 
   // Full per-property edit of the selected block (the "All options" drawer reuses the same
@@ -990,6 +1032,29 @@ export default function LiveConsole({
                   </>
                 )
               })()}
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+              <span style={editLbl} title="Vary the speed over the block (xLights value-curve). Splits it into segments.">Speed curve</span>
+              <button style={miniBtn} title="Constant" onClick={() => setSpeedCurve(Array(SPEED_CURVE_N).fill(1))}>▬</button>
+              <button style={miniBtn} title="Accelerate" onClick={() => { const c = genSpeedCurve('accel'); setSpeedCurve(c); applySpeedCurve(c) }}>↗</button>
+              <button style={miniBtn} title="Decelerate" onClick={() => { const c = genSpeedCurve('decel'); setSpeedCurve(c); applySpeedCurve(c) }}>↘</button>
+              <button style={miniBtn} title="Ease (slow-fast-slow)" onClick={() => { const c = genSpeedCurve('easeInOut'); setSpeedCurve(c); applySpeedCurve(c) }}>∿</button>
+              <button style={miniBtn} title="Bounce" onClick={() => { const c = genSpeedCurve('bounce'); setSpeedCurve(c); applySpeedCurve(c) }}>⤴⤵</button>
+              <svg width={120} height={30} style={{ background: '#0d1117', borderRadius: 4, cursor: 'crosshair' }}
+                onClick={(e) => {
+                  const r = (e.currentTarget as SVGElement).getBoundingClientRect()
+                  const col = Math.min(SPEED_CURVE_N - 1, Math.max(0, Math.floor(((e.clientX - r.left) / r.width) * SPEED_CURVE_N)))
+                  const v = SPEED_MAX - ((e.clientY - r.top) / r.height) * (SPEED_MAX - SPEED_MIN)
+                  setSpeedCurve((cur) => cur.map((x, i) => (i === col ? Math.max(SPEED_MIN, Math.min(SPEED_MAX, +v.toFixed(2))) : x)))
+                }}>
+                <title>Draw a manual speed curve (click a column to set its speed)</title>
+                {speedCurve.map((m, i) => {
+                  const bw = 120 / SPEED_CURVE_N
+                  const h = ((m - SPEED_MIN) / (SPEED_MAX - SPEED_MIN)) * 30
+                  return <rect key={i} x={i * bw + 1} y={30 - h} width={bw - 2} height={Math.max(1, h)} fill="#f59e0b" rx={1} />
+                })}
+              </svg>
+              <button style={{ ...miniBtn, background: '#34d399', color: '#04150f' }} title="Apply the manual curve to this block" onClick={() => applySpeedCurve(speedCurve)}>Apply</button>
             </div>
           </div>
           {/* One-click changes to EVERY block */}
