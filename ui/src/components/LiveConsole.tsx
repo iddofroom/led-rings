@@ -88,8 +88,47 @@ const rateOf = (tf: Timeframe) => tf.cycles?.find((c) => 'beatsInCycle' in c)?.b
 function patternKeyOf(tf: Timeframe): string {
   const fromSource = String(tf._source || '').split(':')[2]
   if (fromSource && PAT_BY_KEY.has(fromSource)) return fromSource
-  const ek = tf.effects?.find((e) => e.effectKey)?.effectKey
+  const ek = tf.effects?.find((e) => e.effectKey && e.effectKey !== 'timed_brightness')?.effectKey
   return (ek && EFFECT_TO_PATTERN[ek]) || 'solid'
+}
+
+// Fade in/out as a `timed_brightness` envelope — multiplies with the pattern's own
+// brightness (so a Pulse can also fade in), and round-trips (SAFE timed_* + linear/sin).
+const FADE_IN_FUNC = { linear: { start: 0, end: 1 } }
+const FADE_OUT_FUNC = { linear: { start: 1, end: 0 } }
+const FADE_INOUT_FUNC = { sin: { min: 0, max: 1, phase: 0, repeats: 0.5 } }
+function fadeEffect(fadeIn: boolean, fadeOut: boolean): Omit<TimeframeEffectEntry, 'id'> | null {
+  const fn = fadeIn && fadeOut ? FADE_INOUT_FUNC : fadeIn ? FADE_IN_FUNC : fadeOut ? FADE_OUT_FUNC : null
+  return fn ? { effectKey: 'timed_brightness', params: { mult_factor_decrease: fn } } : null
+}
+function fadeOf(tf: Timeframe): { fadeIn: boolean; fadeOut: boolean } {
+  const t = tf.effects?.find((e) => e.effectKey === 'timed_brightness')
+  const f = (t?.params as any)?.mult_factor_decrease
+  if (f?.sin) return { fadeIn: true, fadeOut: true }
+  if (f?.linear) {
+    const { start, end } = f.linear
+    if (end > start) return { fadeIn: true, fadeOut: false }
+    if (start > end) return { fadeIn: false, fadeOut: true }
+  }
+  return { fadeIn: false, fadeOut: false }
+}
+function withFade(tf: Timeframe, fadeIn: boolean, fadeOut: boolean): Timeframe {
+  const base = (tf.effects ?? []).filter((e) => e.effectKey !== 'timed_brightness')
+  const fe = fadeEffect(fadeIn, fadeOut)
+  return { ...tf, effects: fe ? [...base, { id: uid('ef'), ...fe }] : base }
+}
+/** Re-skin a block with a pattern + rate, preserving its color and any fade envelope. */
+function withPattern(tf: Timeframe, patKey: string, rt: number): Timeframe {
+  const pat = PAT_BY_KEY.get(patKey) ?? PATTERNS[0]
+  const f = fadeOf(tf)
+  const fe = fadeEffect(f.fadeIn, f.fadeOut)
+  const effects = [...pat.effects().map((ef) => ({ id: uid('ef'), ...ef })), ...(fe ? [{ id: uid('ef'), ...fe }] : [])]
+  return {
+    ...tf,
+    cycles: pat.cyclic ? [{ type: 'cycle' as const, beatsInCycle: rt }] : undefined,
+    effects,
+    _source: tf._section != null ? `live:${String(tf._source || '').split(':')[1] || 'live'}:${pat.key}` : tf._source,
+  }
 }
 
 export default function LiveConsole({
@@ -111,7 +150,8 @@ export default function LiveConsole({
     if (!p.colors.includes(color)) setColor(p.colors[Math.floor(p.colors.length / 2)] ?? p.colors[0])
   }
   const [armed, setArmed] = useState<string | null>(null) // pad selected by click (apply on lane click)
-  const [dropLane, setDropLane] = useState<string | null>(null)
+  const [dropPreview, setDropPreview] = useState<{ laneKey: string; start: number; end: number } | null>(null)
+  const [timelineCollapsed, setTimelineCollapsed] = useState(false)
   const [flash, setFlash] = useState<string | null>(null)
   const [zoom, setZoom] = useState(1)
   const [selectedId, setSelectedId] = useState<string | null>(null)
@@ -279,6 +319,16 @@ export default function LiveConsole({
     if (e <= s) return
     onApplyTimeframes(timeframes.map((t) => (t.id === selectedTf.id ? { ...t, startTime: s, endTime: e } : t)))
   }
+  function setSelectedFade(fadeIn: boolean, fadeOut: boolean) {
+    if (!selectedTf) return
+    onApplyTimeframes(timeframes.map((t) => (t.id === selectedTf.id ? withFade(t, fadeIn, fadeOut) : t)))
+  }
+
+  // Apply a mutation to EVERY live block in one click (used by the "→ all" controls).
+  function applyToAll(mut: (tf: Timeframe) => Timeframe, label: string) {
+    onApplyTimeframes(timeframes.map((t) => (t.disabled ? t : mut(t))))
+    setFlash(label); window.setTimeout(() => setFlash(null), 1100)
+  }
 
   function onRandomize() {
     const pat = PATTERNS[Math.floor(Math.random() * PATTERNS.length)]
@@ -296,20 +346,27 @@ export default function LiveConsole({
 
   function onLaneDrop(lane: { key: string; label: string; rings: number[] }) {
     return (e: React.DragEvent) => {
-      e.preventDefault(); setDropLane(null)
+      e.preventDefault(); setDropPreview(null)
       const key = e.dataTransfer.getData(DT_KEY) || armed
       if (!key) return
       const beat = xToBeat(e, e.currentTarget as HTMLElement)
-      const sec = sectionAtBeat(beat)
-      apply(key, lane.rings, [sec.startBeat, sec.endBeat], `${lane.label} · ${sec.label}`)
+      apply(key, lane.rings, gapAt(lane, beat), `${lane.label} · ${sectionAtBeat(beat).label}`)
+    }
+  }
+  // Hover preview: highlight only the gap the pattern would fill (not the whole lane).
+  function onLaneDragOver(lane: { key: string; ring?: number }) {
+    return (e: React.DragEvent) => {
+      e.preventDefault()
+      const beat = xToBeat(e, e.currentTarget as HTMLElement)
+      const [s, en] = gapAt(lane, beat)
+      setDropPreview({ laneKey: lane.key, start: s, end: en })
     }
   }
   function onLaneClick(lane: { key: string; label: string; rings: number[] }) {
     return (e: React.MouseEvent) => {
       const beat = xToBeat(e, e.currentTarget as HTMLElement)
       if (armed) {
-        const sec = sectionAtBeat(beat)
-        apply(armed, lane.rings, [sec.startBeat, sec.endBeat], `${lane.label} · ${sec.label}`)
+        apply(armed, lane.rings, gapAt(lane, beat), `${lane.label} · ${sectionAtBeat(beat).label}`)
       } else {
         setSelectedId(null)
         onSeekBeat(beat)
@@ -320,6 +377,22 @@ export default function LiveConsole({
   // An ALL-rings pattern shows ONLY on the ALL lane; ring lanes show partial patterns only.
   const blocksFor = (lane: { key: string; ring?: number }) =>
     timeframes.filter((tf) => !tf.disabled && (lane.key === 'all' ? isAllRings(tf) : (tf.rings.includes(lane.ring!) && !isAllRings(tf))))
+
+  // The empty gap at `beat` within a lane: bounded by section dividers (white lines) and
+  // the lane's existing blocks. Dropping fills only this gap (between the previous block's
+  // end and the next divider), instead of overwriting the whole section. If the drop lands
+  // inside an existing block, that block's own range is returned (replace it).
+  function gapAt(lane: { key: string; ring?: number }, beat: number): [number, number] {
+    const sec = sectionAtBeat(beat)
+    let left = sec.startBeat
+    let right = sec.endBeat
+    for (const tf of blocksFor(lane)) {
+      if (tf.startTime <= beat && tf.endTime > beat) return [tf.startTime, tf.endTime]
+      if (tf.endTime <= beat && tf.endTime > left) left = tf.endTime
+      if (tf.startTime > beat && tf.startTime < right) right = tf.startTime
+    }
+    return [left, right]
+  }
 
   // ── Zoom ──
   const clampZoom = (z: number) => Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, Math.round(z * 100) / 100))
@@ -423,7 +496,7 @@ export default function LiveConsole({
 
         {/* ── Right: compact viz + lanes ── */}
         <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', padding: 12, gap: 10 }}>
-          <div style={vizBox}>
+          <div style={timelineCollapsed ? { ...vizBox, flex: 1 } : vizBox}>
             {activeTimeframes.length > 0 ? (
               <RingVisualization mapping="all" activeRings={activeRings} timeframes={activeTimeframes}
                 currentTime={currentTime} globalBrightness={brightness} darkOff />
@@ -434,18 +507,27 @@ export default function LiveConsole({
           </div>
 
           {/* Multi-lane timeline */}
-          <div style={lanesWrap}>
-            {/* Zoom controls */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
+          <div style={timelineCollapsed ? { ...lanesWrap, flex: '0 0 auto' } : lanesWrap}>
+            {/* Header: collapse toggle + zoom controls */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: timelineCollapsed ? 0 : 6 }}>
+              <button style={{ ...zoomBtn, width: 22 }} onClick={() => setTimelineCollapsed((c) => !c)}
+                title={timelineCollapsed ? 'Expand timeline' : 'Collapse timeline — bigger LEDs'}>
+                {timelineCollapsed ? '▸' : '▾'}
+              </button>
               <span style={{ fontSize: 10, fontWeight: 700, color: '#667', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Timeline</span>
               <span style={{ flex: 1 }} />
-              <span style={{ fontSize: 10, color: '#778' }}>ctrl+scroll to zoom</span>
-              <button style={zoomBtn} onClick={() => zoomAt(1 / 1.5)} disabled={zoom <= ZOOM_MIN} title="Zoom out">−</button>
-              <span style={{ fontSize: 11, color: '#9ab', width: 36, textAlign: 'center' }}>{Math.round(zoom * 100)}%</span>
-              <button style={zoomBtn} onClick={() => zoomAt(1.5)} disabled={zoom >= ZOOM_MAX} title="Zoom in">+</button>
-              <button style={{ ...zoomBtn, width: 'auto', padding: '0 8px' }} onClick={() => { setZoom(1); if (scrollRef.current) scrollRef.current.scrollLeft = 0 }} title="Fit whole song">1:1</button>
+              {!timelineCollapsed && (
+                <>
+                  <span style={{ fontSize: 10, color: '#778' }}>ctrl+scroll to zoom</span>
+                  <button style={zoomBtn} onClick={() => zoomAt(1 / 1.5)} disabled={zoom <= ZOOM_MIN} title="Zoom out">−</button>
+                  <span style={{ fontSize: 11, color: '#9ab', width: 36, textAlign: 'center' }}>{Math.round(zoom * 100)}%</span>
+                  <button style={zoomBtn} onClick={() => zoomAt(1.5)} disabled={zoom >= ZOOM_MAX} title="Zoom in">+</button>
+                  <button style={{ ...zoomBtn, width: 'auto', padding: '0 8px' }} onClick={() => { setZoom(1); if (scrollRef.current) scrollRef.current.scrollLeft = 0 }} title="Fit whole song">1:1</button>
+                </>
+              )}
             </div>
 
+            {!timelineCollapsed && (
             <div style={{ display: 'flex' }}>
               {/* Fixed label column */}
               <div style={{ width: LABEL_W, flexShrink: 0 }}>
@@ -475,16 +557,20 @@ export default function LiveConsole({
                   {LANES.map((lane) => (
                     <div key={lane.key} style={{ height: LANE_H, display: 'flex', alignItems: 'center' }}>
                       <div
-                        onDragOver={(e) => { e.preventDefault(); setDropLane(lane.key) }}
-                        onDragLeave={() => setDropLane((cur) => (cur === lane.key ? null : cur))}
+                        onDragOver={onLaneDragOver(lane)}
+                        onDragLeave={() => setDropPreview((cur) => (cur?.laneKey === lane.key ? null : cur))}
                         onDrop={onLaneDrop(lane)}
                         onClick={onLaneClick(lane)}
                         title={`${lane.label} — drag a pattern here (or click while a pad is armed). Click a block to edit it.`}
                         style={{
                           position: 'relative', flex: 1, height: 15, borderRadius: 4, cursor: armed ? 'copy' : 'pointer',
-                          background: dropLane === lane.key ? 'rgba(52,211,153,0.25)' : lane.key === 'all' ? '#171d29' : '#12161f',
-                          outline: dropLane === lane.key ? '1px dashed #34d399' : '1px solid #1c2330',
+                          background: lane.key === 'all' ? '#171d29' : '#12161f',
+                          outline: '1px solid #1c2330',
                         }}>
+                        {/* gap drop preview — highlights only the segment the pattern will fill */}
+                        {dropPreview?.laneKey === lane.key && dropPreview.end > dropPreview.start && (
+                          <div style={{ position: 'absolute', top: 0, bottom: 0, left: pct(dropPreview.start), width: `calc(${pct(dropPreview.end)} - ${pct(dropPreview.start)})`, background: 'rgba(52,211,153,0.35)', border: '1px dashed #34d399', borderRadius: 3, pointerEvents: 'none' }} />
+                        )}
                         {blocksFor(lane).map((tf) => {
                           const sel = tf.id === selectedId
                           const dr = resizeDraft?.id === tf.id ? resizeDraft : null
@@ -526,6 +612,7 @@ export default function LiveConsole({
                 </div>
               </div>
             </div>
+            )}
           </div>
         </div>
       </div>
@@ -583,6 +670,30 @@ export default function LiveConsole({
               <button style={miniBtn} onClick={() => nudgeSelected(0, -1)} title="end −1b">⟜</button>
               <button style={miniBtn} onClick={() => nudgeSelected(0, 1)} title="end +1b">⟞</button>
             </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+              <span style={editLbl}>Fade</span>
+              {(() => {
+                const f = fadeOf(selectedTf)
+                return (
+                  <>
+                    <button style={{ ...miniBtn, background: f.fadeIn ? '#34d399' : '#2a3340', color: f.fadeIn ? '#04150f' : '#cdd' }}
+                      onClick={() => setSelectedFade(!f.fadeIn, f.fadeOut)} title="Fade brightness in over the block">In</button>
+                    <button style={{ ...miniBtn, background: f.fadeOut ? '#34d399' : '#2a3340', color: f.fadeOut ? '#04150f' : '#cdd' }}
+                      onClick={() => setSelectedFade(f.fadeIn, !f.fadeOut)} title="Fade brightness out over the block">Out</button>
+                  </>
+                )
+              })()}
+            </div>
+          </div>
+          {/* One-click changes to EVERY block */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 8, flexWrap: 'wrap', borderTop: '1px solid #1b2230', paddingTop: 8 }}>
+            <span style={{ ...editLbl, fontWeight: 700 }}>Apply to ALL blocks:</span>
+            <button style={miniBtn} onClick={() => applyToAll((t) => withFade(t, true, fadeOf(t).fadeOut), 'Fade in → all')}>＋Fade in</button>
+            <button style={miniBtn} onClick={() => applyToAll((t) => withFade(t, fadeOf(t).fadeIn, true), 'Fade out → all')}>＋Fade out</button>
+            <button style={miniBtn} onClick={() => applyToAll((t) => withFade(t, false, false), 'No fades → all')}>No fades</button>
+            <span style={{ color: '#566', fontSize: 10 }}>|</span>
+            <button style={miniBtn} onClick={() => applyToAll((t) => ({ ...t, color: selectedTf.color, hasExplicitColor: true }), 'Color → all')}>This color</button>
+            <button style={miniBtn} onClick={() => applyToAll((t) => withPattern(t, patternKeyOf(selectedTf), rateOf(selectedTf) ?? rate), 'Pattern → all')}>This pattern</button>
           </div>
         </div>
       )}
