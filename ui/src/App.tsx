@@ -1952,6 +1952,7 @@ function App() {
           onLoad={loadCategoryPreview}
           onReplaceSection={replaceSection}
           onAnalyzed={handleComposeAnalyzed}
+          alreadyComposed={timeframes.some((tf) => typeof tf._section === 'number')}
           onClose={() => setShowCompose(false)}
         />
       )}

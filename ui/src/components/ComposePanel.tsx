@@ -33,6 +33,9 @@ interface Props {
   onReplaceSection?: (sectionIdx: number, timeframes: unknown[]) => void
   /** Fired after a successful analyze — lets the app archive the song + analysis in the library. */
   onAnalyzed?: (analysis: unknown, audioPath: string) => void
+  /** True when the current timeline already holds a composition (this song was composed
+   *  before, e.g. loaded from the library) — so the action reads "Recompose". */
+  alreadyComposed?: boolean
   onClose: () => void
 }
 
@@ -42,7 +45,7 @@ const LABEL_COLORS: Record<string, string> = {
 }
 const fmtTime = (ms: number) => `${Math.floor(ms / 60000)}:${String(Math.floor((ms % 60000) / 1000)).padStart(2, '0')}`
 
-export default function ComposePanel({ apiBase, song, onLoad, onReplaceSection, onAnalyzed, onClose }: Props) {
+export default function ComposePanel({ apiBase, song, onLoad, onReplaceSection, onAnalyzed, alreadyComposed, onClose }: Props) {
   const [audioPath, setAudioPath] = useState(song.audioFilePath || 'ODESZA - A Moment Apart.mp3')
   const [bpmHint, setBpmHint] = useState<string>('')
   const [sectionsK, setSectionsK] = useState<string>('')
@@ -255,7 +258,7 @@ export default function ComposePanel({ apiBase, song, onLoad, onReplaceSection, 
             </span>
             <button onClick={generate} disabled={!!busy} style={{ ...primaryBtn, fontSize: 15, padding: '10px 20px', opacity: busy ? 0.65 : 1, display: 'inline-flex', alignItems: 'center', gap: 8 }}>
               {busy && <span style={{ width: 14, height: 14, border: '2px solid #fff', borderTopColor: 'transparent', borderRadius: '50%', display: 'inline-block', animation: 'composeSpin 0.8s linear infinite' }} />}
-              {busy ? 'Working…' : (composed ? 'Regenerate all ↻' : 'Generate composition → timeline ▸')}
+              {busy ? 'Working…' : (composed || alreadyComposed ? '↻ Recompose' : 'Generate composition → timeline ▸')}
             </button>
           </div>
 
