@@ -51,6 +51,13 @@ export default function LibraryPanel({ onClose, activeSlug, onLoadComposition }:
     }
   }, [activeSlug])
 
+  // KV key-enumeration (`list`) is eventually consistent — a just-saved/deleted song can
+  // take a couple of seconds to show up. Refresh now, then again shortly after.
+  const refreshSoon = useCallback(() => {
+    void refresh()
+    setTimeout(() => void refresh(), 2000)
+  }, [refresh])
+
   useEffect(() => {
     refresh()
   }, [refresh])
@@ -77,7 +84,7 @@ export default function LibraryPanel({ onClose, activeSlug, onLoadComposition }:
       const audioBase64 = await fileToBase64(file)
       await library.saveSong({ name, audioFilename: file.name, audioBase64, lengthSeconds })
       setBusy(null)
-      await refresh()
+      refreshSoon()
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err))
       setBusy(null)
@@ -100,7 +107,7 @@ export default function LibraryPanel({ onClose, activeSlug, onLoadComposition }:
     setBusy('Deleting…')
     try {
       await library.remove(slug, comp)
-      await refresh()
+      refreshSoon()
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e))
     } finally {
