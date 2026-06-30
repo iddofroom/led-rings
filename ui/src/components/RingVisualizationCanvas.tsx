@@ -14,6 +14,17 @@ interface RingVisualizationCanvasProps {
   /** 'width' (default): square sized to container width (legacy, for small previews).
    *  'box': fit the smaller of container width/height and center — shows all rings without clipping. */
   fit?: 'width' | 'box'
+  /** When true, off LEDs render as pure black (no gray outline / no dimmed inactive rings) —
+   *  for the live console so unlit pixels look truly off, not like gray dots. */
+  darkOff?: boolean
+}
+
+/** True when an rgb(a) color is effectively off (near-black). */
+function isOffColor(c?: string): boolean {
+  if (!c) return true
+  const m = c.match(/rgba?\((\d+)\s*,\s*(\d+)\s*,\s*(\d+)/)
+  if (!m) return false
+  return +m[1] + +m[2] + +m[3] < 12
 }
 
 // Base geometry at 680px — all values scale linearly with available size
@@ -74,7 +85,7 @@ function buildPixelPositions(size: number, scale: number): PixelPos[] {
   return all
 }
 
-const RingVisualizationCanvas = ({ colors, activeRings, zoom = 1, onZoomChange, resetPanToken, fit = 'width' }: RingVisualizationCanvasProps) => {
+const RingVisualizationCanvas = ({ colors, activeRings, zoom = 1, onZoomChange, resetPanToken, fit = 'width', darkOff = false }: RingVisualizationCanvasProps) => {
   const wrapperRef = React.useRef<HTMLDivElement>(null)
   const canvasRef = React.useRef<HTMLCanvasElement>(null)
   const [size, setSize] = React.useState(BASE)
@@ -146,13 +157,28 @@ const RingVisualizationCanvas = ({ colors, activeRings, zoom = 1, onZoomChange, 
     for (const pos of pixelPositions) {
       const ringNumber = pos.ringIdx + 1
       const isActive = !activeRings || activeRings.length === 0 || activeRings.includes(ringNumber)
+      const fill = colors.get(ringNumber)?.[pos.pixelIndex] ?? 'rgb(0,0,0)'
+
+      if (darkOff) {
+        // Live look: off LEDs are pure black (no outline); only lit pixels are drawn + ringed.
+        if (!isActive || isOffColor(fill)) continue
+        ctx.beginPath()
+        ctx.arc(pos.cx, pos.cy, pixelRadius, 0, Math.PI * 2)
+        ctx.fillStyle = fill
+        ctx.fill()
+        ctx.strokeStyle = activeStroke
+        ctx.lineWidth = 1
+        ctx.stroke()
+        continue
+      }
+
       ctx.beginPath()
       ctx.arc(pos.cx, pos.cy, pixelRadius, 0, Math.PI * 2)
       if (isActive) {
         ctx.strokeStyle = activeStroke
         ctx.lineWidth = 1
         ctx.stroke()
-        ctx.fillStyle = colors.get(ringNumber)?.[pos.pixelIndex] ?? 'rgb(0,0,0)'
+        ctx.fillStyle = fill
         ctx.fill()
       } else {
         ctx.strokeStyle = inactiveStroke
@@ -161,7 +187,7 @@ const RingVisualizationCanvas = ({ colors, activeRings, zoom = 1, onZoomChange, 
       }
     }
     ctx.restore()
-  }, [colors, activeRings, pixelPositions, size, scale, zoom, pan])
+  }, [colors, activeRings, pixelPositions, size, scale, zoom, pan, darkOff])
 
   // Ctrl+wheel: zoom towards mouse
   React.useEffect(() => {

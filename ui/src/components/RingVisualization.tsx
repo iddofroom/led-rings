@@ -26,6 +26,8 @@ interface RingVisualizationProps {
   resetPanToken?: number
   /** Global brightness multiplier 0–1, applied to all rendered pixel values */
   globalBrightness?: number
+  /** Render off LEDs as pure black (no gray outline) — for the live console. */
+  darkOff?: boolean
 }
 
 /** Compute normalized time t in [0,1] for a timeframe at a given currentTime in beats.
@@ -147,6 +149,7 @@ const RingVisualization = ({
   onZoomChange,
   resetPanToken,
   globalBrightness = 1,
+  darkOff = false,
 }: RingVisualizationProps) => {
   // Multi-big-ring playback mode when a timeframes array is provided.
   const multiMode = Boolean(timeframes && currentTime !== undefined)
@@ -260,6 +263,7 @@ const RingVisualization = ({
           onZoomChange={onZoomChange}
           resetPanToken={resetPanToken}
           fit="box"
+          darkOff={darkOff}
         />
       </div>
     )
