@@ -1476,6 +1476,23 @@ function App() {
 
   /** Load a saved composition (working timeline or a named animation) from the library. */
   const loadCompositionFromLibrary = async (slug: string, comp: string) => {
+    // "fresh" — open a song that has no saved working timeline yet: load its meta
+    // (name/bpm/length/audio) into an empty timeline so it can be worked on from scratch.
+    if (comp === 'fresh') {
+      const m = (await library.getSong(slug)).meta
+      loadCategoryPreview({
+        song: {
+          name: m?.name, bpm: m?.bpm, lengthSeconds: m?.lengthSeconds,
+          startOffsetMs: m?.startOffsetMs, animationType: m?.animationType,
+          audioFilePath: m?.audioFilename, beatTimestampsMs: m?.beatTimestampsMs,
+          librarySlug: slug,
+        },
+        timeframes: [],
+      }, { librarySlug: slug, suppressAutosave: true })
+      setCurrentBranch('main')
+      setHeadVerId(null)
+      return
+    }
     const payload = await library.getComposition(slug, comp)
     loadCategoryPreview(payload as { song: Record<string, unknown>; timeframes: unknown[] }, {
       librarySlug: slug,
@@ -2396,16 +2413,20 @@ function App() {
           <div className="app-main-view-toggle" style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', borderBottom: '1px solid var(--border)', flexShrink: 0 }}>
             <span style={{ padding: '6px 14px', borderRadius: 8, fontSize: 13, fontWeight: 700, color: '#fff', background: 'linear-gradient(135deg,#667eea 0%,#764ba2 100%)' }}>⚙ הגדרות ופאטרנים</span>
             <span style={{ flex: 1 }} />
-            <button
-              onClick={() => setShowLiveConsole(true)}
-              title="פתח את עורך השירים במסך מלא — הטיימליין, הפאטרנים והשליטה החיה"
-              style={{
-                padding: '9px 22px', borderRadius: 10, fontSize: 15, fontWeight: 800, cursor: 'pointer',
-                border: 'none', color: '#fff',
-                background: 'linear-gradient(135deg,#f59e0b 0%,#ef4444 100%)',
-                boxShadow: '0 2px 14px rgba(245,158,11,0.4)',
-              }}
-            >🎬 עורך שירים · מסך מלא</button>
+            {(song.audioFilePath || song.librarySlug || timeframes.length > 0) ? (
+              <button
+                onClick={() => setShowLiveConsole(true)}
+                title="פתח את עורך השירים במסך מלא — הטיימליין, הפאטרנים והשליטה החיה"
+                style={{
+                  padding: '9px 22px', borderRadius: 10, fontSize: 15, fontWeight: 800, cursor: 'pointer',
+                  border: 'none', color: '#fff',
+                  background: 'linear-gradient(135deg,#f59e0b 0%,#ef4444 100%)',
+                  boxShadow: '0 2px 14px rgba(245,158,11,0.4)',
+                }}
+              >🎬 עורך שירים · מסך מלא</button>
+            ) : (
+              <span style={{ fontSize: 12, color: 'var(--text-faint)' }}>טען שיר מהספרייה כדי לפתוח את עורך השירים</span>
+            )}
           </div>
           <div className="app-main-timeline-wrap">
             <PatternLibrary

@@ -167,11 +167,13 @@ export default function LibraryPanel({ onClose, activeSlug, onLoadComposition }:
                         {s.updatedAt ? ` · ${fmtDate(s.updatedAt)}` : ''}
                       </div>
                     </div>
-                    {s.hasWorking && (
-                      <button onClick={() => load(s.slug, 'working')} style={loadBtn} title="Load the last working timeline">
-                        Open ▸
-                      </button>
-                    )}
+                    <button
+                      onClick={() => load(s.slug, s.hasWorking ? 'working' : 'fresh')}
+                      style={loadBtn}
+                      title={s.hasWorking ? 'Load the last working timeline' : 'Open this song with an empty timeline to start working'}
+                    >
+                      Open ▸
+                    </button>
                     <button onClick={() => del(s.slug, undefined, s.name || s.slug)} style={trashBtn} title="Delete song">🗑</button>
                   </div>
 
