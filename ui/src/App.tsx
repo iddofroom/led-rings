@@ -358,12 +358,21 @@ function App() {
   const [importedPatterns, setImportedPatterns] = useState<ImportedPattern[]>(() => {
     try { const v = JSON.parse(localStorage.getItem('kivsee:patternsImported') || '[]'); return Array.isArray(v) ? (v as ImportedPattern[]) : [] } catch { return [] }
   })
-  // Renamed pattern display names (override the preset's default), applied across the library.
-  const [patternNames, setPatternNames] = useState<Record<string, string>>(() => {
-    try { return JSON.parse(localStorage.getItem('kivsee:patternNames') || '{}') } catch { return {} }
+  // Per-pattern edits (name + speed + palette) overriding the preset's defaults, applied
+  // across the library so renames/recolors/speed stick. Persisted in localStorage.
+  const [patternEdits, setPatternEdits] = useState<Record<string, { name?: string; speed?: number; paletteId?: string }>>(() => {
+    try {
+      const raw = JSON.parse(localStorage.getItem('kivsee:patternEdits') || 'null')
+      if (raw && typeof raw === 'object') return raw
+      const old = JSON.parse(localStorage.getItem('kivsee:patternNames') || '{}') // migrate name-only overrides
+      const migrated: Record<string, { name?: string }> = {}
+      for (const k of Object.keys(old)) migrated[k] = { name: old[k] }
+      return migrated
+    } catch { return {} }
   })
-  useEffect(() => { try { localStorage.setItem('kivsee:patternNames', JSON.stringify(patternNames)) } catch {} }, [patternNames])
-  const renamePattern = (id: string, name: string) => setPatternNames((m) => ({ ...m, [id]: name.trim() || m[id] }))
+  useEffect(() => { try { localStorage.setItem('kivsee:patternEdits', JSON.stringify(patternEdits)) } catch {} }, [patternEdits])
+  const savePatternEdit = (id: string, patch: { name?: string; speed?: number; paletteId?: string }) =>
+    setPatternEdits((m) => ({ ...m, [id]: { ...m[id], ...patch } }))
   const [showHistory, setShowHistory] = useState(false)
   const liveSendTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [liveStrip, setLiveStrip] = useState<{ beats: number[]; energy: number[]; sub: number[]; low: number[]; mid: number[]; high: number[] } | null>(null)
@@ -2493,8 +2502,8 @@ function App() {
                 onApplyPreset={addTimeframesFromPreset}
                 onApplyEdited={(tfs, name) => upsertSongAnimation(name, tfs)}
                 onSavePattern={(name, tfs) => upsertSongAnimation(name, tfs)}
-                patternNames={patternNames}
-                onRenamePattern={renamePattern}
+                patternEdits={patternEdits}
+                onSavePatternEdit={savePatternEdit}
                 onHideForSong={hidePatternForSong}
                 onHideGlobal={hidePatternGlobal}
                 onRestoreForSong={restorePatternForSong}
