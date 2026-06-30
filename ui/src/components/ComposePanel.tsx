@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react'
+import TasteRulesEditor from './TasteRulesEditor'
 
 /**
  * Compose panel (PHASE 1+2 GUI): analyze an audio file, EAR-CHECK the detected
@@ -239,10 +240,11 @@ export default function ComposePanel({ apiBase, song, onLoad, onReplaceSection, 
         {/* 2. Taste rules */}
         <section style={card}>
           <h3 style={h3}>2 · Taste rules <span style={{ fontWeight: 400, fontSize: 12, color: '#9aa' }}>(taste/rules.yaml — yours to own)</span></h3>
-          <textarea value={rulesText} onChange={(e) => setRulesText(e.target.value)} spellCheck={false}
-            style={{ width: '100%', height: 220, fontFamily: 'monospace', fontSize: 12, padding: 8, boxSizing: 'border-box' }} />
-          <button onClick={saveRules} disabled={!!busy} style={secondaryBtn}>Save rules</button>
-          <span style={{ fontSize: 11, color: '#789', marginLeft: 8 }}>Only SAFE-list effects (the file header lists them). Generate persists edits automatically.</span>
+          <TasteRulesEditor value={rulesText} onChange={setRulesText} />
+          <div style={{ marginTop: 10 }}>
+            <button onClick={saveRules} disabled={!!busy} style={secondaryBtn}>Save rules</button>
+            <span style={{ fontSize: 11, color: '#789', marginLeft: 8 }}>Generate persists edits automatically.</span>
+          </div>
         </section>
 
         {/* 3. Generate */}

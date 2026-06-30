@@ -156,3 +156,13 @@ dist
 .yarn/build-state.yml
 .yarn/install-state.gz
 .pnp.*
+
+# ── Remote-access host bundle — carries the Cloudflare tunnel TOKEN (a secret) and is
+#    deployed manually (npx wrangler deploy), never via git. Keep these out of the repo.
+/remote-deploy/
+/cf-worker/
+/led-rings-host-bundle.zip
+/bridge.js
+
+# Local audio test fixtures (large binaries; canonical copies live in the cloud KV library)
+/src/audio/

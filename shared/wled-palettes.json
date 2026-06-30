@@ -1,0 +1,24 @@
+{
+  "_note": "Color presets sourced from WLED / FastLED gradient palettes (cpt-city). Single source of truth shared by the UI (shared/wled-palettes.ts) and any future translator use. Each palette's `colors` is an ordered list of representative swatches sampled along the original gradient (vivid stops first). `wledId` is the palette's index in WLED where known.",
+  "_source": "https://kno.wled.ge/features/palettes/ + FastLED palettes.h",
+  "palettes": [
+    { "id": "basic",       "name": "Basic",       "colors": ["#ffffff","#ef4444","#f59e0b","#eab308","#22c55e","#06b6d4","#3b82f6","#a855f7","#ec4899"] },
+    { "id": "rainbow",     "name": "Rainbow",     "wledId": 11, "colors": ["#ff0000","#ff8800","#e6ff00","#00ff15","#00ffaa","#00b3ff","#0026ff","#9d00ff","#ff00aa"] },
+    { "id": "party",       "name": "Party",       "wledId": 5,  "colors": ["#5500ab","#a8006b","#e5001b","#ff5500","#ffaa00","#ffe000"] },
+    { "id": "lava",        "name": "Lava",        "wledId": 8,  "colors": ["#1c0000","#7a0a00","#b71300","#e62200","#ff6600","#ffaa00","#ffff00","#ffffff"] },
+    { "id": "fire",        "name": "Fire",        "wledId": 35, "colors": ["#330000","#7a0000","#cc0000","#ff2200","#ff6600","#ff9900","#ffcc00","#ffff66","#ffffff"] },
+    { "id": "ocean",       "name": "Ocean",       "wledId": 7,  "colors": ["#191970","#000080","#00008b","#1e5aa8","#0077be","#008080","#2e8b57","#20b2aa","#7fffd4","#e0ffff"] },
+    { "id": "cloud",       "name": "Cloud",       "wledId": 6,  "colors": ["#00008b","#0000cd","#1e5aa8","#4169e1","#6495ed","#87ceeb","#add8e6","#f0f8ff","#ffffff"] },
+    { "id": "forest",      "name": "Forest",      "wledId": 9,  "colors": ["#004000","#006400","#2e8b57","#228b22","#6b8e23","#32cd32","#9acd32","#7cfc00","#adff2f"] },
+    { "id": "sunset",      "name": "Sunset",      "wledId": 12, "colors": ["#780000","#b31600","#ff6800","#a71612","#640067","#100082","#0000a0"] },
+    { "id": "aurora",      "name": "Aurora",      "wledId": 50, "colors": ["#11b10d","#79f205","#19ad79","#0aa0c0","#fa4d7f","#ab65dd"] },
+    { "id": "atlantica",   "name": "Atlantica",   "wledId": 58, "colors": ["#001c70","#2060ff","#00f30f","#0c5f52","#19be5f","#28aa50"] },
+    { "id": "temperature", "name": "Temperature", "wledId": 66, "colors": ["#011b69","#1f56d8","#1d95c0","#16e856","#9acd00","#e8d200","#e85000","#bd0003"] },
+    { "id": "yelblu",      "name": "Yelblu",      "wledId": 42, "colors": ["#0000ff","#0055cc","#00aaff","#88ddff","#ffdd00","#ffff00"] },
+    { "id": "autumn",      "name": "Autumn",      "wledId": 26, "colors": ["#5a1e00","#8a3a00","#c85000","#e08000","#a01800","#6e1500"] },
+    { "id": "c9",          "name": "C9",          "wledId": 48, "colors": ["#b80400","#e87000","#0a7a06","#0a0a8c","#b85700"] },
+    { "id": "sakura",      "name": "Sakura",      "colors": ["#ff5e8a","#ff8fb1","#ffb3c6","#ffd6e0","#ffffff"] },
+    { "id": "pastel",      "name": "Pastel",      "wledId": 39, "colors": ["#ffb3ba","#ffdfba","#ffffba","#baffc9","#bae1ff","#d7baff"] },
+    { "id": "pinkcandy",   "name": "Pink Candy",  "colors": ["#ff00aa","#ff55cc","#ff99dd","#ffffff","#cc00ff"] }
+  ]
+}
