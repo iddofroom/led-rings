@@ -912,21 +912,26 @@ const Timeline = ({ timeframes, songLengthBeats, bpm, onUpdate, onUpdateSilent, 
             )
           })}
         </div>
-        {/* Current time indicator */}
-        <div
-          className="current-time-indicator"
-          style={{ top: `${currentTime * pxPerBeat}px` }}
-        >
-          <div className="current-time-indicator-line"></div>
-          <div 
-            className="current-time-indicator-handle"
-            onMouseDown={(e) => {
-              e.preventDefault()
-              e.stopPropagation()
-              setIsDraggingTimeIndicator(true)
-            }}
-          ></div>
-        </div>
+        {/* Current time indicator — only while the playhead is within the song. When
+            currentTime is negative (audio pre-roll extrapolates negative beats) or NaN,
+            a negative `top` would push this red line ABOVE the timeline and float it over
+            the panel above; gating to [0, maxTime] keeps it clipped inside the scroll view. */}
+        {currentTime >= 0 && currentTime <= maxTime && (
+          <div
+            className="current-time-indicator"
+            style={{ top: `${currentTime * pxPerBeat}px` }}
+          >
+            <div className="current-time-indicator-line"></div>
+            <div
+              className="current-time-indicator-handle"
+              onMouseDown={(e) => {
+                e.preventDefault()
+                e.stopPropagation()
+                setIsDraggingTimeIndicator(true)
+              }}
+            ></div>
+          </div>
+        )}
         </div>
       </div>
     </div>

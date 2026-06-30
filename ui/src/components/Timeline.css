@@ -418,7 +418,9 @@
   left: 0;
   right: 0;
   pointer-events: none;
-  z-index: 1000;
+  /* Below modal/overlay panels (z-index 1000) so it can never paint over them even if
+     it momentarily escapes the timeline; still above the timeframe blocks. */
+  z-index: 200;
 }
 
 .current-time-indicator-line {
