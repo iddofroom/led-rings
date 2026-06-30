@@ -7,6 +7,8 @@ import ComposePanel from './components/ComposePanel'
 import LibraryPanel from './components/LibraryPanel'
 import LiveConsole from './components/LiveConsole'
 import HistoryPanel from './components/HistoryPanel'
+import PatternLibrary from './components/PatternLibrary'
+import type { ImportedPattern } from './components/PatternLibrary'
 import { library, fileToBase64 } from './lib/library'
 import { putAudio, getAudio } from './lib/audioCache'
 import { useViewRange } from './hooks/useViewRange'
@@ -131,6 +133,11 @@ export interface Song {
   beatTimestampsMs?: number[]
   /** When this song lives in the cloud library, its slug. Drives auto-save + audio resolution. (Client-only.) */
   librarySlug?: string
+  /** Custom section-boundary beats added in the Live Console. When set, they define the
+   *  sections patterns snap to AND the sections a Recompose regenerates against. */
+  sectionLines?: number[]
+  /** Pattern ids hidden for THIS song only (curated on the main settings page). */
+  hiddenPatterns?: string[]
 }
 
 const LAST_SONG_STORAGE_KEY = 'timelineManager:lastSong'
@@ -335,8 +342,20 @@ function App() {
   const [showCompose, setShowCompose] = useState(false)
   const [showLibrary, setShowLibrary] = useState(false)
   const [showLiveConsole, setShowLiveConsole] = useState(false)
+  // Main page view: 'patterns' = song settings + pattern library (no timeline);
+  // 'timeline' = the timeline editor. The fullscreen Live Console is the primary timeline workspace.
+  const [mainView, setMainView] = useState<'patterns' | 'timeline'>('patterns')
+  // Pattern-library curation. Per-song hides live on the song (song.hiddenPatterns);
+  // global hides + imported patterns persist in localStorage across songs.
+  const [globalHiddenPatterns, setGlobalHiddenPatterns] = useState<string[]>(() => {
+    try { const v = JSON.parse(localStorage.getItem('kivsee:patternsHiddenGlobal') || '[]'); return Array.isArray(v) ? v.filter((x: unknown): x is string => typeof x === 'string') : [] } catch { return [] }
+  })
+  const [importedPatterns, setImportedPatterns] = useState<ImportedPattern[]>(() => {
+    try { const v = JSON.parse(localStorage.getItem('kivsee:patternsImported') || '[]'); return Array.isArray(v) ? (v as ImportedPattern[]) : [] } catch { return [] }
+  })
   const [showHistory, setShowHistory] = useState(false)
   const liveSendTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const [liveStrip, setLiveStrip] = useState<{ beats: number[]; energy: number[]; sub: number[]; low: number[]; mid: number[]; high: number[] } | null>(null)
   // Cloud-library auto-save status, shown next to the floating actions.
   const [librarySaveState, setLibrarySaveState] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
   // Git-like version history: which branch we commit to + the version the working timeline
@@ -580,6 +599,28 @@ function App() {
       mapping: 'all'
     }
     setTimeframes([...timeframes, newTimeframe])
+  }
+
+  // ── Pattern-library curation (main settings page) ──
+  useEffect(() => { try { localStorage.setItem('kivsee:patternsHiddenGlobal', JSON.stringify(globalHiddenPatterns)) } catch {} }, [globalHiddenPatterns])
+  useEffect(() => { try { localStorage.setItem('kivsee:patternsImported', JSON.stringify(importedPatterns)) } catch {} }, [importedPatterns])
+  const hidePatternForSong = (id: string) =>
+    setSong((s) => ({ ...s, hiddenPatterns: Array.from(new Set([...(s.hiddenPatterns ?? []), id])) }))
+  const restorePatternForSong = (id: string) =>
+    setSong((s) => ({ ...s, hiddenPatterns: (s.hiddenPatterns ?? []).filter((x) => x !== id) }))
+  const hidePatternGlobal = (id: string) =>
+    setGlobalHiddenPatterns((prev) => (prev.includes(id) ? prev : [...prev, id]))
+  const restorePatternGlobal = (id: string) =>
+    setGlobalHiddenPatterns((prev) => prev.filter((x) => x !== id))
+  const importPatterns = (patterns: ImportedPattern[]) => {
+    setImportedPatterns((prev) => {
+      const m = new Map(prev.map((p) => [p.id, p]))
+      for (const p of patterns) m.set(p.id, p)
+      return Array.from(m.values())
+    })
+    // Re-importing un-hides globally, so a removed pattern truly returns.
+    const ids = new Set(patterns.map((p) => p.id))
+    setGlobalHiddenPatterns((prev) => prev.filter((x) => !ids.has(x)))
   }
 
   const addTimeframesFromPreset = (preset: PresetMetadata) => {
@@ -1191,6 +1232,8 @@ function App() {
       audioFilePath: typeof s.audioFilePath === 'string' ? s.audioFilePath : undefined,
       beatTimestampsMs: Array.isArray(s.beatTimestampsMs) ? s.beatTimestampsMs as number[] : undefined,
       librarySlug: typeof s.librarySlug === 'string' ? s.librarySlug : undefined,
+      sectionLines: Array.isArray(s.sectionLines) ? (s.sectionLines as number[]).filter((n) => typeof n === 'number') : undefined,
+      hiddenPatterns: Array.isArray(s.hiddenPatterns) ? (s.hiddenPatterns as unknown[]).filter((x): x is string => typeof x === 'string') : undefined,
     }
   }
 
@@ -1331,7 +1374,28 @@ function App() {
     void ensureSongInLibrary({ analysis, songOverride: merged, audioUrl })
   }
 
-  /** Regenerate the whole composition from the cached/library analysis (used by the Live Console). */
+  /** Build a sections[] array from custom section-line beats (for Recompose). Each region
+   *  inherits the label of the analysis section under its midpoint, so taste rules still apply. */
+  const buildCustomSections = (analysis: any, lines: number[]): any[] => {
+    const orig: any[] = analysis?.sections || []
+    const bounds = [0, ...lines.filter((b) => b > 0 && b < songLengthBeats), songLengthBeats].sort((a, b) => a - b)
+    const uniq = [...new Set(bounds.map((b) => Math.round(b)))]
+    const defSummary = orig[0]?.summary || { energy: 0.5, energyAbs: 0, onsetDensity: 0, spectralCentroid: 0, bandEnergy: { sub: 0, low: 0, mid: 0, high: 0 } }
+    const out: any[] = []
+    for (let i = 0; i < uniq.length - 1; i++) {
+      const sB = uniq[i], eB = uniq[i + 1]
+      if (eB <= sB) continue
+      const startMs = Math.round(beatsToAudioSec(sB, song) * 1000)
+      const endMs = Math.round(beatsToAudioSec(eB, song) * 1000)
+      const midMs = (startMs + endMs) / 2
+      const host = orig.find((s) => midMs >= s.startMs && midMs < s.endMs)
+      out.push({ startMs, endMs, label: host?.label || 'verse', confidence: 1, bpm: analysis?.bpmGlobal || song.bpm, summary: host?.summary || defSummary })
+    }
+    return out
+  }
+
+  /** Regenerate the whole composition from the cached/library analysis (used by the Live Console).
+   *  When custom section lines exist, regenerate against THOSE boundaries. */
   const recomposeCurrent = async () => {
     if (!API_BASE) { window.alert('Control server is not running.'); return }
     let analysis = lastAnalysisRef.current
@@ -1339,17 +1403,44 @@ function App() {
       try { analysis = await library.getAnalysis(song.librarySlug) } catch {}
     }
     if (!analysis) { window.alert('No analysis yet — open 🎵 Compose and Analyze the song first.'); return }
+    const lines = song.sectionLines
+    const a = lines && lines.length ? { ...analysis, sections: buildCustomSections(analysis, lines) } : analysis
     try {
       const r = await fetch(`${API_BASE}/api/translate`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ analysis, useLlm: true }),
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ analysis: a, useLlm: true }),
       })
       if (!r.ok) { const j = await r.json().catch(() => ({})); throw new Error((j as any).error || `translate ${r.status}`) }
       const result = await r.json()
-      loadCategoryPreview(result)
+      loadCategoryPreview(result, { librarySlug: song.librarySlug })
     } catch (e) {
       window.alert('Recompose failed: ' + (e instanceof Error ? e.message : String(e)))
     }
   }
+
+  // Build the energy/band strip for the Live Console from the cached/library analysis.
+  useEffect(() => {
+    if (!showLiveConsole) return
+    let cancelled = false
+    ;(async () => {
+      let a: any = lastAnalysisRef.current
+      if (!a && song.librarySlug) { try { a = await library.getAnalysis(song.librarySlug) } catch {} }
+      const c = a?.curves
+      if (!c?.timeMs?.length || !c.energy?.length) { if (!cancelled) setLiveStrip(null); return }
+      const n = c.timeMs.length
+      const step = Math.max(1, Math.floor(n / 320))
+      const beats: number[] = [], energy: number[] = [], sub: number[] = [], low: number[] = [], mid: number[] = [], high: number[] = []
+      for (let i = 0; i < n; i += step) {
+        beats.push(audioSecToBeats(c.timeMs[i] / 1000, song))
+        energy.push(c.energy[i] ?? 0)
+        sub.push(c.bandEnergy?.sub?.[i] ?? 0)
+        low.push(c.bandEnergy?.low?.[i] ?? 0)
+        mid.push(c.bandEnergy?.mid?.[i] ?? 0)
+        high.push(c.bandEnergy?.high?.[i] ?? 0)
+      }
+      if (!cancelled) setLiveStrip({ beats, energy, sub, low, mid, high })
+    })()
+    return () => { cancelled = true }
+  }, [showLiveConsole, song.librarySlug])
 
   /** Save the current timeline as a named animation snapshot. */
   const saveCurrentAnimation = async () => {
@@ -2016,6 +2107,9 @@ function App() {
           }}
           autoSend={controlServerAvailable}
           onRecompose={recomposeCurrent}
+          strip={liveStrip}
+          sectionLines={song.sectionLines || []}
+          onSectionLinesChange={(lines) => handleSongChange({ sectionLines: lines })}
           onClose={() => setShowLiveConsole(false)}
         />
       )}
@@ -2286,55 +2380,90 @@ function App() {
           onMouseDown={() => setResizing('playback')}
           title="Drag to resize Playback panel"
         />
-        <div className="app-main">
-          <div className="app-main-timeline-wrap">
-            <Timeline
-              timeframes={timeframes}
-              songLengthBeats={songLengthBeats}
-              bpm={song.bpm}
-              onUpdate={updateTimeframe}
-              onUpdateSilent={updateTimeframeSilent}
-              onUpdateSilentBatch={updateTimeframesSilentBatch}
-              onCheckpoint={checkpointTimeframes}
-              onDelete={deleteTimeframe}
-              onAdd={addTimeframeFromDrag}
-              onCopy={copyTimeframe}
-              onPaste={pasteTimeframe}
-              hasClipboard={clipboardTimeframe !== null}
-              focusedTimeframeId={focusedTimeframeId}
-              onFocusedTimeframeChange={setFocusedTimeframeId}
-              selectedTimeframeIds={selectedTimeframeIds}
-              onSelectedTimeframeIdsChange={setSelectedTimeframeIds}
-              currentTime={currentTime}
-              onCurrentTimeChange={handleCurrentTimeChange}
-              viewStartBeat={viewStartBeat}
-              beatsPerScreen={beatsPerScreen}
-              onScrollTo={viewActions.scrollTo}
-              onZoomAt={viewActions.zoomAt}
-              onPanBy={viewActions.panBy}
-              onSeekToBeat={handleSeekToBeat}
-              beatTimestampsMs={song.beatTimestampsMs}
-            />
+        <div className="app-main" style={{ flexDirection: 'column' }}>
+          <div className="app-main-view-toggle" style={{ display: 'flex', gap: 6, padding: '8px 12px', borderBottom: '1px solid var(--border)', flexShrink: 0 }}>
+            {([['patterns', '⚙ הגדרות ופאטרנים'], ['timeline', '📊 טיימליין']] as const).map(([key, label]) => (
+              <button
+                key={key}
+                onClick={() => setMainView(key)}
+                style={{
+                  padding: '6px 14px', borderRadius: 8, fontSize: 13, fontWeight: 700, cursor: 'pointer',
+                  border: '1px solid var(--border2)',
+                  background: mainView === key ? 'linear-gradient(135deg,#667eea 0%,#764ba2 100%)' : 'var(--surface)',
+                  color: mainView === key ? '#fff' : 'var(--text-muted)',
+                }}
+              >{label}</button>
+            ))}
           </div>
+          {mainView === 'patterns' ? (
+            <div className="app-main-timeline-wrap">
+              <PatternLibrary
+                imported={importedPatterns}
+                globalHidden={globalHiddenPatterns}
+                songHidden={song.hiddenPatterns ?? []}
+                songName={song.name}
+                onApplyPreset={addTimeframesFromPreset}
+                onHideForSong={hidePatternForSong}
+                onHideGlobal={hidePatternGlobal}
+                onRestoreForSong={restorePatternForSong}
+                onRestoreGlobal={restorePatternGlobal}
+                onImport={importPatterns}
+              />
+            </div>
+          ) : (
+            <div className="app-main-timeline-wrap">
+              <Timeline
+                timeframes={timeframes}
+                songLengthBeats={songLengthBeats}
+                bpm={song.bpm}
+                onUpdate={updateTimeframe}
+                onUpdateSilent={updateTimeframeSilent}
+                onUpdateSilentBatch={updateTimeframesSilentBatch}
+                onCheckpoint={checkpointTimeframes}
+                onDelete={deleteTimeframe}
+                onAdd={addTimeframeFromDrag}
+                onCopy={copyTimeframe}
+                onPaste={pasteTimeframe}
+                hasClipboard={clipboardTimeframe !== null}
+                focusedTimeframeId={focusedTimeframeId}
+                onFocusedTimeframeChange={setFocusedTimeframeId}
+                selectedTimeframeIds={selectedTimeframeIds}
+                onSelectedTimeframeIdsChange={setSelectedTimeframeIds}
+                currentTime={currentTime}
+                onCurrentTimeChange={handleCurrentTimeChange}
+                viewStartBeat={viewStartBeat}
+                beatsPerScreen={beatsPerScreen}
+                onScrollTo={viewActions.scrollTo}
+                onZoomAt={viewActions.zoomAt}
+                onPanBy={viewActions.panBy}
+                onSeekToBeat={handleSeekToBeat}
+                beatTimestampsMs={song.beatTimestampsMs}
+              />
+            </div>
+          )}
         </div>
-        <div
-          className="app-resize-handle app-resize-handle-details"
-          onMouseDown={() => setResizing('details')}
-          title="Drag to resize Details panel"
-        />
-        <div
-          className="app-details-wrapper"
-          style={{ width: detailsPanelWidth, minWidth: detailsPanelWidth }}
-        >
-          <TimeframePanel
-            timeframe={focusedTimeframe}
-            onUpdate={handlePanelUpdate}
-            onClose={() => setFocusedTimeframeId(null)}
-            onApplyPreset={addTimeframesFromPreset}
-            onLoadCategoryPreview={loadCategoryPreview}
-            songLengthBeats={songLengthBeats}
-          />
-        </div>
+        {mainView === 'timeline' && (
+          <>
+            <div
+              className="app-resize-handle app-resize-handle-details"
+              onMouseDown={() => setResizing('details')}
+              title="Drag to resize Details panel"
+            />
+            <div
+              className="app-details-wrapper"
+              style={{ width: detailsPanelWidth, minWidth: detailsPanelWidth }}
+            >
+              <TimeframePanel
+                timeframe={focusedTimeframe}
+                onUpdate={handlePanelUpdate}
+                onClose={() => setFocusedTimeframeId(null)}
+                onApplyPreset={addTimeframesFromPreset}
+                onLoadCategoryPreview={loadCategoryPreview}
+                songLengthBeats={songLengthBeats}
+              />
+            </div>
+          </>
+        )}
       </div>
     </div>
   )
