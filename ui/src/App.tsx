@@ -823,6 +823,27 @@ function App() {
     setCurrentTime(clamped)
   }
 
+  /** Write just the generated .ts to src/songs/ via the control server. No JSON export,
+   *  no directory picker, no browser download — safe to call automatically (auto-send). */
+  const saveTsToServer = async () => {
+    if (!API_BASE) return
+    const safeName = (song.name || 'song').trim() || 'song'
+    const tsCode = generateSequenceTs(song, timeframes)
+    try {
+      const resp = await fetch(`${API_BASE}/api/save-file`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ path: `src/songs/${safeName}.ts`, content: tsCode }),
+      })
+      if (!resp.ok) {
+        const err = await resp.json().catch(() => ({}))
+        console.error('Failed to save TS file via server:', err)
+      }
+    } catch (e) {
+      console.warn('Control server unavailable, skipping TS save:', e)
+    }
+  }
+
   const handleSendSequence = async () => {
     if (!API_BASE) {
       console.warn('VITE_API_URL not set; cannot send sequence')
@@ -830,8 +851,8 @@ function App() {
     }
     setSendSequenceLoading(true)
     try {
-      // Save JSON + TS first, then execute the saved TS file
-      await handleSaveTimeframes()
+      // Write the TS to the server (NO JSON download), then execute the saved TS file
+      await saveTsToServer()
       const safeName = (song.name || 'song').trim() || 'song'
       const filePath = `src/songs/${safeName}.ts`
       const res = await fetch(`${API_BASE}/api/send-sequence`, {
@@ -1206,23 +1227,8 @@ function App() {
       downloadFile(dataStr, `${safeName}.json`, 'application/json')
     }
 
-    // Save TS to src/songs/ via control-server (always uses ../ import prefix)
-    if (API_BASE) {
-      const tsCode = generateSequenceTs(song, timeframes)
-      try {
-        const resp = await fetch(`${API_BASE}/api/save-file`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ path: `src/songs/${safeName}.ts`, content: tsCode }),
-        })
-        if (!resp.ok) {
-          const err = await resp.json().catch(() => ({}))
-          console.error('Failed to save TS file via server:', err)
-        }
-      } catch (e) {
-        console.warn('Control server unavailable, skipping TS save:', e)
-      }
-    }
+    // Save TS to src/songs/ via control-server (server-only, no download)
+    await saveTsToServer()
   }
 
   // Normalize loaded song to use lengthSeconds/runStartTimeSeconds (support old lengthBeats/runStartTimeBeats)

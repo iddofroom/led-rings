@@ -219,9 +219,23 @@ export default function LiveConsole({
           </div>
         </div>
 
-        {/* Per-ring drop targets */}
+        {/* Drop targets: ALL + each ring */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-          <span style={{ fontSize: 11, color: '#8aa', marginRight: 4 }}>Drop on a ring:</span>
+          <span style={{ fontSize: 11, color: '#8aa', marginRight: 4 }}>Drop on:</span>
+          <div
+            onDragOver={allowDrop('all-chip')} onDragLeave={() => setDropHint(null)}
+            onDrop={onDropTo(ALL_RINGS, currentRange(), `ALL · ${currentSection?.label ?? 'song'}`)}
+            onClick={() => armed && apply(armed, ALL_RINGS, currentRange(), `ALL · ${currentSection?.label ?? 'song'}`)}
+            title={`Apply to ALL 12 rings (${currentSection?.label ?? 'song'})`}
+            style={{
+              height: 30, padding: '0 14px', borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center',
+              fontSize: 12, fontWeight: 800, letterSpacing: '0.05em', cursor: armed ? 'pointer' : 'grab',
+              background: dropHint === 'all-chip' ? '#34d399' : 'linear-gradient(135deg,#6366f1,#8b5cf6)',
+              color: dropHint === 'all-chip' ? '#04150f' : '#fff', border: '1px solid #ffffff33',
+            }}>
+            ⬤ ALL
+          </div>
+          <span style={{ fontSize: 11, color: '#566', margin: '0 2px' }}>|</span>
           {ALL_RINGS.map((r) => {
             const on = activeRings.includes(r)
             return (

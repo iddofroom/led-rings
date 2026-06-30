@@ -7,6 +7,9 @@
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  /* Contain the timeline's internal stacking (section markers z-5000, drag handles
+     z-9999/10000, playhead) so none of it can paint over fullscreen overlays / modals. */
+  isolation: isolate;
 }
 
 .timeline-header {
