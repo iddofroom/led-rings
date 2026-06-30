@@ -47,6 +47,8 @@ export default function ComposePanel({ apiBase, song, onLoad, onClose }: Props) 
   const [error, setError] = useState<string | null>(null)
   const [status, setStatus] = useState<string | null>(null)
   const [useLlm, setUseLlm] = useState(false)
+  const [composed, setComposed] = useState<{ song: Record<string, unknown>; timeframes: any[] } | null>(null)
+  const [rerolling, setRerolling] = useState<number | null>(null)
 
   useEffect(() => {
     fetch(`${apiBase}/api/taste-rules`)
@@ -98,12 +100,51 @@ export default function ComposePanel({ apiBase, song, onLoad, onClose }: Props) 
         ? `Asking Gemini to design ${a.sections.length} sections in parallel… (~30–40s)`
         : 'Generating composition…')
       await call('/api/taste-rules', { content: rulesText }) // persist current edits first
-      const result = await call<{ song: Record<string, unknown>; timeframes: unknown[] }>('/api/translate', { analysis: a, useLlm })
+      const result = await call<{ song: Record<string, unknown>; timeframes: any[] }>('/api/translate', { analysis: a, useLlm })
       setBusy('Loading into timeline…')
+      setComposed(result)
       onLoad(result)
-      onClose()
-    } catch (e) { setError(e instanceof Error ? e.message : String(e)); setBusy(null) }
+      setStatus(`Loaded ${result.timeframes.length} timeframes into the timeline. Reroll any part below.`)
+    } catch (e) { setError(e instanceof Error ? e.message : String(e)) }
+    finally { setBusy(null) }
   }
+
+  /** Reroll ONE section's pattern: re-translate just that section and swap its
+   *  timeframes into the current composition (live timeline update). */
+  async function rerollSection(idx: number) {
+    if (!analysis || !composed) return
+    setError(null); setRerolling(idx)
+    try {
+      const res = await call<{ timeframes: any[] }>('/api/translate', { analysis, section: idx, useLlm })
+      const fresh = (res.timeframes || []).map((t) => ({ ...t, _section: idx }))
+      const merged = {
+        song: composed.song,
+        timeframes: [...composed.timeframes.filter((t) => t._section !== idx), ...fresh]
+          .sort((a, b) => (a.startTime ?? 0) - (b.startTime ?? 0)),
+      }
+      setComposed(merged)
+      onLoad(merged)
+    } catch (e) { setError(e instanceof Error ? e.message : String(e)) }
+    finally { setRerolling(null) }
+  }
+
+  /** Group the composed timeframes by section for the per-part reroll list. */
+  const sectionRows = (() => {
+    if (!composed) return []
+    const by = new Map<number, { label: string; pattern: string; count: number; start: number }>()
+    for (const t of composed.timeframes) {
+      const idx = t._section ?? -1
+      if (idx < 0) continue
+      const src = String(t._source || '')
+      const parts = src.split(':')
+      const label = parts[1] || (analysis?.sections[idx]?.label ?? `part ${idx}`)
+      const pattern = parts[2] || '—'
+      const cur = by.get(idx)
+      if (!cur) by.set(idx, { label, pattern, count: 1, start: t.startTime ?? 0 })
+      else { cur.count++; cur.start = Math.min(cur.start, t.startTime ?? 0) }
+    }
+    return [...by.entries()].map(([idx, v]) => ({ idx, ...v })).sort((a, b) => a.start - b.start)
+  })()
 
   const sparkline = useMemo(() => {
     if (!analysis) return null
@@ -197,15 +238,45 @@ export default function ComposePanel({ apiBase, song, onLoad, onClose }: Props) 
         </section>
 
         {/* 3. Generate */}
-        <section style={{ ...card, display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 14 }}>
-          <label style={{ fontSize: 12, color: '#9aa', display: 'flex', alignItems: 'center', gap: 6 }} title="Let Gemini design each section within the SAFE list (needs GEMINI_API_KEY on the control server). Falls back to rules if unavailable.">
-            <input type="checkbox" checked={useLlm} onChange={(e) => setUseLlm(e.target.checked)} />
-            Use Gemini (LLM)
-          </label>
-          <button onClick={generate} disabled={!!busy} style={{ ...primaryBtn, fontSize: 15, padding: '10px 20px', opacity: busy ? 0.65 : 1, display: 'inline-flex', alignItems: 'center', gap: 8 }}>
-            {busy && <span style={{ width: 14, height: 14, border: '2px solid #fff', borderTopColor: 'transparent', borderRadius: '50%', display: 'inline-block', animation: 'composeSpin 0.8s linear infinite' }} />}
-            {busy ? 'Working…' : 'Generate composition → timeline ▸'}
-          </button>
+        <section style={card}>
+          <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 14 }}>
+            <label style={{ fontSize: 12, color: '#9aa', display: 'flex', alignItems: 'center', gap: 6 }} title="Let Gemini pick the pattern + palette per section (needs GEMINI_API_KEY on the control server). Falls back to rules if unavailable.">
+              <input type="checkbox" checked={useLlm} onChange={(e) => setUseLlm(e.target.checked)} />
+              Use Gemini (LLM)
+            </label>
+            <button onClick={generate} disabled={!!busy} style={{ ...primaryBtn, fontSize: 15, padding: '10px 20px', opacity: busy ? 0.65 : 1, display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+              {busy && <span style={{ width: 14, height: 14, border: '2px solid #fff', borderTopColor: 'transparent', borderRadius: '50%', display: 'inline-block', animation: 'composeSpin 0.8s linear infinite' }} />}
+              {busy ? 'Working…' : (composed ? 'Regenerate all ↻' : 'Generate composition → timeline ▸')}
+            </button>
+          </div>
+
+          {/* Per-part reroll — switch the pattern of one section at a time (live). */}
+          {composed && sectionRows.length > 0 && (
+            <div style={{ marginTop: 12, borderTop: '1px solid #3a3f4b', paddingTop: 10 }}>
+              <div style={{ fontSize: 12, color: '#9aa', marginBottom: 6 }}>
+                Reroll any part to switch its pattern (updates the timeline live):
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 4, maxHeight: 200, overflowY: 'auto' }}>
+                {sectionRows.map((r) => (
+                  <div key={r.idx} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, padding: '3px 0' }}>
+                    <span style={{ width: 10, height: 10, borderRadius: 2, background: LABEL_COLORS[r.label] || '#888', flexShrink: 0 }} />
+                    <span style={{ width: 78, color: '#cde' }}>{r.label}</span>
+                    <span style={{ flex: 1, color: '#9aa' }}>{r.pattern} <span style={{ color: '#667' }}>({r.count} tf)</span></span>
+                    <button onClick={() => rerollSection(r.idx)} disabled={rerolling !== null || !!busy}
+                      style={{ ...secondaryBtn, padding: '4px 10px', fontSize: 12, display: 'inline-flex', alignItems: 'center', gap: 5 }}
+                      title="Generate a different pattern for this part">
+                      {rerolling === r.idx
+                        ? <span style={{ width: 11, height: 11, border: '2px solid #fff', borderTopColor: 'transparent', borderRadius: '50%', display: 'inline-block', animation: 'composeSpin 0.8s linear infinite' }} />
+                        : '🔀'} reroll
+                    </button>
+                  </div>
+                ))}
+              </div>
+              <div style={{ textAlign: 'right', marginTop: 10 }}>
+                <button onClick={onClose} style={{ ...primaryBtn, padding: '8px 18px' }}>Done ✓</button>
+              </div>
+            </div>
+          )}
         </section>
       </div>
     </div>
