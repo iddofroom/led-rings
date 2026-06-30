@@ -6,6 +6,7 @@ import Spectrogram from './components/Spectrogram'
 import ComposePanel from './components/ComposePanel'
 import LibraryPanel from './components/LibraryPanel'
 import LiveConsole from './components/LiveConsole'
+import HistoryPanel from './components/HistoryPanel'
 import { library, fileToBase64 } from './lib/library'
 import { useViewRange } from './hooks/useViewRange'
 import { useUndoHistory } from './hooks/useUndoHistory'
@@ -320,12 +321,16 @@ function App() {
   const [showCompose, setShowCompose] = useState(false)
   const [showLibrary, setShowLibrary] = useState(false)
   const [showLiveConsole, setShowLiveConsole] = useState(false)
+  const [showHistory, setShowHistory] = useState(false)
   const liveSendTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   // Cloud-library auto-save status, shown next to the floating actions.
   const [librarySaveState, setLibrarySaveState] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
+  // Git-like version history: which branch we commit to + the version the working timeline
+  // descends from (HEAD). Persisted in localStorage and the cloud working buffer.
+  const [currentBranch, setCurrentBranch] = useState<string>('main')
+  const [headVerId, setHeadVerId] = useState<string | null>(null)
   const lastSavedWorkingRef = useRef<string>('')
   const lastSavedMetaRef = useRef<string>('')
-  const autosaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const lastAnalysisRef = useRef<unknown>(null)
   const headerRef = React.useRef<HTMLDivElement>(null)
   const spectrogramContainerRef = React.useRef<HTMLDivElement>(null)
@@ -1344,45 +1349,81 @@ function App() {
       librarySlug: slug,
       suppressAutosave: comp === 'working',
     })
+    if (comp === 'working') {
+      // The working buffer records the branch + HEAD it descends from — restore that context.
+      setCurrentBranch(typeof payload.branch === 'string' ? payload.branch : 'main')
+      setHeadVerId(typeof payload.headVerId === 'string' ? payload.headVerId : null)
+    }
   }
 
-  // Debounced auto-save of the working timeline + meta, once a song lives in the library.
-  useEffect(() => {
-    if (!hasLoadedInitialStateRef.current) return
+  // Manual save only. The working timeline no longer auto-saves to the cloud on every
+  // keystroke (it overwrote constantly and was hard to trust). localStorage still mirrors
+  // the working state locally so a reload restores it; the cloud is written only by an
+  // explicit Save / branch, which records an immutable version in the song's history.
+
+  /** Persist song meta to the library when it changed (best-effort, alongside a Save). */
+  const persistSongMeta = async (slug: string) => {
+    const metaSnap = metaSnapshot(song)
+    if (metaSnap === lastSavedMetaRef.current) return
+    try {
+      await library.saveSong({
+        slug, name: song.name, bpm: song.bpm, lengthSeconds: song.lengthSeconds,
+        startOffsetMs: song.startOffsetMs, animationType: song.animationType,
+        audioFilename: song.audioFilePath, beatTimestampsMs: song.beatTimestampsMs,
+      })
+      lastSavedMetaRef.current = metaSnap
+    } catch (e) {
+      console.warn('meta save failed', e)
+    }
+  }
+
+  /** Save the current timeline as a new immutable version on the current branch. */
+  const saveVersion = async (label?: string): Promise<string | null> => {
+    setLibrarySaveState('saving')
+    try {
+      let slug = song.librarySlug
+      if (!slug) slug = (await ensureSongInLibrary({ forceAudio: true })) || undefined
+      if (!slug) throw new Error('Could not create the song entry')
+      const res = await library.saveVersion({
+        slug, song: cleanSongForLibrary(song), timeframes,
+        parentId: headVerId, branch: currentBranch, label: label?.trim() || undefined,
+      })
+      await persistSongMeta(slug)
+      setHeadVerId(res.id)
+      setCurrentBranch(res.branch || currentBranch)
+      lastSavedWorkingRef.current = stableWorkingJson(song, timeframes)
+      setLibrarySaveState('saved')
+      return res.id
+    } catch (e) {
+      console.warn('saveVersion failed', e)
+      setLibrarySaveState('error')
+      window.alert('Save failed: ' + (e instanceof Error ? e.message : String(e)))
+      return null
+    }
+  }
+
+  /** Load a version's timeline back into the workspace; HEAD + branch follow it. */
+  const loadVersion = async (id: string) => {
     const slug = song.librarySlug
     if (!slug) return
-    const snapshot = stableWorkingJson(song, timeframes)
-    if (snapshot === lastSavedWorkingRef.current) return
-    if (autosaveTimerRef.current) clearTimeout(autosaveTimerRef.current)
-    autosaveTimerRef.current = setTimeout(async () => {
-      setLibrarySaveState('saving')
-      try {
-        await library.saveComposition({ slug, working: true, song: cleanSongForLibrary(song), timeframes })
-        const metaSnap = metaSnapshot(song)
-        if (metaSnap !== lastSavedMetaRef.current) {
-          await library.saveSong({
-            slug,
-            name: song.name,
-            bpm: song.bpm,
-            lengthSeconds: song.lengthSeconds,
-            startOffsetMs: song.startOffsetMs,
-            animationType: song.animationType,
-            audioFilename: song.audioFilePath,
-            beatTimestampsMs: song.beatTimestampsMs,
-          })
-          lastSavedMetaRef.current = metaSnap
-        }
-        lastSavedWorkingRef.current = snapshot
-        setLibrarySaveState('saved')
-      } catch (e) {
-        console.warn('library autosave failed', e)
-        setLibrarySaveState('error')
-      }
-    }, 2500)
-    return () => {
-      if (autosaveTimerRef.current) clearTimeout(autosaveTimerRef.current)
-    }
-  }, [song, timeframes])
+    const v = await library.getVersion(slug, id)
+    loadCategoryPreview(v as { song: Record<string, unknown>; timeframes: unknown[] }, { librarySlug: slug, suppressAutosave: true })
+    setHeadVerId(v.id)
+    setCurrentBranch(v.branch || 'main')
+  }
+
+  /** Branch off an existing version: check it out and switch to a new branch name. The
+   *  next Save commits there with that version as its parent. */
+  const branchFromVersion = async (id: string, name: string) => {
+    const slug = song.librarySlug
+    if (!slug) return
+    const branch = name.trim()
+    if (!branch) return
+    const v = await library.getVersion(slug, id)
+    loadCategoryPreview(v as { song: Record<string, unknown>; timeframes: unknown[] }, { librarySlug: slug, suppressAutosave: true })
+    setHeadVerId(id)
+    setCurrentBranch(branch)
+  }
 
   // While the Live Console is open, push the (edited) sequence to the LEDs automatically,
   // debounced so rapid live tweaks coalesce into one send.
@@ -1440,6 +1481,8 @@ function App() {
       const parsed = JSON.parse(raw) as {
         song?: Record<string, unknown>
         timeframes?: Timeframe[]
+        currentBranch?: string
+        headVerId?: string | null
         windowSizes?: { playbackPanelWidth?: number; detailsPanelWidth?: number; spectrogramHeight?: number }
       }
       let restoredSong: Song | null = null
@@ -1450,6 +1493,8 @@ function App() {
       if (parsed.timeframes && Array.isArray(parsed.timeframes) && parsed.timeframes.length > 0) {
         setTimeframes(parsed.timeframes)
       }
+      if (typeof parsed.currentBranch === 'string') setCurrentBranch(parsed.currentBranch)
+      if (typeof parsed.headVerId === 'string') setHeadVerId(parsed.headVerId)
       // If the restored song is a library song, prime the autosave baseline so we don't
       // immediately re-write the (unchanged) working timeline to the cloud on every load.
       if (restoredSong?.librarySlug) {
@@ -1487,13 +1532,15 @@ function App() {
       const payload = JSON.stringify({
         song,
         timeframes,
+        currentBranch,
+        headVerId,
         windowSizes: { playbackPanelWidth, detailsPanelWidth, spectrogramHeight, headerHeight },
       })
       window.localStorage.setItem(LAST_SONG_STORAGE_KEY, payload)
     } catch {
       // Ignore persistence errors
     }
-  }, [song, timeframes, playbackPanelWidth, detailsPanelWidth, spectrogramHeight, headerHeight])
+  }, [song, timeframes, currentBranch, headVerId, playbackPanelWidth, detailsPanelWidth, spectrogramHeight, headerHeight])
 
   // Layered audio resolution: Vite public → control-server → prompt user to upload
   const resolveAudioSrc = React.useCallback(async (audioFilePath: string) => {
@@ -1884,6 +1931,18 @@ function App() {
           onClose={() => setShowLibrary(false)}
         />
       )}
+      {showHistory && (
+        <HistoryPanel
+          slug={song.librarySlug}
+          songName={song.name}
+          currentBranch={currentBranch}
+          headVerId={headVerId}
+          onSave={saveVersion}
+          onLoadVersion={loadVersion}
+          onBranch={branchFromVersion}
+          onClose={() => setShowHistory(false)}
+        />
+      )}
       {showLiveConsole && (
         <LiveConsole
           song={song}
@@ -1909,7 +1968,7 @@ function App() {
       )}
       {/* Floating action dock — always above the workspace, never clipped by the header. */}
       <div style={{ position: 'fixed', right: 20, bottom: 20, zIndex: 950, display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 10 }}>
-        {(librarySaveState !== 'idle' || song.librarySlug) && (
+        {librarySaveState !== 'idle' && (
           <div style={{
             display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 600,
             padding: '4px 10px', borderRadius: 999, backdropFilter: 'blur(6px)',
@@ -1921,9 +1980,25 @@ function App() {
               ? '☁️ שומר…'
               : librarySaveState === 'error'
                 ? '⚠️ שמירה נכשלה'
-                : '☁️ נשמר בספרייה'}
+                : `✓ נשמר · ${currentBranch}`}
           </div>
         )}
+        <button
+          type="button"
+          onClick={() => void saveVersion()}
+          title={`שמירת גרסה חדשה בבראנץ' "${currentBranch}"`}
+          style={{ ...fabBase, background: 'linear-gradient(135deg,#38bdf8 0%,#0284c7 100%)', boxShadow: '0 4px 14px rgba(2,132,199,0.45)' }}
+        >
+          <span style={{ fontSize: 16, lineHeight: 1 }}>💾</span> שמור
+        </button>
+        <button
+          type="button"
+          onClick={() => setShowHistory(true)}
+          title="היסטוריית גרסאות ובראנצ'ים"
+          style={{ ...fabBase, background: 'linear-gradient(135deg,#fbbf24 0%,#d97706 100%)', boxShadow: '0 4px 14px rgba(217,119,6,0.45)' }}
+        >
+          <span style={{ fontSize: 16, lineHeight: 1 }}>🕘</span> היסטוריה
+        </button>
         <button
           type="button"
           onClick={() => setShowLibrary(true)}

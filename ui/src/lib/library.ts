@@ -57,6 +57,24 @@ export interface SongDetail {
 export interface CompositionPayload {
   song: Record<string, unknown>
   timeframes: unknown[]
+  /** Present on the `working` buffer: which branch/version it descends from. */
+  branch?: string
+  headVerId?: string
+}
+
+/** One immutable save in a song's git-like history. */
+export interface VersionSummary {
+  id: string
+  parentId?: string | null
+  branch?: string
+  label?: string
+  ts?: number
+  timeframeCount?: number
+}
+
+export interface VersionPayload extends VersionSummary {
+  song: Record<string, unknown>
+  timeframes: unknown[]
 }
 
 export interface SaveSongBody {
@@ -128,6 +146,18 @@ export const library = {
     call<{ ok: true; slug: string; comp: string }>(`/api/library/composition`, post(body)),
 
   remove: (slug: string, comp?: string) => call<{ ok: true }>(`/api/library/delete`, post(comp ? { slug, comp } : { slug })),
+
+  // ── Version history (git-like) ──
+  saveVersion: (body: { slug: string; song: Record<string, unknown>; timeframes: unknown[]; parentId?: string | null; branch?: string; label?: string }) =>
+    call<{ ok: true; slug: string; id: string; ts: number; branch: string; parentId: string | null }>(`/api/library/version`, post(body)),
+
+  listVersions: (slug: string) =>
+    call<{ versions: VersionSummary[] }>(`/api/library/versions?slug=${encodeURIComponent(slug)}`).then((d) => d.versions || []),
+
+  getVersion: (slug: string, id: string) =>
+    call<VersionPayload>(`/api/library/version?slug=${encodeURIComponent(slug)}&id=${encodeURIComponent(id)}`),
+
+  removeVersion: (slug: string, id: string) => call<{ ok: true }>(`/api/library/delete`, post({ slug, version: id })),
 }
 
 /** Reachable only if a library base is configured or we're served through the Worker. */
