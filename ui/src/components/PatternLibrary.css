@@ -150,9 +150,12 @@
 .pattern-preview-close:hover { background: #7f1d1d; color: #fecaca; }
 
 .pattern-preview-stage {
-  flex: 1 1 auto;
-  min-height: 220px;
-  /* The ring canvas must not overflow this slot and steal clicks from the controls below. */
+  /* Definite height so the ring canvas (fit=box → min(w,h)) scales the WHOLE constellation
+     to fit instead of being driven taller than the slot and clipped. */
+  flex: none;
+  height: 46vh;
+  min-height: 200px;
+  max-height: 60vh;
   overflow: hidden;
   position: relative;
   z-index: 0;

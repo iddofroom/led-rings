@@ -645,7 +645,7 @@ export default function LiveConsole({
                 title={editPads ? 'Rename, or × to remove from the rail' : 'Drag onto a lane, or click to arm then click a lane'}
                 style={{ ...padV, cursor: editPads ? 'default' : 'grab', outline: armed === key ? '2px solid #34d399' : '1px solid #2c3645', background: `linear-gradient(160deg, ${info.color}22, #1b2230)` }}>
                 {info.icon
-                  ? <span style={{ fontSize: 18, width: 22, textAlign: 'center', flexShrink: 0 }}>{info.icon}</span>
+                  ? <span style={{ fontSize: 15, width: 18, textAlign: 'center', flexShrink: 0 }}>{info.icon}</span>
                   : <span style={{ width: 11, height: 11, borderRadius: 3, background: info.color, flexShrink: 0 }} />}
                 {editPads ? (
                   <>
@@ -694,7 +694,7 @@ export default function LiveConsole({
                       onDragStart={(e) => { e.dataTransfer.setData(DT_KEY, k); e.dataTransfer.effectAllowed = 'copy' }}
                       onClick={() => { if (!editPads) setArmed((cur) => (cur === k ? null : k)) }}
                       title={editPads ? 'Rename, or ★ to pin to the top rail' : `${p.displayName} — גרור ללֵיין, או לחץ לחימוש ואז לחץ על לֵיין`}
-                      style={{ ...padV, height: 32, cursor: editPads ? 'default' : 'grab', outline: armed === k ? '2px solid #34d399' : '1px solid #2c3645', background: `linear-gradient(160deg, ${c}33, #1b2230)` }}>
+                      style={{ ...padV, height: 26, cursor: editPads ? 'default' : 'grab', outline: armed === k ? '2px solid #34d399' : '1px solid #2c3645', background: `linear-gradient(160deg, ${c}33, #1b2230)` }}>
                       <span style={{ width: 11, height: 11, borderRadius: 3, background: c, flexShrink: 0 }} />
                       {editPads ? (
                         <>
@@ -1046,7 +1046,7 @@ const rail: React.CSSProperties = { width: 156, flexShrink: 0, borderRight: '1px
 const railLabel: React.CSSProperties = { fontSize: 10, fontWeight: 700, color: '#667', textTransform: 'uppercase', letterSpacing: '0.06em' }
 const paletteSelect: React.CSSProperties = { width: '100%', background: '#1b2230', color: '#e8eef5', border: '1px solid #2c3645', borderRadius: 6, padding: '4px 6px', fontSize: 12, fontWeight: 600, cursor: 'pointer' }
 const railDivider: React.CSSProperties = { height: 1, background: '#1b2230', margin: '6px 0' }
-const padV: React.CSSProperties = { display: 'flex', alignItems: 'center', gap: 8, width: '100%', height: 40, borderRadius: 8, padding: '0 10px', cursor: 'grab', userSelect: 'none', boxSizing: 'border-box' }
+const padV: React.CSSProperties = { display: 'flex', alignItems: 'center', gap: 7, width: '100%', height: 28, borderRadius: 7, padding: '0 9px', cursor: 'grab', userSelect: 'none', boxSizing: 'border-box', flexShrink: 0 }
 const vizBox: React.CSSProperties = { position: 'relative', flex: '0 0 38%', minHeight: 120, borderRadius: 12, background: '#0d1117', border: '1px solid #1f2632', display: 'flex', alignItems: 'center', justifyContent: 'center' }
 const flashPill: React.CSSProperties = { position: 'absolute', bottom: 12, left: '50%', transform: 'translateX(-50%)', background: '#064e3b', color: '#6ee7b7', padding: '6px 14px', borderRadius: 999, fontSize: 13, fontWeight: 700 }
 const lanesWrap: React.CSSProperties = { flex: 1, minHeight: 0, overflowY: 'auto', background: '#0d1117', border: '1px solid #1f2632', borderRadius: 12, padding: '8px 12px' }
