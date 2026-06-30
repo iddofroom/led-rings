@@ -28,6 +28,8 @@ interface Props {
   apiBase: string
   song: { audioFilePath?: string; name?: string }
   onLoad: (payload: { song: Record<string, unknown>; timeframes: unknown[] }) => void
+  /** Surgically replace one section's timeframes in the live timeline (preserves manual edits elsewhere). */
+  onReplaceSection?: (sectionIdx: number, timeframes: unknown[]) => void
   onClose: () => void
 }
 
@@ -37,7 +39,7 @@ const LABEL_COLORS: Record<string, string> = {
 }
 const fmtTime = (ms: number) => `${Math.floor(ms / 60000)}:${String(Math.floor((ms % 60000) / 1000)).padStart(2, '0')}`
 
-export default function ComposePanel({ apiBase, song, onLoad, onClose }: Props) {
+export default function ComposePanel({ apiBase, song, onLoad, onReplaceSection, onClose }: Props) {
   const [audioPath, setAudioPath] = useState(song.audioFilePath || 'ODESZA - A Moment Apart.mp3')
   const [bpmHint, setBpmHint] = useState<string>('')
   const [sectionsK, setSectionsK] = useState<string>('')
@@ -117,13 +119,15 @@ export default function ComposePanel({ apiBase, song, onLoad, onClose }: Props) 
     try {
       const res = await call<{ timeframes: any[] }>('/api/translate', { analysis, section: idx, useLlm })
       const fresh = (res.timeframes || []).map((t) => ({ ...t, _section: idx }))
-      const merged = {
+      // keep the panel's section list in sync
+      setComposed({
         song: composed.song,
         timeframes: [...composed.timeframes.filter((t) => t._section !== idx), ...fresh]
           .sort((a, b) => (a.startTime ?? 0) - (b.startTime ?? 0)),
-      }
-      setComposed(merged)
-      onLoad(merged)
+      })
+      // surgically update ONLY this section in the live timeline (preserves manual edits elsewhere)
+      if (onReplaceSection) onReplaceSection(idx, fresh)
+      else onLoad({ song: composed.song, timeframes: [...composed.timeframes.filter((t) => t._section !== idx), ...fresh] })
     } catch (e) { setError(e instanceof Error ? e.message : String(e)) }
     finally { setRerolling(null) }
   }

@@ -84,6 +84,9 @@ export interface Timeframe {
   cycles?: TimeframeCycleEntry[]
   /** Effect slots (one selector per slot, add more as desired). Replaces legacy brightness/hue/motion fields. */
   effects?: TimeframeEffectEntry[]
+  /** Pipeline metadata (from scripts/translate.py): which analyzed section this came from, and its provenance. */
+  _section?: number
+  _source?: string
   /** @deprecated Use effects[] instead. Kept for load compat. */
   brightnessEffect?: string
   /** @deprecated */
@@ -1245,11 +1248,49 @@ function App() {
           movement: normalizeMovement(item.movement),
           cycles: normalizeCycles(item.cycles),
           ...(effects && effects.length > 0 ? { effects } : {}),
+          ...(typeof item._section === 'number' ? { _section: item._section } : {}),
+          ...(typeof item._source === 'string' ? { _source: item._source } : {}),
         } as Timeframe
       })
     setTimeframes(mapped)
     setFocusedTimeframeId(null)
     setCurrentTime(0)
+  }
+
+  /** Surgically replace one analyzed section's timeframes in the LIVE timeline,
+   *  preserving manual edits to other sections (used by the Compose per-part reroll). */
+  const replaceSection = (sectionIdx: number, rawTimeframes: unknown[]) => {
+    const mapped: Timeframe[] = (rawTimeframes as any[])
+      .filter((item) => item && typeof item === 'object')
+      .map((item: any, idx: number) => {
+        const effects = Array.isArray(item.effects)
+          ? item.effects.filter((e: any) => e && typeof e.effectKey === 'string').map((e: any) => ({
+              id: typeof e.id === 'string' ? e.id : `eff-${Date.now()}-${idx}-${Math.random().toString(36).slice(2)}`,
+              effectKey: e.effectKey,
+              params: e.params && typeof e.params === 'object' ? e.params : undefined,
+              phase: typeof e.phase === 'number' ? e.phase : undefined,
+            }))
+          : undefined
+        let startTime = Number(item.startTime); let endTime = Number(item.endTime)
+        if (!Number.isFinite(startTime)) startTime = 0
+        if (!Number.isFinite(endTime) || endTime <= startTime) endTime = startTime + 4
+        let rings = Array.isArray(item.rings) ? item.rings.map((r: any) => Number(r)).filter((n: number) => n >= 1 && n <= 12) : [...Array(12)].map((_, i) => i + 1)
+        if (rings.length === 0) rings = [1]
+        return {
+          id: item.id?.toString() ?? `tf-${Date.now()}-${idx}`,
+          startTime, endTime,
+          label: typeof item.label === 'string' ? item.label : `Timeframe ${idx + 1}`,
+          color: typeof item.color === 'string' ? item.color : '#3b82f6',
+          hasExplicitColor: item.hasExplicitColor !== false ? undefined : false,
+          rings, mapping: item.mapping,
+          cycles: normalizeCycles(item.cycles),
+          ...(effects && effects.length > 0 ? { effects } : {}),
+          _section: sectionIdx,
+          ...(typeof item._source === 'string' ? { _source: item._source } : {}),
+        } as Timeframe
+      })
+    setTimeframes(prev => [...prev.filter(t => t._section !== sectionIdx), ...mapped].sort((a, b) => a.startTime - b.startTime))
+    setFocusedTimeframeId(null)
   }
 
   // Autoload last song and window sizes on startup
@@ -1686,6 +1727,7 @@ function App() {
           apiBase={API_BASE}
           song={song}
           onLoad={loadCategoryPreview}
+          onReplaceSection={replaceSection}
           onClose={() => setShowCompose(false)}
         />
       )}

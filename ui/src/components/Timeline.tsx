@@ -693,6 +693,21 @@ const Timeline = ({ timeframes, songLengthBeats, bpm, onUpdate, onUpdateSilent, 
   const dragStartPos = Math.min(dragStartBeat, dragEndBeat)
   const dragEndPos = Math.max(dragStartBeat, dragEndBeat)
 
+  // Section boundaries overlaid on the timeline (from the composed timeframes'
+  // _section/_source) so you edit against the music's structure.
+  const sectionMarkers = useMemo(() => {
+    const by = new Map<number, { startBeat: number; label: string }>()
+    for (const t of timeframes) {
+      const idx = t._section
+      if (typeof idx !== 'number') continue
+      const label = String(t._source || '').split(':')[1] || `part ${idx}`
+      const cur = by.get(idx)
+      if (!cur) by.set(idx, { startBeat: t.startTime, label })
+      else cur.startBeat = Math.min(cur.startBeat, t.startTime)
+    }
+    return [...by.values()].sort((a, b) => a.startBeat - b.startBeat)
+  }, [timeframes])
+
   return (
     <div className="timeline-container">
       <div className="timeline-header">
@@ -717,6 +732,15 @@ const Timeline = ({ timeframes, songLengthBeats, bpm, onUpdate, onUpdateSilent, 
           }}
         >
         <div className="timeline-line"></div>
+        {sectionMarkers.length > 0 && (
+          <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 5000 }}>
+            {sectionMarkers.map((m, i) => (
+              <div key={i} style={{ position: 'absolute', top: `${m.startBeat * pxPerBeat}px`, left: 0, right: 0, borderTop: '1px dashed rgba(255,255,255,0.4)' }}>
+                <span style={{ position: 'absolute', left: 3, top: 1, fontSize: 9, fontWeight: 700, color: 'rgba(255,255,255,0.7)', textTransform: 'uppercase', letterSpacing: '0.06em', background: 'rgba(0,0,0,0.4)', padding: '0 4px', borderRadius: 2, whiteSpace: 'nowrap' }}>{m.label}</span>
+              </div>
+            ))}
+          </div>
+        )}
         <div className="timeframes">
           {timeframes.map((timeframe, index) => {
             const { topPx, heightPx } = getTimeframePosition(timeframe)
