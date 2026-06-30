@@ -652,7 +652,11 @@ export default function LiveConsole({
           )}
 
           <div style={railDivider} />
-          <div style={railLabel}>Rate · {rate}b</div>
+          <div style={railLabel}>Rate · {rate}b/cycle</div>
+          <input type="range" min={0.25} max={16} step={0.05} value={rate}
+            onChange={(e) => setRate(parseFloat(e.target.value))}
+            title="Beats per cycle for new patterns (lower = faster)"
+            style={{ width: '100%', accentColor: '#f59e0b' }} />
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
             {RATE_TICKS.map((t) => (
               <button key={t} onClick={() => setRate(t)}
@@ -890,7 +894,12 @@ export default function LiveConsole({
               ))}
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-              <span style={editLbl}>Rate</span>
+              <span style={editLbl}>Speed</span>
+              <input type="range" min={0.25} max={16} step={0.05} value={rateOf(selectedTf) ?? rate}
+                onChange={(e) => patchSelected({ rate: parseFloat(e.target.value) })}
+                title="Beats per cycle for this block (lower = faster)"
+                style={{ width: 120, accentColor: '#f59e0b' }} />
+              <span style={{ fontSize: 11, color: '#9ab', width: 56, textAlign: 'center', fontVariantNumeric: 'tabular-nums' }}>{(rateOf(selectedTf) ?? rate)}b/cyc</span>
               {RATE_TICKS.map((t) => {
                 const on = rateOf(selectedTf) === t
                 return (
