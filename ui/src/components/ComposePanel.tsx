@@ -89,12 +89,17 @@ export default function ComposePanel({ apiBase, song, onLoad, onClose }: Props) 
   }
 
   async function generate() {
-    setError(null); setBusy('Generating composition…')
+    setError(null)
+    setBusy(useLlm ? 'Designing sections with Gemini…' : 'Generating composition…')
     try {
       let a = analysis
-      if (!a) { setBusy('Analyzing first…'); a = await call<Analysis>('/api/analyze', { audioFilePath: audioPath }); setAnalysis(a) }
+      if (!a) { setBusy('Analyzing audio first… (~20s)'); a = await call<Analysis>('/api/analyze', { audioFilePath: audioPath }); setAnalysis(a) }
+      setBusy(useLlm
+        ? `Asking Gemini to design ${a.sections.length} sections in parallel… (~30–40s)`
+        : 'Generating composition…')
       await call('/api/taste-rules', { content: rulesText }) // persist current edits first
       const result = await call<{ song: Record<string, unknown>; timeframes: unknown[] }>('/api/translate', { analysis: a, useLlm })
+      setBusy('Loading into timeline…')
       onLoad(result)
       onClose()
     } catch (e) { setError(e instanceof Error ? e.message : String(e)); setBusy(null) }
@@ -128,8 +133,15 @@ export default function ComposePanel({ apiBase, song, onLoad, onClose }: Props) 
           <h2 style={{ margin: 0, fontSize: 18 }}>🎵 Compose from audio</h2>
           <button onClick={onClose} style={{ fontSize: 18, background: 'none', border: 'none', cursor: 'pointer', color: 'inherit' }}>✕</button>
         </div>
+        <style>{`@keyframes composeSpin{to{transform:rotate(360deg)}}@keyframes composePulse{0%,100%{opacity:.5}50%{opacity:1}}`}</style>
         {error && <div style={{ background: '#c0222a', color: '#fff', padding: 8, borderRadius: 6, marginBottom: 8, fontSize: 13 }}>{error}</div>}
-        {(busy || status) && <div style={{ color: busy ? '#fb0' : '#3c9', fontSize: 13, marginBottom: 8 }}>{busy || status}</div>}
+        {busy && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, background: '#1f2b3a', border: '1px solid #3b82f6', borderRadius: 8, padding: '10px 14px', marginBottom: 8 }}>
+            <span style={{ width: 18, height: 18, border: '3px solid #3b82f6', borderTopColor: 'transparent', borderRadius: '50%', display: 'inline-block', animation: 'composeSpin 0.8s linear infinite', flexShrink: 0 }} />
+            <span style={{ fontSize: 13, color: '#cfe3ff', animation: 'composePulse 1.6s ease-in-out infinite' }}>{busy}</span>
+          </div>
+        )}
+        {!busy && status && <div style={{ color: '#3c9', fontSize: 13, marginBottom: 8 }}>{status}</div>}
 
         {/* 1. Analyze + ear-check */}
         <section style={card}>
@@ -139,7 +151,10 @@ export default function ComposePanel({ apiBase, song, onLoad, onClose }: Props) 
               style={{ flex: '1 1 280px', padding: 6 }} />
             <input value={bpmHint} onChange={(e) => setBpmHint(e.target.value)} placeholder="BPM hint" style={{ width: 90, padding: 6 }} />
             <input value={sectionsK} onChange={(e) => setSectionsK(e.target.value)} placeholder="#sections" style={{ width: 90, padding: 6 }} />
-            <button onClick={analyze} disabled={!!busy} style={primaryBtn}>Analyze</button>
+            <button onClick={analyze} disabled={!!busy} style={{ ...primaryBtn, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+              {busy && <span style={{ width: 12, height: 12, border: '2px solid #fff', borderTopColor: 'transparent', borderRadius: '50%', display: 'inline-block', animation: 'composeSpin 0.8s linear infinite' }} />}
+              {busy ? '…' : 'Analyze'}
+            </button>
           </div>
           <audio controls src={audioUrl} style={{ width: '100%', marginTop: 8 }} />
           {analysis && (
@@ -187,8 +202,9 @@ export default function ComposePanel({ apiBase, song, onLoad, onClose }: Props) 
             <input type="checkbox" checked={useLlm} onChange={(e) => setUseLlm(e.target.checked)} />
             Use Gemini (LLM)
           </label>
-          <button onClick={generate} disabled={!!busy} style={{ ...primaryBtn, fontSize: 15, padding: '10px 20px' }}>
-            Generate composition → timeline ▸
+          <button onClick={generate} disabled={!!busy} style={{ ...primaryBtn, fontSize: 15, padding: '10px 20px', opacity: busy ? 0.65 : 1, display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+            {busy && <span style={{ width: 14, height: 14, border: '2px solid #fff', borderTopColor: 'transparent', borderRadius: '50%', display: 'inline-block', animation: 'composeSpin 0.8s linear infinite' }} />}
+            {busy ? 'Working…' : 'Generate composition → timeline ▸'}
           </button>
         </section>
       </div>

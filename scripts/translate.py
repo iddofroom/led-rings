@@ -240,6 +240,22 @@ def translate(analysis, rules, only_section=None, model=None):
         starts.append(sb if sb is not None else 0)
     total_beats = (ms_to_beat(dur_ms) if beat_ms else int(dur_ms / 1000.0 / 60.0 * bpm))
 
+    # Pre-compute per-section content. For the LLM path, run the per-section Gemini
+    # calls CONCURRENTLY — sequential calls are ~10s each (2+ min for a full song).
+    def _content_for(idx):
+        s = secs[idx]
+        rule = section_rule(rules, s.get("label", "verse"))
+        c = llm_content(s, rule, palette, model) if model else det_content(rule, palette)
+        return validate_content(c, palette, rule)
+
+    _indices = [i for i in range(len(secs)) if only_section is None or i == only_section]
+    if model and len(_indices) > 1:
+        from concurrent.futures import ThreadPoolExecutor
+        with ThreadPoolExecutor(max_workers=min(8, len(_indices))) as _ex:
+            _contents = dict(zip(_indices, _ex.map(_content_for, _indices)))
+    else:
+        _contents = {i: _content_for(i) for i in _indices}
+
     timeframes = []
     eff_counter = 0
     for idx, s in enumerate(secs):
@@ -251,8 +267,7 @@ def translate(analysis, rules, only_section=None, model=None):
         end_b = starts[idx + 1] if idx + 1 < len(starts) else total_beats
         if end_b is None or end_b <= start_b:
             end_b = (start_b + max(1, ms_to_beat(s["endMs"]) - start_b)) if beat_ms else start_b + 4
-        content = llm_content(s, rule, palette, model) if model else det_content(rule, palette)
-        content = validate_content(content, palette, rule)
+        content = _contents[idx]
         clean = []
         for e in content["effects"]:
             e = dict(e, id=f"s{idx}-e{eff_counter}")
