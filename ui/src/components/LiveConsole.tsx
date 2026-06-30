@@ -2,6 +2,7 @@ import React, { useMemo, useRef, useState } from 'react'
 import type { Timeframe, TimeframeEffectEntry } from '../App'
 import { isRingActiveAtBeat } from '../movementGenerators'
 import RingVisualization from './RingVisualization'
+import { WLED_PALETTES, DEFAULT_PALETTE, paletteById, paletteGradientCss } from '../../../shared/wled-palettes'
 
 /**
  * Fullscreen LIVE CONSOLE — a VJ surface for performing the LED show while the song
@@ -65,7 +66,6 @@ const EFFECT_TO_PATTERN: Record<string, string> = {
   hueShiftStartToEnd: 'rainbow', fadeIn: 'fadeIn', fadeOut: 'fadeOut',
 }
 
-const COLORS = ['#ffffff', '#ef4444', '#f59e0b', '#eab308', '#22c55e', '#06b6d4', '#3b82f6', '#a855f7', '#ec4899']
 const RATE_TICKS = [0.25, 0.5, 1, 2, 4, 8]
 const ALL_RINGS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
 const DT_KEY = 'text/led-pattern'
@@ -97,8 +97,19 @@ export default function LiveConsole({
   currentTime, isPlaying, onPlayPause, onStop, onSeekBeat,
   brightness, brightnessConnected, onBrightnessChange, autoSend, onClose,
 }: LiveConsoleProps) {
-  const [color, setColor] = useState(COLORS[6])
+  const [paletteId, setPaletteId] = useState(DEFAULT_PALETTE.id)
+  const palette = paletteById(paletteId)
+  const [color, setColor] = useState(DEFAULT_PALETTE.colors[6])
   const [rate, setRate] = useState(2)
+
+  // Switch the active WLED palette. Move the paint colour into the new palette (its mid,
+  // most-representative swatch) unless the current colour is already part of it, so the
+  // next stroke immediately reflects the chosen palette.
+  function selectPalette(id: string) {
+    const p = paletteById(id)
+    setPaletteId(p.id)
+    if (!p.colors.includes(color)) setColor(p.colors[Math.floor(p.colors.length / 2)] ?? p.colors[0])
+  }
   const [armed, setArmed] = useState<string | null>(null) // pad selected by click (apply on lane click)
   const [dropLane, setDropLane] = useState<string | null>(null)
   const [flash, setFlash] = useState<string | null>(null)
@@ -271,7 +282,7 @@ export default function LiveConsole({
 
   function onRandomize() {
     const pat = PATTERNS[Math.floor(Math.random() * PATTERNS.length)]
-    const c = COLORS[Math.floor(Math.random() * COLORS.length)]
+    const c = palette.colors[Math.floor(Math.random() * palette.colors.length)]
     const rt = RATE_TICKS[Math.floor(Math.random() * RATE_TICKS.length)]
     setColor(c); setRate(rt); setArmed(pat.key)
     apply(pat.key, ALL_RINGS, [currentSection.startBeat, currentSection.endBeat], `🎲 ${currentSection?.label ?? 'song'}`, { color: c, rate: rt })
@@ -393,9 +404,16 @@ export default function LiveConsole({
           </div>
 
           <div style={railDivider} />
-          <div style={railLabel}>Color</div>
+          <div style={railLabel}>Palette · WLED</div>
+          <select value={paletteId} onChange={(e) => selectPalette(e.target.value)} title="WLED color palette" style={paletteSelect}>
+            {WLED_PALETTES.map((p) => (
+              <option key={p.id} value={p.id}>{p.name}</option>
+            ))}
+          </select>
+          <div title={palette.name} style={{ height: 12, borderRadius: 6, background: paletteGradientCss(palette), border: '1px solid #0006' }} />
+          <div style={{ ...railLabel, marginTop: 4 }}>Color</div>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
-            {COLORS.map((c) => (
+            {palette.colors.map((c) => (
               <button key={c} onClick={() => setColor(c)} title={c}
                 style={{ width: 22, height: 22, borderRadius: 6, background: c, cursor: 'pointer',
                   border: color === c ? '2px solid #fff' : '1px solid #0006', boxShadow: color === c ? '0 0 0 2px #34d399' : 'none' }} />
@@ -473,8 +491,9 @@ export default function LiveConsole({
                           const s0 = dr ? dr.startTime : tf.startTime
                           const e0 = dr ? dr.endTime : tf.endTime
                           return (
-                            <div key={tf.id} title={tf.label}
+                            <div key={tf.id} title={`${tf.label} — double-click to play from its start`}
                               onClick={(e) => { e.stopPropagation(); if (armed) { onLaneClick(lane)(e) } else setSelectedId(tf.id) }}
+                              onDoubleClick={(e) => { e.stopPropagation(); setSelectedId(tf.id); onSeekBeat(tf.startTime); if (!isPlaying) onPlayPause() }}
                               style={{
                                 position: 'absolute', top: 1, bottom: 1, left: pct(s0),
                                 width: `calc(${pct(e0)} - ${pct(s0)})`,
@@ -538,7 +557,7 @@ export default function LiveConsole({
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
               <span style={editLbl}>Color</span>
-              {COLORS.map((c) => (
+              {palette.colors.map((c) => (
                 <button key={c} onClick={() => patchSelected({ color: c })}
                   style={{ width: 20, height: 20, borderRadius: 5, background: c, cursor: 'pointer',
                     border: selectedTf.color === c ? '2px solid #fff' : '1px solid #0006' }} />
@@ -590,6 +609,7 @@ const topbar: React.CSSProperties = { display: 'flex', justifyContent: 'space-be
 const closeBtn: React.CSSProperties = { background: '#3a3f4b', color: '#fff', border: 'none', borderRadius: 8, padding: '8px 14px', fontSize: 13, fontWeight: 600, cursor: 'pointer' }
 const rail: React.CSSProperties = { width: 156, flexShrink: 0, borderRight: '1px solid #1b2230', background: '#0d1117', padding: '10px 12px', display: 'flex', flexDirection: 'column', gap: 6, overflowY: 'auto' }
 const railLabel: React.CSSProperties = { fontSize: 10, fontWeight: 700, color: '#667', textTransform: 'uppercase', letterSpacing: '0.06em' }
+const paletteSelect: React.CSSProperties = { width: '100%', background: '#1b2230', color: '#e8eef5', border: '1px solid #2c3645', borderRadius: 6, padding: '4px 6px', fontSize: 12, fontWeight: 600, cursor: 'pointer' }
 const railDivider: React.CSSProperties = { height: 1, background: '#1b2230', margin: '6px 0' }
 const padV: React.CSSProperties = { display: 'flex', alignItems: 'center', gap: 8, width: '100%', height: 40, borderRadius: 8, padding: '0 10px', cursor: 'grab', userSelect: 'none', boxSizing: 'border-box' }
 const vizBox: React.CSSProperties = { position: 'relative', flex: '0 0 38%', minHeight: 120, borderRadius: 12, background: '#0d1117', border: '1px solid #1f2632', display: 'flex', alignItems: 'center', justifyContent: 'center' }

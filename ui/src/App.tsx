@@ -8,6 +8,7 @@ import LibraryPanel from './components/LibraryPanel'
 import LiveConsole from './components/LiveConsole'
 import HistoryPanel from './components/HistoryPanel'
 import { library, fileToBase64 } from './lib/library'
+import { putAudio, getAudio } from './lib/audioCache'
 import { useViewRange } from './hooks/useViewRange'
 import { useUndoHistory } from './hooks/useUndoHistory'
 import { generateSequenceTs } from './generateSequenceTs'
@@ -175,6 +176,19 @@ function normalizeCycles(cycles: unknown): TimeframeCycleEntry[] | undefined {
 function cleanSongForLibrary(song: Song): Record<string, unknown> {
   const { librarySlug: _slug, ...rest } = song
   return rest
+}
+
+/** Fetch an audio URL and cache its bytes in IndexedDB (once) so it re-opens instantly
+ *  next launch, even offline. No-op for blob: URLs or if already cached. */
+async function ensureAudioCached(key: string, url: string): Promise<void> {
+  if (!key || !url || url.startsWith('blob:')) return
+  try {
+    if (await getAudio(key)) return
+    const resp = await fetch(url)
+    if (!resp.ok) return
+    const blob = await resp.blob()
+    if (blob.size > 0) await putAudio(key, blob)
+  } catch {}
 }
 
 /** Stable-ish serialization of the working state, used as the auto-save change baseline. */
@@ -1572,6 +1586,7 @@ function App() {
         const blobUrl = URL.createObjectURL(file)
         audioBlobUrlRef.current = blobUrl
         if (audioRef.current) audioRef.current.src = blobUrl
+        void putAudio(audioFilePath, file) // cache so it re-opens on next launch
         // Upload to ui/public/ via control-server if available
         if (API_BASE) {
           try {
@@ -1606,16 +1621,31 @@ function App() {
     const slug = song.librarySlug
     let cancelled = false
     ;(async () => {
-      // Prefer the library copy when this song lives in the cloud (works local + remote).
+      // 1. Local IndexedDB cache — re-open the exact MP3 the user last loaded (instant,
+      //    no server/network needed). This is what makes "the last song" come back on launch.
+      if (audioPath) {
+        const cached = await getAudio(audioPath)
+        if (!cancelled && cached) {
+          const url = URL.createObjectURL(cached)
+          audioBlobUrlRef.current = url
+          setEffectiveAudioSrc(url)
+          return
+        }
+      }
+      // 2. The cloud library copy when this song lives there (works local + remote).
       if (slug) {
         try {
           const r = await fetch(library.audioUrl(slug), { method: 'HEAD' })
-          if (!cancelled && r.ok) { setEffectiveAudioSrc(library.audioUrl(slug)); return }
+          if (!cancelled && r.ok) { setEffectiveAudioSrc(library.audioUrl(slug)); void ensureAudioCached(audioPath || slug, library.audioUrl(slug)); return }
         } catch {}
       }
+      // 3. ui/public, control server, or prompt.
       if (!audioPath) { if (!cancelled) setEffectiveAudioSrc(''); return }
       const src = await resolveAudioSrc(audioPath)
-      if (!cancelled) setEffectiveAudioSrc(src)
+      if (!cancelled) {
+        setEffectiveAudioSrc(src)
+        if (src && !src.startsWith('blob:')) void ensureAudioCached(audioPath, src) // cache for instant offline re-open
+      }
     })()
     return () => { cancelled = true }
   }, [song.animationType, song.audioFilePath, song.librarySlug, resolveAudioSrc])
@@ -1824,6 +1854,7 @@ function App() {
     setEffectiveAudioSrc(blobUrl)
     handleSongChange({ audioFilePath: file.name })
     if (audioRef.current) audioRef.current.src = blobUrl
+    void putAudio(file.name, file) // cache so this exact MP3 re-opens on next launch
   }
 
   return (
