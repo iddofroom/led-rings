@@ -1,6 +1,7 @@
 import React, { useMemo, useRef, useState } from 'react'
 import type { Timeframe, TimeframeEffectEntry } from '../App'
-import { isRingActiveAtBeat } from '../movementGenerators'
+import { isRingActiveAtBeat, defaultBeatsPerRing } from '../movementGenerators'
+import type { MovementDirection, TimeframeMovement } from '../movementGenerators'
 import RingVisualization from './RingVisualization'
 import TimeframePanel from './TimeframePanel'
 import { WLED_PALETTES, DEFAULT_PALETTE, paletteById, paletteGradientCss } from '../../../shared/wled-palettes'
@@ -82,6 +83,22 @@ const EFFECT_TO_PATTERN: Record<string, string> = {
 }
 
 const RATE_TICKS = [0.25, 0.5, 1, 2, 4, 8]
+// Cross-ring travel direction. Realised as a `stagger` movement (every ring plays the
+// SAME effect, wave-shifted in time) so only the direction changes, not the pattern.
+// 'none' = no movement (all rings together — the previous default).
+const DIRECTIONS: { id: MovementDirection | 'none'; short: string; title: string }[] = [
+  { id: 'none', short: '⊘', title: 'No direction — all rings together' },
+  { id: 'forward', short: '1→12', title: 'Travel 1 → 12' },
+  { id: 'backward', short: '12→1', title: 'Travel 12 → 1' },
+  { id: 'center-out', short: 'C→O', title: 'Center → out' },
+  { id: 'edges-in', short: 'E→I', title: 'Edges → in' },
+]
+/** Build the `stagger` movement for a direction over a ring set / span (undefined = no direction). */
+function movementFor(dir: MovementDirection | 'none', rings: number[], start: number, end: number): TimeframeMovement | undefined {
+  if (dir === 'none' || rings.length < 2) return undefined
+  return { type: 'stagger', direction: dir, beatsPerRing: defaultBeatsPerRing('stagger', start, end, rings, dir) }
+}
+const directionOf = (tf: Timeframe): MovementDirection | 'none' => tf.movement?.direction ?? 'none'
 const ALL_RINGS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
 const DT_KEY = 'text/led-pattern'
 const LABEL_W = 38 // gutter width for lane labels (px)
@@ -173,6 +190,8 @@ export default function LiveConsole({
   const palette = paletteById(paletteId)
   const [color, setColor] = useState(DEFAULT_PALETTE.colors[6])
   const [rate, setRate] = useState(2)
+  // Brush: the travel direction applied to each pattern dropped onto a lane.
+  const [direction, setDirection] = useState<MovementDirection | 'none'>('none')
 
   // Switch the active WLED palette. Move the paint colour into the new palette (its mid,
   // most-representative swatch) unless the current colour is already part of it, so the
@@ -352,6 +371,8 @@ export default function LiveConsole({
     const useColor = opts?.color ?? color
     const useRate = opts?.rate ?? rate
     const sec = sectionAtBeat(s)
+    const sortedRings = [...rings].sort((a, b) => a - b)
+    const mv = movementFor(direction, sortedRings, s, e)
     const newTf: Timeframe = {
       id: uid('live'),
       startTime: s,
@@ -359,10 +380,11 @@ export default function LiveConsole({
       label: `${pat.label} · ${targetLabel}`,
       color: useColor,
       hasExplicitColor: true,
-      rings: [...rings].sort((a, b) => a - b),
+      rings: sortedRings,
       mapping: 'all',
       ...(pat.cyclic ? { cycles: [{ type: 'cycle' as const, beatsInCycle: useRate }] } : {}),
       effects: pat.effects().map((ef) => ({ id: uid('ef'), ...ef })),
+      ...(mv ? { movement: mv } : {}),
       ...(sec ? { _section: sec.idx, _source: `live:${sec.label}:${pat.key}` } : {}),
     }
     const next: Timeframe[] = []
@@ -390,12 +412,14 @@ export default function LiveConsole({
     if (converted.length === 0) return
     const sec = sectionAtBeat(s)
     const sortedRings = [...rings].sort((a, b) => a - b)
+    const mv = movementFor(direction, sortedRings, s, e)
     const newTfs: Timeframe[] = converted.map((tf) => ({
       ...tf,
       id: uid('live'),
       startTime: s,
       endTime: e,
       rings: sortedRings,
+      ...(mv ? { movement: mv } : {}),
       ...(sec ? { _section: sec.idx, _source: `live:${sec.label}:preset` } : {}),
     }))
     const next: Timeframe[] = []
@@ -474,6 +498,24 @@ export default function LiveConsole({
   function setSelectedFade(fadeIn: boolean, fadeOut: boolean) {
     if (!selectedTf) return
     onApplyTimeframes(timeframes.map((t) => (t.id === selectedTf.id ? withFade(t, fadeIn, fadeOut) : t)))
+  }
+  // Set this block's cross-ring travel direction (keeps its existing movement type if any).
+  function setSelectedDirection(dir: MovementDirection | 'none') {
+    if (!selectedTf) return
+    const tf = selectedTf
+    let movement: TimeframeMovement | undefined
+    if (dir === 'none' || tf.rings.length < 2) {
+      movement = undefined
+    } else {
+      const type = tf.movement?.type ?? 'stagger'
+      movement = {
+        ...tf.movement,
+        type,
+        direction: dir,
+        beatsPerRing: defaultBeatsPerRing(type, tf.startTime, tf.endTime, tf.rings, dir, tf.movement?.bounce, tf.movement?.retire),
+      }
+    }
+    onApplyTimeframes(timeframes.map((t) => (t.id === tf.id ? { ...t, movement } : t)))
   }
 
   // Bake a speed CURVE into the selected block: split it into N segments, each with a rate
@@ -777,6 +819,17 @@ export default function LiveConsole({
           </div>
 
           <div style={railDivider} />
+          <div style={railLabel}>Direction</div>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+            {DIRECTIONS.map((d) => (
+              <button key={d.id} onClick={() => setDirection(d.id)} title={d.title}
+                style={{ ...miniBtn, fontSize: 11, background: direction === d.id ? '#f59e0b' : '#2a3340', color: direction === d.id ? '#1b1200' : '#cdd' }}>
+                {d.short}
+              </button>
+            ))}
+          </div>
+
+          <div style={railDivider} />
           <div style={railLabel}>Palette · WLED</div>
           <select value={paletteId} onChange={(e) => selectPalette(e.target.value)} title="WLED color palette" style={paletteSelect}>
             {WLED_PALETTES.map((p) => (
@@ -991,6 +1044,18 @@ export default function LiveConsole({
                   <button key={p.key} title={p.label} onClick={() => patchSelected({ patternKey: p.key })}
                     style={{ ...miniBtn, fontSize: 14, padding: '2px 6px', background: on ? '#34d399' : '#2a3340', color: on ? '#04150f' : '#cdd' }}>
                     {p.icon}
+                  </button>
+                )
+              })}
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+              <span style={editLbl}>Direction</span>
+              {DIRECTIONS.map((d) => {
+                const on = directionOf(selectedTf) === d.id
+                return (
+                  <button key={d.id} title={d.title} onClick={() => setSelectedDirection(d.id)}
+                    style={{ ...miniBtn, fontSize: 11, background: on ? '#f59e0b' : '#2a3340', color: on ? '#1b1200' : '#cdd' }}>
+                    {d.short}
                   </button>
                 )
               })}
