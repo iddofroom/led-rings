@@ -518,11 +518,29 @@ const server = http.createServer(async (req, res) => {
   // POST /api/analyze — full MIR analysis (scripts/analyze_music.py) -> analysis.json
   if (req.method === "POST" && pathname === "/api/analyze") {
     const body = await parseBody(req);
-    let payload: { audioFilePath?: string; bpm?: number; meter?: number; sections?: number };
+    let payload: { audioFilePath?: string; bpm?: number; meter?: number; sections?: number; force?: boolean };
     try { payload = JSON.parse(body); } catch { send(res, 400, JSON.stringify({ error: "Invalid JSON" })); return; }
     if (typeof payload.audioFilePath !== "string") { send(res, 400, JSON.stringify({ error: "Missing audioFilePath" })); return; }
     const audioPath = resolveAudioPath(payload.audioFilePath);
     if (!audioPath) { send(res, 404, JSON.stringify({ error: "Audio file not found" })); return; }
+    // Analyzing the same song twice is wasteful: cache the analysis next to the audio
+    // (<audio>.analysis.json) and reuse it while it's newer than the audio. bpm/meter/
+    // sections overrides (or ?force) always re-run, since they change the result.
+    const hasOverrides =
+      (typeof payload.bpm === "number" && payload.bpm > 0) ||
+      (typeof payload.meter === "number" && payload.meter >= 1) ||
+      (typeof payload.sections === "number" && payload.sections >= 2);
+    const cachePath = audioPath.replace(/\.[^.]+$/, "") + ".analysis.json";
+    if (!hasOverrides && !payload.force) {
+      try {
+        const aStat = fs.statSync(audioPath);
+        const cStat = fs.statSync(cachePath);
+        if (cStat.mtimeMs >= aStat.mtimeMs) {
+          const cached = fs.readFileSync(cachePath, "utf8");
+          if (cached.trim()) { send(res, 200, cached); return; }
+        }
+      } catch { /* no/invalid cache — fall through and analyze */ }
+    }
     const outPath = path.join(ROOT, `.tmp-analysis-${Date.now()}.json`);
     const args = [path.join(ROOT, "scripts", "analyze_music.py"), audioPath, "-o", outPath];
     if (typeof payload.bpm === "number" && payload.bpm > 0) args.push("--bpm", String(payload.bpm));
@@ -530,7 +548,12 @@ const server = http.createServer(async (req, res) => {
     if (typeof payload.sections === "number" && payload.sections >= 2) args.push("--sections", String(payload.sections));
     const r = await runPython(args);
     if (r.code !== 0) { console.error("analyze failed", r.stderr); send(res, 500, JSON.stringify({ error: "analyze failed", stderr: r.stderr.slice(0, 800) })); return; }
-    try { const raw = fs.readFileSync(outPath, "utf8"); fs.unlinkSync(outPath); send(res, 200, raw); }
+    try {
+      const raw = fs.readFileSync(outPath, "utf8"); fs.unlinkSync(outPath);
+      // Persist the default analysis so the next request for this song is instant.
+      if (!hasOverrides) { try { fs.writeFileSync(cachePath, raw); } catch { /* cache write is best-effort */ } }
+      send(res, 200, raw);
+    }
     catch (e) { send(res, 500, JSON.stringify({ error: "Failed to read analysis output" })); }
     return;
   }
