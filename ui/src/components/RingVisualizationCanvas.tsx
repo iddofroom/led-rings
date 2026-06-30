@@ -11,6 +11,9 @@ interface RingVisualizationCanvasProps {
   onZoomChange?: (zoom: number) => void
   /** When true, resets pan to center (parent toggles this by bumping a counter) */
   resetPanToken?: number
+  /** 'width' (default): square sized to container width (legacy, for small previews).
+   *  'box': fit the smaller of container width/height and center — shows all rings without clipping. */
+  fit?: 'width' | 'box'
 }
 
 // Base geometry at 680px — all values scale linearly with available size
@@ -71,7 +74,7 @@ function buildPixelPositions(size: number, scale: number): PixelPos[] {
   return all
 }
 
-const RingVisualizationCanvas = ({ colors, activeRings, zoom = 1, onZoomChange, resetPanToken }: RingVisualizationCanvasProps) => {
+const RingVisualizationCanvas = ({ colors, activeRings, zoom = 1, onZoomChange, resetPanToken, fit = 'width' }: RingVisualizationCanvasProps) => {
   const wrapperRef = React.useRef<HTMLDivElement>(null)
   const canvasRef = React.useRef<HTMLCanvasElement>(null)
   const [size, setSize] = React.useState(BASE)
@@ -86,8 +89,11 @@ const RingVisualizationCanvas = ({ colors, activeRings, zoom = 1, onZoomChange, 
     const el = wrapperRef.current
     if (!el) return
     const ro = new ResizeObserver(entries => {
-      const w = entries[0]?.contentRect.width
-      if (w && w > 0) setSize(Math.floor(w))
+      const cr = entries[0]?.contentRect
+      if (!cr) return
+      // 'box': fit the smaller of width/height so the whole ring cluster is visible and centered.
+      const s = fit === 'box' && cr.height > 0 ? Math.min(cr.width, cr.height) : cr.width
+      if (s && s > 0) setSize(Math.floor(s))
     })
     ro.observe(el)
     return () => ro.disconnect()
@@ -253,12 +259,19 @@ const RingVisualizationCanvas = ({ colors, activeRings, zoom = 1, onZoomChange, 
   }, [])
 
   return (
-    <div ref={wrapperRef} style={{ width: '100%', aspectRatio: '1', position: 'relative' }}>
+    <div
+      ref={wrapperRef}
+      style={fit === 'box'
+        ? { width: '100%', height: '100%', position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center' }
+        : { width: '100%', aspectRatio: '1', position: 'relative' }}
+    >
       <canvas
         ref={canvasRef}
         width={size}
         height={size}
-        style={{ display: 'block', width: '100%', height: '100%', cursor: 'grab' }}
+        style={fit === 'box'
+          ? { display: 'block', width: size, height: size, maxWidth: '100%', maxHeight: '100%', cursor: 'grab' }
+          : { display: 'block', width: '100%', height: '100%', cursor: 'grab' }}
         onMouseDown={handleMouseDown}
         onMouseUp={handleMouseUp}
         onMouseMove={handleMouseMove}

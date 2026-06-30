@@ -259,6 +259,7 @@ const RingVisualization = ({
           zoom={zoom}
           onZoomChange={onZoomChange}
           resetPanToken={resetPanToken}
+          fit="box"
         />
       </div>
     )

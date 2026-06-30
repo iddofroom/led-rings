@@ -359,9 +359,11 @@ function App() {
   const { startBeat: viewStartBeat, beatsPerScreen } = viewRange
   const viewEndBeat = viewStartBeat + beatsPerScreen
 
-  // Resizable panel widths (px)
-  const [playbackPanelWidth, setPlaybackPanelWidth] = useState(720)
-  const [detailsPanelWidth, setDetailsPanelWidth] = useState(350)
+  // Resizable panel widths (px) — default responsively so the timeline never collapses
+  // and the right panel is never clipped on smaller screens (user can still drag-resize).
+  const _vw = typeof window !== 'undefined' ? window.innerWidth : 1440
+  const [playbackPanelWidth, setPlaybackPanelWidth] = useState(() => Math.round(Math.min(720, Math.max(380, _vw * 0.42))))
+  const [detailsPanelWidth, setDetailsPanelWidth] = useState(() => Math.round(Math.min(350, Math.max(280, _vw * 0.24))))
   const [spectrogramHeight, setSpectrogramHeight] = useState(180)
   const [spectrogramOpen, setSpectrogramOpen] = useState(true)
   const [headerHeight, setHeaderHeight] = useState(56)

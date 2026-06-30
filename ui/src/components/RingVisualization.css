@@ -35,7 +35,9 @@
 /* ---------------------------------------------------------------- */
 
 .ring-visualization-multi {
-  align-items: flex-start;
+  align-items: center;
+  height: 100%;
+  min-height: 0;
 }
 
 .big-rings-container {

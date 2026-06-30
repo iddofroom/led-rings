@@ -454,9 +454,12 @@
 
 .playback-rings-panel-visualization {
   width: 100%;
+  flex: 1;
+  min-height: 0;
   display: flex;
   justify-content: center;
-  align-items: flex-start;
+  align-items: center;
+  overflow: hidden;
 }
 
 .playback-rings-panel-empty {
