@@ -1687,6 +1687,21 @@ function App() {
           onClose={() => setShowCompose(false)}
         />
       )}
+      {/* Always-visible floating entry point (the header toolbar can clip its buttons off-screen). */}
+      <button
+        type="button"
+        onClick={() => setShowCompose(true)}
+        disabled={!API_BASE}
+        title={!API_BASE ? 'Run the control server (VITE_API_URL)' : 'Compose from audio: analyze + taste rules → timeline'}
+        style={{
+          position: 'fixed', top: 10, right: 16, zIndex: 950,
+          background: API_BASE ? '#10b981' : '#6b7280', color: '#fff', border: 'none',
+          borderRadius: 8, padding: '9px 16px', fontSize: 14, fontWeight: 700,
+          cursor: API_BASE ? 'pointer' : 'not-allowed', boxShadow: '0 2px 12px rgba(0,0,0,0.35)',
+        }}
+      >
+        🎵 Compose
+      </button>
       <div
         className="app-resize-handle app-resize-handle-header"
         onMouseDown={() => setResizing('header')}
