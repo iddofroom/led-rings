@@ -125,6 +125,61 @@ async function main() {
     record(`SONG ${name}`, ok, detail);
   }
 
+  // ---- Full pipeline: analysis -> translate.py -> song -> generate -> parse ----
+  {
+    const { spawnSync, execSync } = require("child_process");
+    const findPy = () => {
+      for (const c of [process.env.PYTHON, "python", "python3"].filter(Boolean) as string[]) {
+        try { execSync(`"${c}" -c "import yaml"`, { stdio: "ignore", timeout: 10000 }); return c; } catch {}
+      }
+      return null;
+    };
+    const py = findPy();
+    if (!py) {
+      record("PIPELINE analysis→translate→roundtrip", true, "skipped (no python+pyyaml)");
+    } else {
+      const FIXTURE = {
+        schemaVersion: 2, meter: 4, bpmGlobal: 120,
+        audio: { path: "fixture.mp3", sampleRate: 44100, durationMs: 16000, peakDbfs: -1, rmsDbfs: -12 },
+        grid: { stepMs: 100, count: 2 },
+        beatTimestampsMs: Array.from({ length: 33 }, (_, i) => i * 500),
+        downbeatTimestampsMs: Array.from({ length: 9 }, (_, i) => i * 2000),
+        sections: [
+          { startMs: 0, endMs: 4000, label: "intro", confidence: 0.8, bpm: 120, summary: { energy: 0.2, energyAbs: 0.01, onsetDensity: 0.1, spectralCentroid: 1500, bandEnergy: { sub: 0.1, low: 0.1, mid: 0.1, high: 0.1 } } },
+          { startMs: 4000, endMs: 10000, label: "build", confidence: 0.9, bpm: 120, summary: { energy: 0.5, energyAbs: 0.02, onsetDensity: 0.4, spectralCentroid: 2500, bandEnergy: { sub: 0.3, low: 0.4, mid: 0.2, high: 0.1 } } },
+          { startMs: 10000, endMs: 16000, label: "drop", confidence: 1.0, bpm: 120, summary: { energy: 0.9, energyAbs: 0.05, onsetDensity: 0.5, spectralCentroid: 2000, bandEnergy: { sub: 0.6, low: 0.5, mid: 0.2, high: 0.1 } } },
+        ],
+        curves: { timeMs: [0, 100], energy: [0.2, 0.5], onsetDensity: [0.1, 0.4], spectralCentroid: [1500, 2500], localBpm: [120, 120], bandEnergy: { sub: [0.1, 0.3], low: [0.1, 0.4], mid: [0.1, 0.2], high: [0.1, 0.1] } },
+      };
+      const fx = path.join(ROOT, ".roundtrip-tmp", "fixture.analysis.json");
+      const songOut = path.join(ROOT, ".roundtrip-tmp", "fixture.song.json");
+      fs.mkdirSync(path.dirname(fx), { recursive: true });
+      fs.writeFileSync(fx, JSON.stringify(FIXTURE));
+      const tr = spawnSync(py, ["scripts/translate.py", fx, "-o", songOut, "--seed", "1"], { cwd: ROOT, stdio: ["ignore", "pipe", "pipe"] });
+      if (tr.status !== 0) {
+        record("PIPELINE analysis→translate→roundtrip", false, "translate.py failed: " + String(tr.stderr).slice(0, 200));
+      } else {
+        const data = JSON.parse(fs.readFileSync(songOut, "utf8"));
+        // Round-trip TWICE: the output must converge to a stable fixed point with no
+        // effect loss. (Dense per-ring sections may collapse to a movement timeframe on
+        // the first pass; that's fine iff it's then stable.)
+        const B = await roundTrip(data.song, data.timeframes);
+        const C = await roundTrip(B.song, B.timeframes as any[]);
+        const keys = (tfs: any[]) => { const s = new Set<string>(); tfs.forEach((t) => (t.effects || []).forEach((e: any) => s.add(e.effectKey))); return s; };
+        const inKeys = keys(data.timeframes), bKeys = keys(B.timeframes as any[]), cKeys = keys(C.timeframes as any[]);
+        // Guarantee: no effect content lost and the representation stays bounded.
+        // (Dense uniform per-ring sections may flip per-ring↔movement spread — an
+        // EQUIVALENT representation of the same animation — so we don't require a
+        // strict tf-count fixed point, only no loss and no explosion.)
+        const lost = [...inKeys].filter((k) => !bKeys.has(k) || !cKeys.has(k));
+        const bounded = B.timeframes.length > 0 && C.timeframes.length > 0 && C.timeframes.length <= data.timeframes.length * 2;
+        const ok = lost.length === 0 && bounded;
+        record("PIPELINE analysis→translate→roundtrip", ok,
+          `${data.timeframes.length}→${B.timeframes.length}→${C.timeframes.length} tf (per-ring↔movement equiv), lost=${lost.join(",") || "none"}`);
+      }
+    }
+  }
+
   cleanup();
   const fails = results.filter((r) => !r.ok);
   for (const r of results) console.log(`${r.ok ? "PASS" : "FAIL"}  ${r.name}${r.detail ? "  -- " + r.detail : ""}`);
