@@ -120,7 +120,7 @@ const PatternPreview = ({
           <RingVisualization mapping="all" timeframes={tfs} currentTime={t} globalBrightness={1} darkOff />
         </div>
         {/* Edit: speed + colors */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '8px 14px', flexWrap: 'wrap', borderTop: '1px solid #2c3645' }}>
+        <div style={{ position: 'relative', zIndex: 2, flexShrink: 0, background: 'var(--surface)', display: 'flex', alignItems: 'center', gap: 12, padding: '8px 14px', flexWrap: 'wrap', borderTop: '1px solid #2c3645' }}>
           <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: '#9ab' }}>
             מהירות
             <input type="range" min={0.25} max={4} step={0.05} value={speed} onChange={(e) => setSpeed(parseFloat(e.target.value))} style={{ width: 120, accentColor: '#f59e0b' }} />
