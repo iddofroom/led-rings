@@ -1860,18 +1860,6 @@ function App() {
           <span className="song-meta-suffix">ms</span>
         </label>
         <div className="app-header-actions">
-          <label className="app-theme-toggle" title={lightTheme ? 'Switch to dark theme' : 'Switch to light theme'}>
-            <input
-              type="checkbox"
-              checked={lightTheme}
-              onChange={(e) => {
-                const next = e.target.checked
-                setLightTheme(next)
-                localStorage.setItem('kivsee-theme', next ? 'light' : 'dark')
-              }}
-            />
-            <span>{lightTheme ? 'Light theme' : 'Dark theme'}</span>
-          </label>
           <button className="secondary-button" onClick={addTimeframe}>+ Add</button>
           <button className="secondary-button" onClick={handleLoadTimeframes}>Load</button>
           <button className="secondary-button" onClick={handleImportTs} disabled={!API_BASE} title={!API_BASE ? 'Set VITE_API_URL and run control server' : 'Import a .ts song file'}>Import .ts</button>

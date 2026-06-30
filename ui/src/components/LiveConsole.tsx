@@ -5,9 +5,9 @@ import RingVisualization from './RingVisualization'
 
 /**
  * Fullscreen LIVE CONSOLE — a VJ surface for performing the LED show while the song
- * plays. See the rings big, then drag pattern pads onto ALL / a single ring / a song
- * section, tune the pattern rate, scrub the song timeline (with section dividers), and
- * everything pushes to the simulator + (in Live mode) the physical LEDs.
+ * plays. Patterns live in a vertical rail on the left; the right side is a multi-lane
+ * timeline (one row for ALL rings + one row per ring 1-12). Drag a pattern pad onto a
+ * lane to add/replace a timeframe on those rings — start/end always snap to the beat.
  */
 
 interface SongLike {
@@ -62,6 +62,13 @@ const COLORS = ['#ffffff', '#ef4444', '#f59e0b', '#eab308', '#22c55e', '#06b6d4'
 const RATE_TICKS = [0.25, 0.5, 1, 2, 4, 8]
 const ALL_RINGS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
 const DT_KEY = 'text/led-pattern'
+const LABEL_W = 38 // gutter width for lane labels (px)
+
+// Lanes: one ALL row + one row per ring.
+const LANES: { key: string; label: string; rings: number[]; ring?: number }[] = [
+  { key: 'all', label: 'ALL', rings: ALL_RINGS },
+  ...ALL_RINGS.map((r) => ({ key: `r${r}`, label: String(r), rings: [r], ring: r })),
+]
 
 let _seq = 0
 const uid = (p: string) => `${p}-${Date.now().toString(36)}-${(_seq++).toString(36)}`
@@ -73,8 +80,8 @@ export default function LiveConsole({
 }: LiveConsoleProps) {
   const [color, setColor] = useState(COLORS[6])
   const [rate, setRate] = useState(2)
-  const [armed, setArmed] = useState<string | null>(null) // pad selected by click (apply on target click)
-  const [dropHint, setDropHint] = useState<string | null>(null)
+  const [armed, setArmed] = useState<string | null>(null) // pad selected by click (apply on lane click)
+  const [dropLane, setDropLane] = useState<string | null>(null)
   const [flash, setFlash] = useState<string | null>(null)
 
   React.useEffect(() => {
@@ -85,6 +92,10 @@ export default function LiveConsole({
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [onClose, onPlayPause])
+
+  // Snap a beat to the nearest whole beat, clamped to the song.
+  const snap = (beat: number) => Math.max(0, Math.min(songLengthBeats, Math.round(beat)))
+  const pct = (beat: number) => `${Math.max(0, Math.min(100, (beat / Math.max(1, songLengthBeats)) * 100))}%`
 
   // Sections derived from the composed timeframes' _section tags (with end beats).
   const sections = useMemo(() => {
@@ -101,10 +112,11 @@ export default function LiveConsole({
     return arr.map((s, i) => ({ ...s, endBeat: i + 1 < arr.length ? arr[i + 1].startBeat : songLengthBeats }))
   }, [timeframes, songLengthBeats])
 
-  const currentSection = useMemo(
-    () => sections.find((s) => currentTime >= s.startBeat && currentTime < s.endBeat) ?? sections[0],
-    [sections, currentTime],
-  )
+  const sectionAtBeat = (beat: number) =>
+    sections.find((s) => beat >= s.startBeat && beat < s.endBeat)
+      ?? sections[sections.length - 1]
+      ?? { idx: 0, label: 'song', startBeat: 0, endBeat: songLengthBeats }
+  const currentSection = useMemo(() => sectionAtBeat(currentTime), [sections, currentTime])
 
   const activeTimeframes = useMemo(
     () => timeframes.filter((tf) => !tf.disabled && currentTime >= tf.startTime && currentTime < tf.endTime),
@@ -120,11 +132,14 @@ export default function LiveConsole({
   function apply(patternKey: string, rings: number[], range: [number, number], targetLabel: string, opts?: { color?: string; rate?: number }) {
     const pat = PATTERNS.find((p) => p.key === patternKey)
     if (!pat) return
-    const [s, e] = range
-    if (!(e > s)) return
-    // Allow explicit overrides so callers (e.g. Random) don't race React's async color/rate state.
+    // Snap start/end to whole beats; guarantee at least one beat of length.
+    let s = snap(range[0])
+    let e = snap(range[1])
+    if (!(e > s)) e = Math.min(songLengthBeats, s + 1)
+    if (!(e > s)) { s = Math.max(0, e - 1) }
     const useColor = opts?.color ?? color
     const useRate = opts?.rate ?? rate
+    const sec = sectionAtBeat(s)
     const newTf: Timeframe = {
       id: uid('live'),
       startTime: s,
@@ -136,7 +151,7 @@ export default function LiveConsole({
       mapping: 'all',
       ...(pat.cyclic ? { cycles: [{ type: 'cycle' as const, beatsInCycle: useRate }] } : {}),
       effects: pat.effects().map((ef) => ({ id: uid('ef'), ...ef })),
-      ...(currentSection ? { _section: currentSection.idx, _source: `live:${currentSection.label}:${pat.key}` } : {}),
+      ...(sec ? { _section: sec.idx, _source: `live:${sec.label}:${pat.key}` } : {}),
     }
     // Remove the target rings from existing timeframes overlapping the range, drop empties.
     const next: Timeframe[] = []
@@ -153,30 +168,6 @@ export default function LiveConsole({
     window.setTimeout(() => setFlash(null), 1100)
   }
 
-  /** Resolve a drop/click to a pattern key (dragged data, else the armed pad). */
-  function patternFrom(e?: React.DragEvent): string | null {
-    const dragged = e?.dataTransfer.getData(DT_KEY)
-    return dragged || armed
-  }
-  const sectionRange = (sec: { startBeat: number; endBeat: number }): [number, number] => [sec.startBeat, sec.endBeat]
-  const currentRange = (): [number, number] => currentSection ? [currentSection.startBeat, currentSection.endBeat] : [0, songLengthBeats]
-
-  function onDropTo(rings: number[], range: [number, number], label: string) {
-    return (e: React.DragEvent) => {
-      e.preventDefault()
-      setDropHint(null)
-      const key = patternFrom(e)
-      if (key) apply(key, rings, range, label)
-    }
-  }
-  const allowDrop = (hint: string) => (e: React.DragEvent) => { e.preventDefault(); setDropHint(hint) }
-
-  // Click a pad: arm it AND immediately apply to ALL rings of the current section.
-  function onPadClick(key: string) {
-    setArmed(key)
-    apply(key, ALL_RINGS, currentRange(), `ALL · ${currentSection?.label ?? 'song'}`)
-  }
-
   // 🎲 Random: pick a random pattern (+ color + rate) and replace the current
   // section's pattern across ALL rings. Each press shuffles to a fresh look.
   function onRandomize() {
@@ -186,10 +177,45 @@ export default function LiveConsole({
     setColor(c)
     setRate(rt)
     setArmed(pat.key)
-    apply(pat.key, ALL_RINGS, currentRange(), `🎲 ${pat.label} · ${currentSection?.label ?? 'song'}`, { color: c, rate: rt })
+    apply(pat.key, ALL_RINGS, [currentSection.startBeat, currentSection.endBeat], `🎲 ${currentSection?.label ?? 'song'}`, { color: c, rate: rt })
   }
 
-  const pct = (beat: number) => `${Math.max(0, Math.min(100, (beat / Math.max(1, songLengthBeats)) * 100))}%`
+  // Resolve where a beat-x falls within a lane track element.
+  const xToBeat = (e: React.DragEvent | React.MouseEvent, el: HTMLElement) => {
+    const rect = el.getBoundingClientRect()
+    const frac = (e.clientX - rect.left) / Math.max(1, rect.width)
+    return Math.max(0, Math.min(songLengthBeats, frac * songLengthBeats))
+  }
+
+  // Drop a pattern onto a lane: fill the section under the cursor for that lane's rings.
+  function onLaneDrop(lane: { key: string; label: string; rings: number[] }) {
+    return (e: React.DragEvent) => {
+      e.preventDefault()
+      setDropLane(null)
+      const key = e.dataTransfer.getData(DT_KEY) || armed
+      if (!key) return
+      const beat = xToBeat(e, e.currentTarget as HTMLElement)
+      const sec = sectionAtBeat(beat)
+      apply(key, lane.rings, [sec.startBeat, sec.endBeat], `${lane.label} · ${sec.label}`)
+    }
+  }
+
+  // Click a lane: with a pad armed, fill the section under the click; otherwise seek there.
+  function onLaneClick(lane: { key: string; label: string; rings: number[] }) {
+    return (e: React.MouseEvent) => {
+      const beat = xToBeat(e, e.currentTarget as HTMLElement)
+      if (armed) {
+        const sec = sectionAtBeat(beat)
+        apply(armed, lane.rings, [sec.startBeat, sec.endBeat], `${lane.label} · ${sec.label}`)
+      } else {
+        onSeekBeat(beat)
+      }
+    }
+  }
+
+  const blocksFor = (lane: { key: string; ring?: number }) =>
+    timeframes.filter((tf) => !tf.disabled && (lane.key === 'all' ? tf.rings.length >= ALL_RINGS.length : tf.rings.includes(lane.ring!)))
+
   const fmt = (beats: number) => {
     const bpm = song.bpm || 120
     const sec = (beats / bpm) * 60
@@ -206,6 +232,7 @@ export default function LiveConsole({
           <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 999, background: autoSend ? '#064e3b' : '#3a3f4b', color: autoSend ? '#6ee7b7' : '#aaa' }}>
             {autoSend ? '● auto → LEDs' : 'sim only'}
           </span>
+          {armed && <span style={{ fontSize: 11, color: '#34d399' }}>armed: {PATTERNS.find((p) => p.key === armed)?.label} — click a lane or drag onto the timeline</span>}
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           <span style={{ fontSize: 12, color: '#8aa' }}>Brightness</span>
@@ -215,105 +242,43 @@ export default function LiveConsole({
         </div>
       </div>
 
-      {/* Visualization + ALL drop zone */}
-      <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', padding: 14, gap: 10 }}>
-        <div
-          style={{ ...vizBox, outline: dropHint === 'all' ? '3px dashed #34d399' : '1px solid #1f2632' }}
-          onDragOver={allowDrop('all')} onDragLeave={() => setDropHint(null)}
-          onDrop={onDropTo(ALL_RINGS, currentRange(), `ALL · ${currentSection?.label ?? 'song'}`)}
-        >
-          {activeTimeframes.length > 0 ? (
-            <RingVisualization mapping="all" activeRings={activeRings} timeframes={activeTimeframes}
-              currentTime={currentTime} globalBrightness={brightness} />
-          ) : (
-            <div style={{ color: '#566', fontSize: 14 }}>No active segment at {currentTime.toFixed(1)}b — press ▶ or drop a pattern.</div>
-          )}
-          {flash && <div style={flashPill}>{flash}</div>}
-          <div style={{ position: 'absolute', top: 8, left: 12, fontSize: 11, color: '#7a8', fontWeight: 600 }}>
-            drop a pattern here = ALL rings · {currentSection?.label ?? 'song'}
-          </div>
-        </div>
-
-        {/* Drop targets: ALL + each ring */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-          <span style={{ fontSize: 11, color: '#8aa', marginRight: 4 }}>Drop on:</span>
-          <div
-            onDragOver={allowDrop('all-chip')} onDragLeave={() => setDropHint(null)}
-            onDrop={onDropTo(ALL_RINGS, currentRange(), `ALL · ${currentSection?.label ?? 'song'}`)}
-            onClick={() => armed && apply(armed, ALL_RINGS, currentRange(), `ALL · ${currentSection?.label ?? 'song'}`)}
-            title={`Apply to ALL 12 rings (${currentSection?.label ?? 'song'})`}
-            style={{
-              height: 30, padding: '0 14px', borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center',
-              fontSize: 12, fontWeight: 800, letterSpacing: '0.05em', cursor: armed ? 'pointer' : 'grab',
-              background: dropHint === 'all-chip' ? '#34d399' : 'linear-gradient(135deg,#6366f1,#8b5cf6)',
-              color: dropHint === 'all-chip' ? '#04150f' : '#fff', border: '1px solid #ffffff33',
-            }}>
-            ⬤ ALL
-          </div>
-          <span style={{ fontSize: 11, color: '#566', margin: '0 2px' }}>|</span>
-          {ALL_RINGS.map((r) => {
-            const on = activeRings.includes(r)
-            return (
-              <div key={r}
-                onDragOver={allowDrop(`ring-${r}`)} onDragLeave={() => setDropHint(null)}
-                onDrop={onDropTo([r], currentRange(), `Ring ${r}`)}
-                onClick={() => armed && apply(armed, [r], currentRange(), `Ring ${r}`)}
-                title={`Apply to ring ${r} (${currentSection?.label ?? 'song'})`}
-                style={{
-                  width: 30, height: 30, borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  fontSize: 12, fontWeight: 700, cursor: armed ? 'pointer' : 'grab',
-                  background: dropHint === `ring-${r}` ? '#34d399' : on ? '#1d4ed8' : '#222a36',
-                  color: dropHint === `ring-${r}` ? '#04150f' : '#cdd', border: '1px solid #2c3645',
-                }}>
-                {r}
-              </div>
-            )
-          })}
-        </div>
-      </div>
-
-      {/* Controls: pads + rate + color */}
-      <div style={dock}>
-        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'stretch' }}>
+      {/* Body: pattern rail (left) + viz & multi-lane timeline (right) */}
+      <div style={{ flex: 1, minHeight: 0, display: 'flex' }}>
+        {/* ── Left rail: vertical pattern pads + rate + color ── */}
+        <div style={rail}>
+          <div style={railLabel}>Patterns</div>
           {PATTERNS.map((p) => (
             <div key={p.key} draggable
               onDragStart={(e) => { e.dataTransfer.setData(DT_KEY, p.key); e.dataTransfer.effectAllowed = 'copy' }}
-              onClick={() => onPadClick(p.key)}
-              title={`Drag onto ALL / a ring / a section — or click to apply to ALL of "${currentSection?.label ?? 'song'}"`}
-              style={{ ...pad, outline: armed === p.key ? '2px solid #34d399' : '1px solid #2c3645', background: `linear-gradient(160deg, ${p.color}22, #1b2230)` }}>
-              <span style={{ fontSize: 20 }}>{p.icon}</span>
-              <span style={{ fontSize: 11, fontWeight: 600 }}>{p.label}</span>
+              onClick={() => setArmed((cur) => (cur === p.key ? null : p.key))}
+              title={`Drag onto a lane, or click to arm then click a lane`}
+              style={{ ...padV, outline: armed === p.key ? '2px solid #34d399' : '1px solid #2c3645', background: `linear-gradient(160deg, ${p.color}22, #1b2230)` }}>
+              <span style={{ fontSize: 18, width: 22, textAlign: 'center' }}>{p.icon}</span>
+              <span style={{ fontSize: 12, fontWeight: 600 }}>{p.label}</span>
             </div>
           ))}
-          {/* 🎲 Random — swap the current pattern for a random one (pattern + color + rate). */}
-          <div
-            onClick={onRandomize}
-            title={`Random pattern — replace the current pattern of "${currentSection?.label ?? 'song'}" with a random one`}
-            style={{ ...pad, cursor: 'pointer', outline: '1px solid #f59e0b88', background: 'linear-gradient(160deg, #f59e0b33, #2a1f10)' }}>
-            <span style={{ fontSize: 20 }}>🎲</span>
-            <span style={{ fontSize: 11, fontWeight: 700, color: '#fbbf24' }}>Random</span>
+          {/* 🎲 Random */}
+          <div onClick={onRandomize}
+            title={`Random pattern → replace the current section (${currentSection?.label ?? 'song'}) on ALL rings`}
+            style={{ ...padV, cursor: 'pointer', outline: '1px solid #f59e0b88', background: 'linear-gradient(160deg, #f59e0b33, #2a1f10)' }}>
+            <span style={{ fontSize: 18, width: 22, textAlign: 'center' }}>🎲</span>
+            <span style={{ fontSize: 12, fontWeight: 700, color: '#fbbf24' }}>Random</span>
           </div>
-        </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: 18, flexWrap: 'wrap', marginTop: 10 }}>
-          {/* Rate */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: '1 1 320px' }}>
-            <span style={{ fontSize: 12, color: '#8aa', whiteSpace: 'nowrap' }}>Pattern rate</span>
-            <input type="range" min={0.25} max={8} step={0.25} value={rate}
-              onChange={(e) => setRate(parseFloat(e.target.value))} style={{ flex: 1, accentColor: '#f59e0b' }} />
-            <div style={{ display: 'flex', gap: 4 }}>
-              {RATE_TICKS.map((t) => (
-                <button key={t} onClick={() => setRate(t)}
-                  style={{ ...miniBtn, background: rate === t ? '#f59e0b' : '#2a3340', color: rate === t ? '#1b1200' : '#cdd' }}>
-                  {t < 1 ? `1/${1 / t}` : t}
-                </button>
-              ))}
-            </div>
-            <span style={{ fontSize: 11, color: '#778', whiteSpace: 'nowrap' }}>{rate}b/cycle</span>
+          <div style={railDivider} />
+          <div style={railLabel}>Rate · {rate}b</div>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+            {RATE_TICKS.map((t) => (
+              <button key={t} onClick={() => setRate(t)}
+                style={{ ...miniBtn, background: rate === t ? '#f59e0b' : '#2a3340', color: rate === t ? '#1b1200' : '#cdd' }}>
+                {t < 1 ? `1/${1 / t}` : t}
+              </button>
+            ))}
           </div>
-          {/* Color */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-            <span style={{ fontSize: 12, color: '#8aa' }}>Color</span>
+
+          <div style={railDivider} />
+          <div style={railLabel}>Color</div>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
             {COLORS.map((c) => (
               <button key={c} onClick={() => setColor(c)} title={c}
                 style={{ width: 22, height: 22, borderRadius: 6, background: c, cursor: 'pointer',
@@ -321,51 +286,92 @@ export default function LiveConsole({
             ))}
           </div>
         </div>
+
+        {/* ── Right: compact viz + lanes ── */}
+        <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', padding: 12, gap: 10 }}>
+          {/* Live visualization */}
+          <div style={vizBox}>
+            {activeTimeframes.length > 0 ? (
+              <RingVisualization mapping="all" activeRings={activeRings} timeframes={activeTimeframes}
+                currentTime={currentTime} globalBrightness={brightness} />
+            ) : (
+              <div style={{ color: '#566', fontSize: 14 }}>No active segment at {currentTime.toFixed(1)}b — press ▶ or drop a pattern onto a lane.</div>
+            )}
+            {flash && <div style={flashPill}>{flash}</div>}
+          </div>
+
+          {/* Multi-lane timeline */}
+          <div style={lanesWrap}>
+            {/* Ruler row (click to seek) */}
+            <div style={{ display: 'flex', alignItems: 'center', height: 18 }}>
+              <div style={{ width: LABEL_W, flexShrink: 0, fontSize: 9, color: '#667', textAlign: 'center' }}>beat</div>
+              <div style={{ position: 'relative', flex: 1, height: '100%', cursor: 'pointer' }}
+                onClick={(e) => onSeekBeat(xToBeat(e, e.currentTarget as HTMLElement))}>
+                {sections.map((sec) => (
+                  <span key={sec.idx} style={{ position: 'absolute', left: pct(sec.startBeat), top: 2, fontSize: 9, fontWeight: 700, color: 'rgba(255,255,255,0.5)', textTransform: 'uppercase', letterSpacing: '0.04em', whiteSpace: 'nowrap', pointerEvents: 'none' }}>
+                    {sec.label}
+                  </span>
+                ))}
+              </div>
+            </div>
+
+            {/* Lanes (relative box so the section dividers + playhead overlay aligns to the tracks) */}
+            <div style={{ position: 'relative' }}>
+              {LANES.map((lane) => (
+                <div key={lane.key} style={{ display: 'flex', alignItems: 'center', height: 18 }}>
+                  <div style={{ width: LABEL_W, flexShrink: 0, fontSize: 10, fontWeight: lane.key === 'all' ? 800 : 600, color: lane.key === 'all' ? '#a5b4fc' : '#8aa', textAlign: 'center' }}>
+                    {lane.label}
+                  </div>
+                  <div
+                    onDragOver={(e) => { e.preventDefault(); setDropLane(lane.key) }}
+                    onDragLeave={() => setDropLane((cur) => (cur === lane.key ? null : cur))}
+                    onDrop={onLaneDrop(lane)}
+                    onClick={onLaneClick(lane)}
+                    title={`${lane.label} — drag a pattern here (or click while a pad is armed). Click empty to seek.`}
+                    style={{
+                      position: 'relative', flex: 1, height: 15, borderRadius: 4, cursor: armed ? 'copy' : 'pointer',
+                      background: dropLane === lane.key ? 'rgba(52,211,153,0.25)' : lane.key === 'all' ? '#171d29' : '#12161f',
+                      outline: dropLane === lane.key ? '1px dashed #34d399' : '1px solid #1c2330',
+                    }}>
+                    {blocksFor(lane).map((tf) => (
+                      <div key={tf.id} title={tf.label}
+                        style={{
+                          position: 'absolute', top: 1, bottom: 1, left: pct(tf.startTime),
+                          width: `calc(${pct(tf.endTime)} - ${pct(tf.startTime)})`,
+                          background: tf.color, opacity: 0.85, borderRadius: 3, border: '1px solid rgba(255,255,255,0.25)',
+                          boxSizing: 'border-box', overflow: 'hidden',
+                        }} />
+                    ))}
+                  </div>
+                </div>
+              ))}
+
+              {/* Overlay: section dividers + playhead, aligned to the track column (left = LABEL_W) */}
+              <div style={{ position: 'absolute', left: LABEL_W, right: 0, top: 0, bottom: 0, pointerEvents: 'none' }}>
+                {sections.slice(1).map((sec) => (
+                  <div key={sec.idx} style={{ position: 'absolute', top: 0, bottom: 0, left: pct(sec.startBeat), width: 1, background: 'rgba(255,255,255,0.18)' }} />
+                ))}
+                <div style={{ position: 'absolute', top: -2, bottom: -2, left: pct(currentTime), width: 2, background: '#ef4444', boxShadow: '0 0 6px #ef4444' }}>
+                  <div style={{ position: 'absolute', top: -4, left: -5, width: 12, height: 12, borderRadius: '50%', background: '#ef4444', border: '2px solid #fff' }} />
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
 
-      {/* Transport + song timeline with section dividers (drop target) */}
+      {/* Transport */}
       <div style={transport}>
         <button onClick={onPlayPause} style={{ ...transportBtn, background: isPlaying ? '#b45309' : '#10b981' }}>
           {isPlaying ? '⏸' : '▶'}
         </button>
         <button onClick={onStop} style={{ ...transportBtn, background: '#3a3f4b' }}>⏹</button>
-        <span style={{ fontSize: 12, color: '#9ab', width: 86, textAlign: 'center', fontVariantNumeric: 'tabular-nums' }}>
+        <span style={{ fontSize: 12, color: '#9ab', width: 96, textAlign: 'center', fontVariantNumeric: 'tabular-nums' }}>
           {fmt(currentTime)} / {fmt(songLengthBeats)}
         </span>
-        <div
-          style={timelineTrack}
-          onClick={(e) => {
-            const rect = (e.currentTarget as HTMLDivElement).getBoundingClientRect()
-            const frac = (e.clientX - rect.left) / rect.width
-            onSeekBeat(Math.max(0, Math.min(songLengthBeats, frac * songLengthBeats)))
-          }}
-        >
-          {/* section blocks (each a drop target) */}
-          {sections.map((sec) => {
-            const left = (sec.startBeat / Math.max(1, songLengthBeats)) * 100
-            const width = ((sec.endBeat - sec.startBeat) / Math.max(1, songLengthBeats)) * 100
-            const isCur = sec.idx === currentSection?.idx
-            return (
-              <div key={sec.idx}
-                onDragOver={allowDrop(`sec-${sec.idx}`)} onDragLeave={() => setDropHint(null)}
-                onDrop={(e) => { e.stopPropagation(); onDropTo(ALL_RINGS, sectionRange(sec), `${sec.label}`)(e) }}
-                onClick={(e) => { if (armed) { e.stopPropagation(); apply(armed, ALL_RINGS, sectionRange(sec), sec.label) } }}
-                title={`${sec.label} — drop a pattern to fill this section`}
-                style={{
-                  position: 'absolute', top: 0, bottom: 0, left: `${left}%`, width: `${width}%`,
-                  borderLeft: '1px solid rgba(255,255,255,0.25)',
-                  background: dropHint === `sec-${sec.idx}` ? 'rgba(52,211,153,0.35)' : isCur ? 'rgba(59,130,246,0.16)' : 'transparent',
-                  boxSizing: 'border-box', overflow: 'hidden',
-                }}>
-                <span style={{ position: 'absolute', top: 2, left: 4, fontSize: 9, fontWeight: 700, color: 'rgba(255,255,255,0.6)', textTransform: 'uppercase', letterSpacing: '0.05em', whiteSpace: 'nowrap', pointerEvents: 'none' }}>{sec.label}</span>
-              </div>
-            )
-          })}
-          {/* playhead */}
-          <div style={{ position: 'absolute', top: -2, bottom: -2, left: pct(currentTime), width: 2, background: '#ef4444', boxShadow: '0 0 6px #ef4444', pointerEvents: 'none' }}>
-            <div style={{ position: 'absolute', top: -5, left: -5, width: 12, height: 12, borderRadius: '50%', background: '#ef4444', border: '2px solid #fff' }} />
-          </div>
-        </div>
+        <span style={{ fontSize: 11, color: '#667' }}>
+          {currentTime.toFixed(1)}b · {currentSection?.label ?? 'song'}
+        </span>
       </div>
     </div>
   )
@@ -374,11 +380,13 @@ export default function LiveConsole({
 const overlay: React.CSSProperties = { position: 'fixed', inset: 0, background: '#0a0c10', zIndex: 2100, display: 'flex', flexDirection: 'column', color: '#e8eef5' }
 const topbar: React.CSSProperties = { display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 16px', borderBottom: '1px solid #1b2230' }
 const closeBtn: React.CSSProperties = { background: '#3a3f4b', color: '#fff', border: 'none', borderRadius: 8, padding: '8px 14px', fontSize: 13, fontWeight: 600, cursor: 'pointer' }
-const vizBox: React.CSSProperties = { position: 'relative', flex: 1, minHeight: 0, borderRadius: 12, background: '#0d1117', display: 'flex', alignItems: 'center', justifyContent: 'center' }
+const rail: React.CSSProperties = { width: 156, flexShrink: 0, borderRight: '1px solid #1b2230', background: '#0d1117', padding: '10px 12px', display: 'flex', flexDirection: 'column', gap: 6, overflowY: 'auto' }
+const railLabel: React.CSSProperties = { fontSize: 10, fontWeight: 700, color: '#667', textTransform: 'uppercase', letterSpacing: '0.06em' }
+const railDivider: React.CSSProperties = { height: 1, background: '#1b2230', margin: '6px 0' }
+const padV: React.CSSProperties = { display: 'flex', alignItems: 'center', gap: 8, width: '100%', height: 40, borderRadius: 8, padding: '0 10px', cursor: 'grab', userSelect: 'none', boxSizing: 'border-box' }
+const vizBox: React.CSSProperties = { position: 'relative', flex: '0 0 38%', minHeight: 120, borderRadius: 12, background: '#0d1117', border: '1px solid #1f2632', display: 'flex', alignItems: 'center', justifyContent: 'center' }
 const flashPill: React.CSSProperties = { position: 'absolute', bottom: 12, left: '50%', transform: 'translateX(-50%)', background: '#064e3b', color: '#6ee7b7', padding: '6px 14px', borderRadius: 999, fontSize: 13, fontWeight: 700 }
-const dock: React.CSSProperties = { padding: '10px 16px', borderTop: '1px solid #1b2230', background: '#0d1117' }
-const pad: React.CSSProperties = { width: 78, height: 64, borderRadius: 10, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 4, cursor: 'grab', userSelect: 'none' }
+const lanesWrap: React.CSSProperties = { flex: 1, minHeight: 0, overflowY: 'auto', background: '#0d1117', border: '1px solid #1f2632', borderRadius: 12, padding: '8px 12px' }
 const miniBtn: React.CSSProperties = { border: 'none', borderRadius: 5, padding: '3px 7px', fontSize: 11, fontWeight: 700, cursor: 'pointer' }
 const transport: React.CSSProperties = { display: 'flex', alignItems: 'center', gap: 10, padding: '10px 16px', borderTop: '1px solid #1b2230' }
 const transportBtn: React.CSSProperties = { color: '#fff', border: 'none', borderRadius: 8, width: 44, height: 36, fontSize: 16, cursor: 'pointer' }
-const timelineTrack: React.CSSProperties = { position: 'relative', flex: 1, height: 34, background: '#161c26', borderRadius: 8, cursor: 'pointer', overflow: 'hidden' }
