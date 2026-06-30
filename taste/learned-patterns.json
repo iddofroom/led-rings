@@ -1,6 +1,6 @@
 {
-  "note": "Audio-INDEPENDENT structural taste mined from src/songs/* via parse-song (recorder). Reference material for the translator, not a model. Rules in taste/rules.yaml OVERRIDE these on conflict.",
-  "pendingAudioAlignment": "The effect<->section/energy alignment (which effect appears under which intro/build/drop + energy band) needs per-song audio run through scripts/analyze_music.py; add audio and re-run with alignment to complete it.",
+  "note": "Structural taste mined from src/songs/* via parse-song (recorder). Reference material for the translator, not a model. Rules in taste/rules.yaml OVERRIDE these on conflict.",
+  "audioAlignmentStatus": "Audio alignment pending — no corpus audio found (looked in src/audio, ui/public, src/songs). Drop the songs' audio there and re-run to populate audioAligned.bySection/byEnergyBand. Missing: aladdin, buttons, loop, togual.",
   "generatedFromSongs": [
     "agent",
     "aladdin",
@@ -112,6 +112,17 @@
       "max": 444,
       "mean": 13.57
     }
+  },
+  "audioAligned": {
+    "bySection": {},
+    "byEnergyBand": {},
+    "songsAligned": [],
+    "songsMissingAudio": [
+      "aladdin",
+      "buttons",
+      "loop",
+      "togual"
+    ]
   },
   "perSong": {
     "agent": {

@@ -5,16 +5,75 @@
  * vocabulary: effect frequency, effect co-occurrence, color/hue strategy, mapping,
  * cycle, movement, phase, timeframe duration, ring usage.
  *
- * Output: taste/learned-patterns.json  (reference material for the translator;
- * NOT a black-box model). The effect<->section/energy alignment that the plan also
- * wants requires per-song AUDIO analysis (scripts/analyze_music.py) and is left as a
- * documented follow-up — see the "pendingAudioAlignment" note in the output.
+ * Also runs an AUDIO-ALIGNED pass: for each corpus song whose audio is present (in
+ * src/audio / ui/public / src/songs), it analyzes the audio (scripts/analyze_music.py)
+ * and aligns each timeframe to the section label + energy band active at its mid-beat,
+ * producing audioAligned.bySection / audioAligned.byEnergyBand ("which effects we use
+ * under intro/build/drop and at low/mid/high energy"). Songs without audio are skipped
+ * and listed; drop their audio in and re-run to populate it.
+ *
+ * Output: taste/learned-patterns.json (reference material for the translator, NOT a model).
  *
  * Usage: npx ts-node scripts/mine-taste.ts
  */
 import * as path from "path";
 import * as fs from "fs";
+import { spawnSync, execSync } from "child_process";
 import { parseSongFile } from "../src/recorder/parse-song";
+
+const ROOT = path.resolve(__dirname, "..");
+
+/** Find a python with librosa (for the audio-aligned pass). */
+function findPython(): string | null {
+  for (const c of [process.env.PYTHON, "python", "python3"].filter(Boolean) as string[]) {
+    try { execSync(`"${c}" -c "import librosa"`, { stdio: "ignore", timeout: 15000 }); return c; } catch {}
+  }
+  return null;
+}
+
+/** Resolve a song's audioFilePath in the known locations. */
+function resolveAudio(p?: string): string | null {
+  if (!p) return null;
+  const base = path.basename(p);
+  for (const d of ["src/audio", "ui/public", "src/songs"]) {
+    const fp = path.join(ROOT, d, base);
+    if (fs.existsSync(fp) && fs.statSync(fp).isFile()) return fp;
+  }
+  const direct = path.resolve(ROOT, p);
+  return fs.existsSync(direct) && fs.statSync(direct).isFile() ? direct : null;
+}
+
+function runAnalyze(py: string, audioPath: string): any | null {
+  const out = path.join(ROOT, `.tmp-mine-an-${Date.now()}.json`);
+  const r = spawnSync(py, [path.join(ROOT, "scripts", "analyze_music.py"), audioPath, "-o", out], { cwd: ROOT, stdio: ["ignore", "pipe", "pipe"] });
+  if (r.status !== 0) return null;
+  try { const a = JSON.parse(fs.readFileSync(out, "utf8")); fs.unlinkSync(out); return a; } catch { return null; }
+}
+
+/** Align each timeframe to the section + energy band active at its mid-beat, counting effect usage. */
+function alignSong(song: any, timeframes: any[], analysis: any, aligned: any) {
+  const bms: number[] = (song.beatTimestampsMs && song.beatTimestampsMs.length) ? song.beatTimestampsMs : (analysis.beatTimestampsMs || []);
+  const bpm = song.bpm || analysis.bpmGlobal || 120;
+  const offset = song.startOffsetMs || 0;
+  const beatToMs = (beat: number) => {
+    if (bms.length) return bms[Math.max(0, Math.min(bms.length - 1, Math.round(beat)))];
+    return (beat * 60 / bpm) * 1000 + offset;
+  };
+  const secs = analysis.sections || [];
+  const curve: number[] = analysis.curves?.energy || [];
+  const step = analysis.grid?.stepMs || 100;
+  for (const tf of timeframes) {
+    const ms = beatToMs((tf.startTime + tf.endTime) / 2);
+    const sec = secs.find((s: any) => ms >= s.startMs && ms < s.endMs);
+    const label = sec ? sec.label : "unknown";
+    const energy = curve.length ? (curve[Math.max(0, Math.min(curve.length - 1, Math.round(ms / step)))] ?? 0) : 0;
+    const band = energy < 0.33 ? "low" : energy < 0.66 ? "mid" : "high";
+    for (const k of (tf.effects || []).map((e: any) => e.effectKey)) {
+      (aligned.bySection[label] ??= {})[k] = ((aligned.bySection[label] ??= {})[k] || 0) + 1;
+      (aligned.byEnergyBand[band] ??= {})[k] = ((aligned.byEnergyBand[band] ??= {})[k] || 0) + 1;
+    }
+  }
+}
 
 const SONGS_DIR = path.resolve(__dirname, "../src/songs");
 const OUT = path.resolve(__dirname, "../taste/learned-patterns.json");
@@ -112,11 +171,13 @@ async function main() {
   const files = fs.readdirSync(SONGS_DIR).filter((f) => f.endsWith(".ts") && !f.startsWith("__"));
   const perSong: Record<string, any> = {};
   const global = emptyAgg();
+  const parsed: Record<string, { song: any; timeframes: any[] }> = {};
   for (const f of files) {
     const songName = f.replace(/\.ts$/, "");
     try {
       const { song, timeframes } = await parseSongFile(path.join(SONGS_DIR, f));
       if (!timeframes.length) { perSong[songName] = { skipped: "0 timeframes (empty/stub)" }; continue; }
+      parsed[songName] = { song, timeframes: timeframes as any[] };
       const agg = emptyAgg();
       for (const tf of timeframes as any[]) { foldTimeframe(agg, tf); foldTimeframe(global, tf); }
       perSong[songName] = { bpm: (song as any).bpm, variableBpm: !!((song as any).beatTimestampsMs?.length), ...summarize(agg) };
@@ -124,11 +185,34 @@ async function main() {
       perSong[songName] = { error: e?.message || String(e) };
     }
   }
+
+  // ── Audio-aligned pass: effect usage by section label + energy band ──
+  // For each corpus song WITH audio present, analyze it and align each timeframe to
+  // the section/energy active at its mid-beat. (Needs the corpus audio; songs without
+  // it are listed under songsMissingAudio.)
+  const aligned: any = { bySection: {}, byEnergyBand: {}, songsAligned: [], songsMissingAudio: [] };
+  const py = findPython();
+  if (py) {
+    for (const [name, pr] of Object.entries(parsed)) {
+      const audio = resolveAudio(pr.song.audioFilePath);
+      if (!audio) { aligned.songsMissingAudio.push(pr.song.audioFilePath || name); continue; }
+      const analysis = runAnalyze(py, audio);
+      if (!analysis) { aligned.songsMissingAudio.push(`${name} (analyze failed)`); continue; }
+      alignSong(pr.song, pr.timeframes, analysis, aligned);
+      aligned.songsAligned.push(name);
+    }
+  }
+  const topN2 = (m: Record<string, number>) => Object.fromEntries(Object.entries(m).sort((a, b) => b[1] - a[1]).slice(0, 12));
+  for (const k of Object.keys(aligned.bySection)) aligned.bySection[k] = topN2(aligned.bySection[k]);
+  for (const k of Object.keys(aligned.byEnergyBand)) aligned.byEnergyBand[k] = topN2(aligned.byEnergyBand[k]);
   const out = {
-    note: "Audio-INDEPENDENT structural taste mined from src/songs/* via parse-song (recorder). Reference material for the translator, not a model. Rules in taste/rules.yaml OVERRIDE these on conflict.",
-    pendingAudioAlignment: "The effect<->section/energy alignment (which effect appears under which intro/build/drop + energy band) needs per-song audio run through scripts/analyze_music.py; add audio and re-run with alignment to complete it.",
+    note: "Structural taste mined from src/songs/* via parse-song (recorder). Reference material for the translator, not a model. Rules in taste/rules.yaml OVERRIDE these on conflict.",
+    audioAlignmentStatus: aligned.songsAligned.length
+      ? `Audio-aligned: ${aligned.songsAligned.length} song(s) (${aligned.songsAligned.join(", ")}). bySection/byEnergyBand below show which effects we use under each section label / energy band.`
+      : `Audio alignment pending — no corpus audio found (looked in src/audio, ui/public, src/songs). Drop the songs' audio there and re-run to populate audioAligned.bySection/byEnergyBand. Missing: ${aligned.songsMissingAudio.join(", ") || "(python+librosa not found)"}.`,
     generatedFromSongs: files.map((f) => f.replace(/\.ts$/, "")),
     aggregate: summarize(global),
+    audioAligned: aligned,
     perSong,
   };
   fs.mkdirSync(path.dirname(OUT), { recursive: true });
@@ -142,6 +226,12 @@ async function main() {
   console.log("cycles(beats):", out.aggregate.cycleBeats, "windowed:", out.aggregate.windowedCycles);
   console.log("movement:", out.aggregate.movement, "| phase tfs:", out.aggregate.phaseTimeframes);
   console.log("ringMode:", out.aggregate.ringMode, "| durationBeats:", out.aggregate.durationBeats);
+  console.log("\n=== AUDIO-ALIGNED ===");
+  console.log(out.audioAlignmentStatus);
+  if (aligned.songsAligned.length) {
+    console.log("bySection:", aligned.bySection);
+    console.log("byEnergyBand:", aligned.byEnergyBand);
+  }
 }
 
 main();
