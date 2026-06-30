@@ -183,7 +183,6 @@ export default function LiveConsole({
     if (!p.colors.includes(color)) setColor(p.colors[Math.floor(p.colors.length / 2)] ?? p.colors[0])
   }
   const [armed, setArmed] = useState<string | null>(null) // pad selected by click (apply on lane click)
-  const [padSearch, setPadSearch] = useState('') // filter for the song's preset pads
   const presetById = useMemo(() => new Map(presetPads.map((p) => [p.id, p])), [presetPads])
   // Editable/curatable rail: rename overrides + which pads are pinned to the top section.
   const [railLabels, setRailLabels] = useState<Record<string, string>>({})
@@ -737,7 +736,7 @@ export default function LiveConsole({
           {songAnimations.length > 0 && (
             <>
               <div style={railDivider} />
-              <div style={railLabel}>🎬 אנימציות השיר · {songAnimations.length}</div>
+              <div style={railLabel}>🎬 פאטרני השיר · {songAnimations.length}</div>
               {songAnimations.map((a) => {
                 const k = `anim:${a.id}`
                 const c = a.timeframes.find((t) => t.color)?.color || '#a855f7'
@@ -756,41 +755,10 @@ export default function LiveConsole({
             </>
           )}
 
-          {presetPads.length > 0 && (
-            <>
-              <div style={railDivider} />
-              <div style={railLabel}>פאטרני השיר · {presetPads.length}</div>
-              <input
-                value={padSearch}
-                onChange={(e) => setPadSearch(e.target.value)}
-                placeholder="חיפוש…"
-                style={{ width: '100%', boxSizing: 'border-box', background: '#1b2230', color: '#e8eef5', border: '1px solid #2c3645', borderRadius: 6, padding: '4px 8px', fontSize: 12, marginBottom: 2 }}
-              />
-              {presetPads
-                .filter((p) => !padSearch.trim() || p.displayName.toLowerCase().includes(padSearch.trim().toLowerCase()))
-                .map((p) => {
-                  const k = `preset:${p.id}`
-                  const c = extractPresetColor(p.data)
-                  const isPinned = pinned.includes(k)
-                  return (
-                    <div key={p.id} draggable={!editPads}
-                      onDragStart={(e) => { e.dataTransfer.setData(DT_KEY, k); e.dataTransfer.effectAllowed = 'copy' }}
-                      onClick={() => { if (!editPads) setArmed((cur) => (cur === k ? null : k)) }}
-                      title={editPads ? 'Rename, or ★ to pin to the top rail' : `${p.displayName} — גרור ללֵיין, או לחץ לחימוש ואז לחץ על לֵיין`}
-                      style={{ ...padV, height: 26, cursor: editPads ? 'default' : 'grab', outline: armed === k ? '2px solid #34d399' : '1px solid #2c3645', background: `linear-gradient(160deg, ${c}33, #1b2230)` }}>
-                      <span style={{ width: 11, height: 11, borderRadius: 3, background: c, flexShrink: 0 }} />
-                      {editPads ? (
-                        <>
-                          <input value={labelFor(k, p.displayName)} onChange={(e) => renamePad(k, e.target.value)} onClick={(e) => e.stopPropagation()} style={padRenameInput} />
-                          <button onClick={(e) => { e.stopPropagation(); togglePin(k) }} title={isPinned ? 'Unpin from top rail' : 'Pin to top rail'} style={{ ...pinBtn, color: isPinned ? '#fbbf24' : '#9ab' }}>{isPinned ? '★' : '☆'}</button>
-                        </>
-                      ) : (
-                        <span style={{ fontSize: 12, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{labelFor(k, p.displayName)}</span>
-                      )}
-                    </div>
-                  )
-                })}
-            </>
+          {songAnimations.length === 0 && (
+            <div style={{ fontSize: 11, color: '#667', padding: '6px 2px', lineHeight: 1.5 }}>
+              אין עדיין פאטרנים שמורים לשיר. ערוך פאטרן במסך הראשי ולחץ "💾 שמור" / "＋ הוסף לשיר".
+            </div>
           )}
 
           <div style={railDivider} />
