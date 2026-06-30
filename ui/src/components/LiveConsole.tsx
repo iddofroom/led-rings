@@ -2,6 +2,7 @@ import React, { useMemo, useRef, useState } from 'react'
 import type { Timeframe, TimeframeEffectEntry } from '../App'
 import { isRingActiveAtBeat } from '../movementGenerators'
 import RingVisualization from './RingVisualization'
+import TimeframePanel from './TimeframePanel'
 import { WLED_PALETTES, DEFAULT_PALETTE, paletteById, paletteGradientCss } from '../../../shared/wled-palettes'
 
 /**
@@ -38,6 +39,11 @@ interface LiveConsoleProps {
   autoSend: boolean
   /** Regenerate the whole composition from the audio analysis (returns when done). */
   onRecompose?: () => Promise<void> | void
+  /** Energy/band strip from the analysis (x in beats) for the spectrogram lane. */
+  strip?: { beats: number[]; energy: number[]; sub: number[]; low: number[]; mid: number[]; high: number[] } | null
+  /** Custom section-boundary beats (white lines) the user added; patterns snap to them. */
+  sectionLines?: number[]
+  onSectionLinesChange?: (lines: number[]) => void
   onClose: () => void
 }
 
@@ -136,7 +142,8 @@ function withPattern(tf: Timeframe, patKey: string, rt: number): Timeframe {
 export default function LiveConsole({
   song, timeframes, onApplyTimeframes, songLengthBeats,
   currentTime, isPlaying, onPlayPause, onStop, onSeekBeat,
-  brightness, brightnessConnected, onBrightnessChange, autoSend, onRecompose, onClose,
+  brightness, brightnessConnected, onBrightnessChange, autoSend, onRecompose,
+  strip, sectionLines = [], onSectionLinesChange, onClose,
 }: LiveConsoleProps) {
   const [paletteId, setPaletteId] = useState(DEFAULT_PALETTE.id)
   const palette = paletteById(paletteId)
@@ -160,18 +167,26 @@ export default function LiveConsole({
   const [flash, setFlash] = useState<string | null>(null)
   const [zoom, setZoom] = useState(1)
   const [selectedId, setSelectedId] = useState<string | null>(null)
+  const [showAdvanced, setShowAdvanced] = useState(false) // full per-property editor for the selected block
   const [resizeDraft, setResizeDraft] = useState<{ id: string; edge: 'start' | 'end'; startTime: number; endTime: number } | null>(null)
+  const [ctxMenu, setCtxMenu] = useState<{ x: number; y: number; beat: number } | null>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
   const innerRef = useRef<HTMLDivElement>(null)
 
   React.useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') { if (selectedId) setSelectedId(null); else onClose() }
-      else if (e.code === 'Space') { e.preventDefault(); onPlayPause() }
+      const tag = (e.target as HTMLElement)?.tagName
+      const inField = tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA'
+      if (e.key === 'Escape') {
+        if (inField) return // let the focused editor field keep Esc (don't tear the panel down)
+        if (showAdvanced) setShowAdvanced(false)
+        else if (selectedId) setSelectedId(null)
+        else onClose()
+      } else if (e.code === 'Space' && !inField) { e.preventDefault(); onPlayPause() }
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [onClose, onPlayPause, selectedId])
+  }, [onClose, onPlayPause, selectedId, showAdvanced])
 
   const snap = (beat: number) => Math.max(0, Math.min(songLengthBeats, Math.round(beat)))
   const pct = (beat: number) => `${Math.max(0, Math.min(100, (beat / Math.max(1, songLengthBeats)) * 100))}%`
@@ -191,11 +206,26 @@ export default function LiveConsole({
     return arr.map((s, i) => ({ ...s, endBeat: i + 1 < arr.length ? arr[i + 1].startBeat : songLengthBeats }))
   }, [timeframes, songLengthBeats])
 
+  // Custom section lines (drawn on the spectrogram) override the compose-derived sections:
+  // they define what patterns snap to, gap-fill against, and what Recompose regenerates over.
+  const effSections = useMemo(() => {
+    if (!sectionLines.length) return sections
+    const uniq = [...new Set([0, ...sectionLines.filter((b) => b > 0 && b < songLengthBeats).map((b) => Math.round(b)), Math.round(songLengthBeats)])].sort((a, b) => a - b)
+    const out: { idx: number; label: string; startBeat: number; endBeat: number }[] = []
+    for (let i = 0; i < uniq.length - 1; i++) {
+      if (uniq[i + 1] <= uniq[i]) continue
+      const mid = (uniq[i] + uniq[i + 1]) / 2
+      const host = sections.find((s) => mid >= s.startBeat && mid < s.endBeat)
+      out.push({ idx: out.length, label: host?.label || `seg ${out.length + 1}`, startBeat: uniq[i], endBeat: uniq[i + 1] })
+    }
+    return out.length ? out : sections
+  }, [sectionLines, sections, songLengthBeats])
+
   const sectionAtBeat = (beat: number) =>
-    sections.find((s) => beat >= s.startBeat && beat < s.endBeat)
-      ?? sections[sections.length - 1]
+    effSections.find((s) => beat >= s.startBeat && beat < s.endBeat)
+      ?? effSections[effSections.length - 1]
       ?? { idx: 0, label: 'song', startBeat: 0, endBeat: songLengthBeats }
-  const currentSection = useMemo(() => sectionAtBeat(currentTime), [sections, currentTime])
+  const currentSection = useMemo(() => sectionAtBeat(currentTime), [effSections, currentTime])
 
   const activeTimeframes = useMemo(
     () => timeframes.filter((tf) => !tf.disabled && currentTime >= tf.startTime && currentTime < tf.endTime),
@@ -207,6 +237,9 @@ export default function LiveConsole({
     [activeTimeframes, currentTime],
   )
   const selectedTf = useMemo(() => timeframes.find((t) => t.id === selectedId) || null, [timeframes, selectedId])
+
+  // Close the advanced (full-options) editor when its block goes away (deleted / deselected).
+  React.useEffect(() => { if (!selectedTf) setShowAdvanced(false) }, [selectedTf])
 
   // Soft beat-snap for edge dragging: snap hard to section boundaries, then to the nearest
   // whole beat when close, otherwise free at 0.05-beat resolution.
@@ -334,10 +367,42 @@ export default function LiveConsole({
     onApplyTimeframes(timeframes.map((t) => (t.id === selectedTf.id ? withFade(t, fadeIn, fadeOut) : t)))
   }
 
+  // Full per-property edit of the selected block (the "All options" drawer reuses the same
+  // TimeframePanel editor as the main app, so every original option — color/HSV, cycle,
+  // effects + params, movement, mapping, rings, phase — is available here too).
+  function updateSelectedAdvanced(updates: Partial<Timeframe>) {
+    if (!selectedTf) return
+    const u: Partial<Timeframe> = { ...updates }
+    if (u.startTime != null) u.startTime = Math.max(0, u.startTime)
+    if (u.endTime != null) u.endTime = Math.min(songLengthBeats, u.endTime)
+    onApplyTimeframes(timeframes.map((t) => (t.id === selectedTf.id ? { ...t, ...u } : t)))
+  }
+
   // Apply a mutation to EVERY live block in one click (used by the "→ all" controls).
   function applyToAll(mut: (tf: Timeframe) => Timeframe, label: string) {
     onApplyTimeframes(timeframes.map((t) => (t.disabled ? t : mut(t))))
     setFlash(label); window.setTimeout(() => setFlash(null), 1100)
+  }
+
+  // ── Custom section lines (added from the spectrogram right-click menu) ──
+  function addLineAt(beat: number) {
+    if (!onSectionLinesChange) return
+    const b = Math.round(Math.max(1, Math.min(songLengthBeats - 1, beat)))
+    if (sectionLines.some((x) => Math.abs(x - b) < 0.5)) return
+    onSectionLinesChange([...sectionLines, b].sort((a, c) => a - c))
+    setFlash(`＋ line @ ${b}b`); window.setTimeout(() => setFlash(null), 900)
+  }
+  function addGridLines(interval: number) {
+    if (!onSectionLinesChange || interval <= 0) return
+    const set = new Set(sectionLines.map((b) => Math.round(b)))
+    for (let b = interval; b < songLengthBeats; b += interval) set.add(Math.round(b))
+    onSectionLinesChange([...set].sort((a, c) => a - c))
+    setFlash(`＋ lines every ${interval}b`); window.setTimeout(() => setFlash(null), 900)
+  }
+  function removeLineNear(beat: number) {
+    if (!onSectionLinesChange || !sectionLines.length) return
+    const closest = sectionLines.reduce((best, x) => (Math.abs(x - beat) < Math.abs(best - beat) ? x : best), sectionLines[0])
+    if (Math.abs(closest - beat) < 2) onSectionLinesChange(sectionLines.filter((x) => x !== closest))
   }
 
   function onRandomize() {
@@ -595,11 +660,29 @@ export default function LiveConsole({
               <div ref={scrollRef} onWheel={onWheel}
                 style={{ flex: 1, minWidth: 0, overflowX: zoom > 1 ? 'auto' : 'hidden', overflowY: 'hidden' }}>
                 <div ref={innerRef} style={innerW}>
+                  {/* spectrogram strip (analysis energy + bands) — right-click to add beat lines */}
+                  {strip && strip.beats.length > 1 && (
+                    <div style={{ position: 'relative', height: 40, marginBottom: 3, borderRadius: 4, overflow: 'hidden', cursor: 'context-menu' }}
+                      onContextMenu={(e) => { e.preventDefault(); setCtxMenu({ x: e.clientX, y: e.clientY, beat: xToBeat(e, e.currentTarget as HTMLElement) }) }}
+                      onClick={(e) => { setSelectedId(null); onSeekBeat(xToBeat(e, e.currentTarget as HTMLElement)) }}
+                      title="Right-click to add beat lines that patterns snap to">
+                      <svg width="100%" height={40} viewBox={`0 0 ${Math.max(1, songLengthBeats)} 100`} preserveAspectRatio="none" style={{ display: 'block', background: '#0b0f17' }}>
+                        <polygon points={`0,100 ${strip.beats.map((b, i) => `${b},${100 - (strip.energy[i] || 0) * 100}`).join(' ')} ${songLengthBeats},100`} fill="rgba(255,255,255,0.10)" />
+                        {([['sub', '#3b82f6'], ['low', '#22c55e'], ['mid', '#f59e0b'], ['high', '#ef4444']] as const).map(([band, col]) => (
+                          <polyline key={band} points={strip.beats.map((b, i) => `${b},${100 - (strip[band][i] || 0) * 100}`).join(' ')} fill="none" stroke={col} strokeWidth={1} opacity={0.65} vectorEffect="non-scaling-stroke" />
+                        ))}
+                      </svg>
+                      {effSections.map((sec, i) => (
+                        <span key={i} style={{ position: 'absolute', left: pct(sec.startBeat), top: 1, fontSize: 8, fontWeight: 700, color: 'rgba(255,255,255,0.7)', textTransform: 'uppercase', whiteSpace: 'nowrap', pointerEvents: 'none', textShadow: '0 1px 2px #000' }}>{sec.label}</span>
+                      ))}
+                      <div style={{ position: 'absolute', top: 0, bottom: 0, left: pct(currentTime), width: 2, background: '#ef4444', pointerEvents: 'none' }} />
+                    </div>
+                  )}
                   {/* ruler */}
                   <div style={{ position: 'relative', height: LANE_H, cursor: 'pointer' }}
                     onClick={(e) => { setSelectedId(null); onSeekBeat(xToBeat(e, e.currentTarget as HTMLElement)) }}>
-                    {sections.map((sec) => (
-                      <span key={sec.idx} style={{ position: 'absolute', left: pct(sec.startBeat), top: 3, fontSize: 9, fontWeight: 700, color: 'rgba(255,255,255,0.5)', textTransform: 'uppercase', letterSpacing: '0.04em', whiteSpace: 'nowrap', pointerEvents: 'none' }}>
+                    {effSections.map((sec, i) => (
+                      <span key={i} style={{ position: 'absolute', left: pct(sec.startBeat), top: 3, fontSize: 9, fontWeight: 700, color: 'rgba(255,255,255,0.5)', textTransform: 'uppercase', letterSpacing: '0.04em', whiteSpace: 'nowrap', pointerEvents: 'none' }}>
                         {sec.label}
                       </span>
                     ))}
@@ -658,8 +741,12 @@ export default function LiveConsole({
                     {gridBeats > 0 && Array.from({ length: Math.floor(songLengthBeats / gridBeats) + 1 }, (_, i) => i * gridBeats).map((b) => (
                       <div key={`g${b}`} style={{ position: 'absolute', top: 0, bottom: 0, left: pct(b), width: 1, background: 'rgba(255,255,255,0.12)' }} />
                     ))}
-                    {sections.slice(1).map((sec) => (
-                      <div key={sec.idx} style={{ position: 'absolute', top: 0, bottom: 0, left: pct(sec.startBeat), width: 1, background: 'rgba(255,255,255,0.18)' }} />
+                    {effSections.slice(1).map((sec, i) => (
+                      <div key={`s${i}`} style={{ position: 'absolute', top: 0, bottom: 0, left: pct(sec.startBeat), width: 1, background: 'rgba(255,255,255,0.18)' }} />
+                    ))}
+                    {/* custom section lines — brighter, so they stand out from compose dividers */}
+                    {sectionLines.map((b, i) => (
+                      <div key={`c${i}`} style={{ position: 'absolute', top: 0, bottom: 0, left: pct(b), width: 1.5, background: 'rgba(255,255,255,0.75)' }} />
                     ))}
                     <div style={{ position: 'absolute', top: 0, bottom: 0, left: pct(currentTime), width: 2, background: '#ef4444', boxShadow: '0 0 6px #ef4444' }}>
                       <div style={{ position: 'absolute', top: -3, left: -5, width: 12, height: 12, borderRadius: '50%', background: '#ef4444', border: '2px solid #fff' }} />
@@ -671,6 +758,18 @@ export default function LiveConsole({
             )}
           </div>
         </div>
+
+        {/* ── Advanced "All options" drawer: the full editor for the selected block ── */}
+        {showAdvanced && selectedTf && (
+          <div style={advancedDrawer}>
+            <TimeframePanel
+              timeframe={selectedTf}
+              onUpdate={updateSelectedAdvanced}
+              onClose={() => setShowAdvanced(false)}
+              songLengthBeats={songLengthBeats}
+            />
+          </div>
+        )}
       </div>
 
       {/* Selected-block editor */}
@@ -682,8 +781,14 @@ export default function LiveConsole({
               {isAllRings(selectedTf) ? 'ALL rings' : `ring${selectedTf.rings.length > 1 ? 's' : ''} ${selectedTf.rings.join(',')}`} · {fmt(selectedTf.startTime)}→{fmt(selectedTf.endTime)} ({selectedTf.endTime - selectedTf.startTime}b)
             </span>
             <span style={{ flex: 1 }} />
+            <button
+              style={{ ...miniBtn, background: showAdvanced ? '#6366f1' : '#3730a3', color: '#fff' }}
+              onClick={() => setShowAdvanced((v) => !v)}
+              title="Full editor — color/HSV, cycle &amp; repeat, effects + params, movement, mapping, rings, phase (same options as the main panel)">
+              {showAdvanced ? '⚙ Hide options' : '⚙ All options'}
+            </button>
             <button style={{ ...miniBtn, background: '#7f1d1d', color: '#fecaca' }} onClick={deleteSelected}>🗑 Delete</button>
-            <button style={{ ...miniBtn, background: '#2a3340', color: '#cdd' }} onClick={() => setSelectedId(null)}>✕</button>
+            <button style={{ ...miniBtn, background: '#2a3340', color: '#cdd' }} onClick={() => { setShowAdvanced(false); setSelectedId(null) }}>✕</button>
           </div>
           <div style={{ display: 'flex', gap: 18, flexWrap: 'wrap', alignItems: 'center' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
@@ -754,6 +859,23 @@ export default function LiveConsole({
         </div>
       )}
 
+      {/* Right-click "add beat lines" menu (from the spectrogram) */}
+      {ctxMenu && (
+        <>
+          <div onClick={() => setCtxMenu(null)} onContextMenu={(e) => { e.preventDefault(); setCtxMenu(null) }} style={{ position: 'fixed', inset: 0, zIndex: 2200 }} />
+          <div style={{ position: 'fixed', left: Math.min(ctxMenu.x, window.innerWidth - 220), top: Math.min(ctxMenu.y, window.innerHeight - 260), zIndex: 2201, background: '#1b2230', border: '1px solid #2c3645', borderRadius: 8, padding: 6, boxShadow: '0 10px 30px #000b', minWidth: 200 }}>
+            <div style={{ fontSize: 10, color: '#778', padding: '2px 8px 6px', fontWeight: 700 }}>≈ beat {Math.round(ctxMenu.beat)} · add white snap-lines</div>
+            <button style={ctxItem} onClick={() => { addLineAt(ctxMenu.beat); setCtxMenu(null) }}>＋ Line here</button>
+            {[1, 2, 4, 8, 16].map((n) => (
+              <button key={n} style={ctxItem} onClick={() => { addGridLines(n); setCtxMenu(null) }}>＋ Lines every {n} beat{n > 1 ? 's' : ''}</button>
+            ))}
+            <div style={{ height: 1, background: '#2c3645', margin: '4px 0' }} />
+            <button style={ctxItem} onClick={() => { removeLineNear(ctxMenu.beat); setCtxMenu(null) }}>－ Remove nearest line</button>
+            <button style={{ ...ctxItem, color: '#fca5a5' }} onClick={() => { onSectionLinesChange?.([]); setCtxMenu(null) }}>🗑 Clear all lines</button>
+          </div>
+        </>
+      )}
+
       {/* Transport */}
       <div style={transport}>
         <button onClick={onPlayPause} style={{ ...transportBtn, background: isPlaying ? '#b45309' : '#10b981' }}>
@@ -788,3 +910,6 @@ const transport: React.CSSProperties = { display: 'flex', alignItems: 'center', 
 const transportBtn: React.CSSProperties = { color: '#fff', border: 'none', borderRadius: 8, width: 44, height: 36, fontSize: 16, cursor: 'pointer' }
 const editor: React.CSSProperties = { borderTop: '1px solid #1b2230', background: '#11161f', padding: '10px 16px' }
 const editLbl: React.CSSProperties = { fontSize: 11, color: '#8aa', marginRight: 2 }
+const ctxItem: React.CSSProperties = { display: 'block', width: '100%', textAlign: 'left', background: 'none', border: 'none', color: '#e8eef5', fontSize: 12, padding: '5px 8px', borderRadius: 5, cursor: 'pointer' }
+// Right-hand drawer that hosts the full TimeframePanel inside the fullscreen console.
+const advancedDrawer: React.CSSProperties = { flexShrink: 0, height: '100%', display: 'flex', borderLeft: '1px solid #1b2230', background: '#0d1117' }
