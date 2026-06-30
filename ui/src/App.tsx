@@ -1331,6 +1331,26 @@ function App() {
     void ensureSongInLibrary({ analysis, songOverride: merged, audioUrl })
   }
 
+  /** Regenerate the whole composition from the cached/library analysis (used by the Live Console). */
+  const recomposeCurrent = async () => {
+    if (!API_BASE) { window.alert('Control server is not running.'); return }
+    let analysis = lastAnalysisRef.current
+    if (!analysis && song.librarySlug) {
+      try { analysis = await library.getAnalysis(song.librarySlug) } catch {}
+    }
+    if (!analysis) { window.alert('No analysis yet — open 🎵 Compose and Analyze the song first.'); return }
+    try {
+      const r = await fetch(`${API_BASE}/api/translate`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ analysis, useLlm: true }),
+      })
+      if (!r.ok) { const j = await r.json().catch(() => ({})); throw new Error((j as any).error || `translate ${r.status}`) }
+      const result = await r.json()
+      loadCategoryPreview(result)
+    } catch (e) {
+      window.alert('Recompose failed: ' + (e instanceof Error ? e.message : String(e)))
+    }
+  }
+
   /** Save the current timeline as a named animation snapshot. */
   const saveCurrentAnimation = async () => {
     const name = window.prompt('Name this animation:', `${song.name || 'animation'} ${new Date().toTimeString().slice(0, 5)}`)
@@ -1995,6 +2015,7 @@ function App() {
             }).catch(() => {})
           }}
           autoSend={controlServerAvailable}
+          onRecompose={recomposeCurrent}
           onClose={() => setShowLiveConsole(false)}
         />
       )}

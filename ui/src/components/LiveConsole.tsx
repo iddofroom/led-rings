@@ -36,6 +36,8 @@ interface LiveConsoleProps {
   onBrightnessChange: (v: number) => void
   /** True while live edits auto-push to the LEDs (Live mode + control server up). */
   autoSend: boolean
+  /** Regenerate the whole composition from the audio analysis (returns when done). */
+  onRecompose?: () => Promise<void> | void
   onClose: () => void
 }
 
@@ -134,7 +136,7 @@ function withPattern(tf: Timeframe, patKey: string, rt: number): Timeframe {
 export default function LiveConsole({
   song, timeframes, onApplyTimeframes, songLengthBeats,
   currentTime, isPlaying, onPlayPause, onStop, onSeekBeat,
-  brightness, brightnessConnected, onBrightnessChange, autoSend, onClose,
+  brightness, brightnessConnected, onBrightnessChange, autoSend, onRecompose, onClose,
 }: LiveConsoleProps) {
   const [paletteId, setPaletteId] = useState(DEFAULT_PALETTE.id)
   const palette = paletteById(paletteId)
@@ -152,6 +154,9 @@ export default function LiveConsole({
   const [armed, setArmed] = useState<string | null>(null) // pad selected by click (apply on lane click)
   const [dropPreview, setDropPreview] = useState<{ laneKey: string; start: number; end: number } | null>(null)
   const [timelineCollapsed, setTimelineCollapsed] = useState(false)
+  const [gridBeats, setGridBeats] = useState(0) // 0 = off; else snap-line spacing in beats
+  const [recomposing, setRecomposing] = useState(false)
+  const panMovedRef = useRef(false)
   const [flash, setFlash] = useState<string | null>(null)
   const [zoom, setZoom] = useState(1)
   const [selectedId, setSelectedId] = useState<string | null>(null)
@@ -210,6 +215,11 @@ export default function LiveConsole({
     for (const s of sections) {
       if (Math.abs(beat - s.startBeat) < 0.5) return s.startBeat
       if (Math.abs(beat - s.endBeat) < 0.5) return s.endBeat
+    }
+    // Snap to the beat-grid lines when the grid is on.
+    if (gridBeats > 0) {
+      const g = Math.round(beat / gridBeats) * gridBeats
+      if (Math.abs(beat - g) < Math.max(0.3, gridBeats * 0.3)) return Math.max(0, Math.min(songLengthBeats, g))
     }
     const nearest = Math.round(beat)
     if (Math.abs(beat - nearest) < 0.3) return nearest
@@ -364,6 +374,7 @@ export default function LiveConsole({
   }
   function onLaneClick(lane: { key: string; label: string; rings: number[] }) {
     return (e: React.MouseEvent) => {
+      if (panMovedRef.current) return // this was a pan-drag, not a click
       const beat = xToBeat(e, e.currentTarget as HTMLElement)
       if (armed) {
         apply(armed, lane.rings, gapAt(lane, beat), `${lane.label} · ${sectionAtBeat(beat).label}`)
@@ -372,6 +383,28 @@ export default function LiveConsole({
         onSeekBeat(beat)
       }
     }
+  }
+
+  // Grab empty timeline space (when zoomed in) to pan the view left/right.
+  function onTrackMouseDown(e: React.MouseEvent) {
+    if (armed || e.button !== 0 || e.target !== e.currentTarget) return
+    const el = scrollRef.current
+    if (!el || zoom <= 1) return
+    const startX = e.clientX
+    const startScroll = el.scrollLeft
+    panMovedRef.current = false
+    const onMove = (ev: MouseEvent) => {
+      const dx = ev.clientX - startX
+      if (Math.abs(dx) > 3) panMovedRef.current = true
+      el.scrollLeft = startScroll - dx
+    }
+    const onUp = () => {
+      window.removeEventListener('mousemove', onMove)
+      window.removeEventListener('mouseup', onUp)
+      setTimeout(() => { panMovedRef.current = false }, 0)
+    }
+    window.addEventListener('mousemove', onMove)
+    window.addEventListener('mouseup', onUp)
   }
 
   // An ALL-rings pattern shows ONLY on the ALL lane; ring lanes show partial patterns only.
@@ -436,6 +469,16 @@ export default function LiveConsole({
           {armed && <span style={{ fontSize: 11, color: '#34d399' }}>armed: {PAT_BY_KEY.get(armed)?.label} — click a lane or drag onto the timeline</span>}
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          {onRecompose && (
+            <button
+              onClick={async () => { setRecomposing(true); try { await onRecompose() } finally { setRecomposing(false) } }}
+              disabled={recomposing}
+              title="Regenerate the whole composition from the audio analysis"
+              style={{ ...closeBtn, background: '#7c3aed', opacity: recomposing ? 0.6 : 1, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+              {recomposing && <span style={{ width: 12, height: 12, border: '2px solid #fff', borderTopColor: 'transparent', borderRadius: '50%', display: 'inline-block', animation: 'composeSpin 0.8s linear infinite' }} />}
+              {recomposing ? 'Recomposing…' : '↻ Recompose'}
+            </button>
+          )}
           <span style={{ fontSize: 12, color: '#8aa' }}>Brightness</span>
           <input type="range" min={0} max={1} step={0.01} value={brightness} disabled={!brightnessConnected}
             onChange={(e) => onBrightnessChange(parseFloat(e.target.value))} style={{ width: 120, accentColor: '#34d399' }} />
@@ -518,7 +561,16 @@ export default function LiveConsole({
               <span style={{ flex: 1 }} />
               {!timelineCollapsed && (
                 <>
-                  <span style={{ fontSize: 10, color: '#778' }}>ctrl+scroll to zoom</span>
+                  <span style={{ fontSize: 10, color: '#778' }}>grid</span>
+                  {[0, 1, 2, 4, 8, 16].map((g) => (
+                    <button key={g} onClick={() => setGridBeats(g)}
+                      title={g === 0 ? 'No beat grid' : `Snap lines every ${g} beat${g > 1 ? 's' : ''}`}
+                      style={{ ...zoomBtn, width: 'auto', padding: '0 6px', background: gridBeats === g ? '#6366f1' : '#2a3340', color: gridBeats === g ? '#fff' : '#cdd' }}>
+                      {g === 0 ? 'off' : g}
+                    </button>
+                  ))}
+                  <span style={{ width: 8 }} />
+                  <span style={{ fontSize: 10, color: '#778' }}>ctrl+scroll to zoom · drag empty to pan</span>
                   <button style={zoomBtn} onClick={() => zoomAt(1 / 1.5)} disabled={zoom <= ZOOM_MIN} title="Zoom out">−</button>
                   <span style={{ fontSize: 11, color: '#9ab', width: 36, textAlign: 'center' }}>{Math.round(zoom * 100)}%</span>
                   <button style={zoomBtn} onClick={() => zoomAt(1.5)} disabled={zoom >= ZOOM_MAX} title="Zoom in">+</button>
@@ -560,10 +612,11 @@ export default function LiveConsole({
                         onDragOver={onLaneDragOver(lane)}
                         onDragLeave={() => setDropPreview((cur) => (cur?.laneKey === lane.key ? null : cur))}
                         onDrop={onLaneDrop(lane)}
+                        onMouseDown={onTrackMouseDown}
                         onClick={onLaneClick(lane)}
                         title={`${lane.label} — drag a pattern here (or click while a pad is armed). Click a block to edit it.`}
                         style={{
-                          position: 'relative', flex: 1, height: 15, borderRadius: 4, cursor: armed ? 'copy' : 'pointer',
+                          position: 'relative', flex: 1, height: 15, borderRadius: 4, cursor: armed ? 'copy' : zoom > 1 ? 'grab' : 'pointer',
                           background: lane.key === 'all' ? '#171d29' : '#12161f',
                           outline: '1px solid #1c2330',
                         }}>
@@ -600,8 +653,11 @@ export default function LiveConsole({
                     </div>
                   ))}
 
-                  {/* overlay: section dividers + playhead, spanning all rows */}
+                  {/* overlay: beat grid + section dividers + playhead, spanning all rows */}
                   <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}>
+                    {gridBeats > 0 && Array.from({ length: Math.floor(songLengthBeats / gridBeats) + 1 }, (_, i) => i * gridBeats).map((b) => (
+                      <div key={`g${b}`} style={{ position: 'absolute', top: 0, bottom: 0, left: pct(b), width: 1, background: 'rgba(255,255,255,0.12)' }} />
+                    ))}
                     {sections.slice(1).map((sec) => (
                       <div key={sec.idx} style={{ position: 'absolute', top: 0, bottom: 0, left: pct(sec.startBeat), width: 1, background: 'rgba(255,255,255,0.18)' }} />
                     ))}
