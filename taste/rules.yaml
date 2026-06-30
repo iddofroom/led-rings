@@ -1,95 +1,69 @@
 # ============================================================================
-# TASTE RULES  —  THIS FILE IS YOURS. Edit it freely; it is the heart of the
-# pipeline. The translator (Phase 3) applies THESE rules to a new song's
-# structure. The values below are a transparent FIRST DRAFT seeded by Claude —
-# every one is meant to be overwritten by you. Nothing here is "learned" or
-# baked into prompts; this file is the single source of taste.
+# TASTE RULES — THIS FILE IS YOURS. The translator applies these to a song's
+# analyzed structure to emit BEAT-SYNCED, loop.ts-style LED animations.
 #
-# Precedence: these explicit rules OVERRIDE the mined patterns in
-# taste/learned-patterns.json on any conflict.
+# Each section picks (randomly, per run) one PATTERN + one PALETTE from its lists.
+# Patterns emit per-ring, beat-aligned timeframes (build-ups, sweeps, blinks,
+# snakes, pulses). `randomness` controls variety; `--seed` reproduces a run.
 #
-# HARD CONSTRAINT: only effects on the Phase 0 SAFE list may be referenced
-# (docs/round-trip-contract.md section 4). The allowed palette is:
-#   color:      constColor (+ "no color" = modifiers only)
-#   brightness: brightness, fadeIn, fadeOut, fadeInOut, fadeOutIn, blink, pulse, fade
-#   hue:        staticHueShift, hueShiftStartToEnd, hueShiftSin
-#   motion:     snake, snakeHeadMove, staticSnake, snakeHeadSin, snakeHeadSteps,
-#               snakeSlowFast, snakeTailShrinkGrow  (+ snakeInOut, snakeFillGrow standalone)
-#   structure:  mappings all/arc/ind/b1/b2/centric/updown/rand; plain cycle;
-#               phase ONLY on a color-only timeframe.
-#   DO NOT USE: movement, cycleBeats, rainbow, phase-with-effects, raw FloatFunc half/comb2.
+# PATTERNS (all SAFE / round-trip-safe):
+#   build_up       rings light up ONE BY ONE on beats and stay on (loop.ts intro)
+#   accumulate     like build_up, each ring pulses once it joins (rising energy)
+#   sweep          a lit ring sweeps across, one at a time, repeating
+#   per_ring_blink every ring blinks on its own staggered cycle
+#   snake_seg      a snake runs around a segment (centric/arc/rand/ind) on a cycle
+#   pulse_beat     all rings pulse on the beat — bright, driving (drops/choruses)
+#   solid_fade     one solid colour with a fade envelope (calm intros/breakdowns)
+#
+# PALETTES: hueRange [lo,hi] (0=red,.33=green,.66=blue; wraps if hi<lo),
+#           sat/val (number or {min,max}), hueSpread = hue variation across rings.
 # ============================================================================
 
-version: 1
+version: 2
+randomness: 0.85          # 0 = always the first option (stable); 1 = full variety
 
-# Global colour vocabulary you can reference by name in section rules below.
-palette:
-  # EDIT ME. hue is 0..1 (0=red, 0.33=green, 0.66=blue). sat/val 0..1.
-  warm:   { hue_range: [0.95, 0.10], sat: 1.0,  val: 1.0 }   # red/orange (corpus is red-dominant)
-  cool:   { hue_range: [0.55, 0.72], sat: 0.85, val: 1.0 }   # cyan/blue
-  pastel: { hue_range: [0.55, 0.72], sat: 0.6,  val: 1.0 }
+palettes:
+  warm:    { hueRange: [0.95, 1.10], sat: [0.85, 1.0],  val: 1.0, hueSpread: 0.12 }   # red→orange
+  hot:     { hueRange: [0.0, 0.07],  sat: 1.0,           val: 1.0, hueSpread: 0.06 }   # red/orange punch
+  neon:    { hueRange: [0.80, 1.00], sat: 1.0,           val: 1.0, hueSpread: 0.20 }   # magenta/pink
+  gold:    { hueRange: [0.10, 0.16], sat: [0.85, 1.0],  val: 1.0, hueSpread: 0.05 }   # amber/gold
+  cool:    { hueRange: [0.52, 0.70], sat: [0.7, 0.95],  val: 1.0, hueSpread: 0.12 }   # cyan→blue
+  ice:     { hueRange: [0.50, 0.62], sat: [0.35, 0.6],  val: 1.0, hueSpread: 0.08 }   # pale blue
+  deep:    { hueRange: [0.66, 0.80], sat: [0.8, 1.0],   val: [0.8, 1.0], hueSpread: 0.10 } # indigo/violet
+  forest:  { hueRange: [0.28, 0.42], sat: [0.7, 1.0],   val: 1.0, hueSpread: 0.10 }   # green
+  sunset:  { hueRange: [0.92, 1.12], sat: [0.8, 1.0],   val: 1.0, hueSpread: 0.18 }   # pink→orange spread
+  rainbow: { hueRange: [0.0, 1.0],   sat: 1.0,           val: 1.0, hueSpread: 0.9 }    # full spectrum across rings
 
-# Default applied to any section whose label has no explicit rule below.
 defaults:
-  intent: "hold the current mood"
-  color:      { strategy: constColor, palette: cool }
-  brightness: { base: brightness, value: 0.8 }
-  motion:     []
-  mapping:    all
+  patterns: [solid_fade]
+  palette:  [cool]
 
-# Per-section rules. Keys MUST match analyze_music.py section labels:
-#   intro | build | drop | breakdown | chorus | verse | outro
 sections:
 
   intro:
-    intent: "ease in, low and calm"            # EDIT ME
-    color:      { strategy: constColor, palette: cool }
-    brightness: { envelope: fadeIn }
-    motion:     []
-    mapping:    all
+    patterns: [build_up, solid_fade, snake_seg]
+    palette:  [cool, ice, deep]
 
   build:
-    intent: "rising tension toward the drop"   # EDIT ME
-    color:      { strategy: constColor, palette: warm }
-    brightness: { envelope: fadeIn }
-    motion:     [snakeFillGrow]                 # grows to fill — reads as accumulation
-    hue:        { effect: hueShiftStartToEnd, start: 0.0, end: 0.15 }  # warm drift
-    mapping:    centric
-    energy_response:
-      onset_density: blink_rate                 # denser onsets -> faster blink (you define the curve)
+    patterns: [build_up, accumulate, per_ring_blink, sweep]   # rising — add a ring on beats
+    palette:  [warm, gold, sunset, cool]
 
   drop:
-    intent: "release / impact"                  # EDIT ME
-    color:      { strategy: constColor, palette: warm, saturation: max }
-    brightness: { envelope: pulse, low: 0.4, on_downbeat: spike }
-    motion:     [snake]
-    mapping:    all
-    cycle:      { beatsInCycle: 1 }             # corpus's most common cycle
+    patterns: [pulse_beat, per_ring_blink, accumulate, snake_seg]
+    palette:  [hot, neon, warm, gold]
 
   breakdown:
-    intent: "pull back, breathe, suspense"      # EDIT ME
-    color:      { strategy: constColor, palette: cool }
-    brightness: { envelope: fadeOutIn, low: 0.1 }
-    motion:     []
-    mapping:    arc
+    patterns: [solid_fade, snake_seg, sweep]
+    palette:  [cool, ice, deep]
 
   chorus:
-    intent: "bright, full, recurring hook"      # EDIT ME
-    color:      { strategy: constColor, palette: warm }
-    brightness: { base: brightness, value: 1.0 }
-    motion:     [snakeHeadSin]
-    mapping:    all
+    patterns: [pulse_beat, snake_seg, accumulate, build_up]
+    palette:  [warm, gold, sunset, neon]
 
   verse:
-    intent: "steady groove between peaks"       # EDIT ME
-    color:      { strategy: constColor, palette: cool }
-    brightness: { envelope: blink, low: 0.3 }
-    motion:     []
-    mapping:    all
+    patterns: [per_ring_blink, sweep, snake_seg, solid_fade]
+    palette:  [cool, deep, forest, sunset]
 
   outro:
-    intent: "wind down to dark"                 # EDIT ME
-    color:      { strategy: constColor, palette: cool }
-    brightness: { envelope: fadeOut }
-    motion:     []
-    mapping:    all
+    patterns: [solid_fade, sweep]
+    palette:  [ice, cool, deep]
