@@ -28,6 +28,8 @@ interface PlaybackRingsPanelProps {
   brightness: number
   brightnessConnected: boolean
   onBrightnessChange: (v: number) => void
+  /** Open the fullscreen live VJ console instead of the plain fullscreen viz. */
+  onOpenLiveConsole?: () => void
 }
 
 function getActiveTimeframesAt(time: number, timeframes: Timeframe[]): Timeframe[] {
@@ -67,7 +69,9 @@ const PlaybackRingsPanel = ({
   brightness,
   brightnessConnected,
   onBrightnessChange,
+  onOpenLiveConsole,
 }: PlaybackRingsPanelProps) => {
+  const openFullscreen = () => (onOpenLiveConsole ? onOpenLiveConsole() : setFullscreen(true))
   // FPS counter: measure time between renders, keep a rolling window of 30 samples
   const fpsRef = React.useRef<number>(0)
   const lastFrameTime = React.useRef<number>(0)
@@ -290,7 +294,7 @@ const PlaybackRingsPanel = ({
                 <span className="playback-zoom-value" title="Ctrl+scroll over visualizer to zoom">{Math.round(zoom * 100)}%</span>
                 <button className="playback-zoom-btn" onClick={() => setZoom(z => clampZoom(z + ZOOM_STEP))} disabled={zoom >= ZOOM_MAX} title="Zoom in">+</button>
                 <button className="playback-zoom-btn" onClick={() => { setZoom(1.0); setResetPanToken(t => t + 1) }} title="Reset zoom" style={{ fontSize: 10 }}>1:1</button>
-                <button className="playback-zoom-btn" onClick={() => setFullscreen(true)} title="View LEDs fullscreen" style={{ fontSize: 13 }}>⛶</button>
+                <button className="playback-zoom-btn" onClick={openFullscreen} title="Open live console (fullscreen)" style={{ fontSize: 13 }}>⛶</button>
               </div>
             </div>
             <div className="playback-rings-panel-visualization">
@@ -314,7 +318,7 @@ const PlaybackRingsPanel = ({
                 <span className="playback-zoom-value" title="Ctrl+scroll over visualizer to zoom">{Math.round(zoom * 100)}%</span>
                 <button className="playback-zoom-btn" onClick={() => setZoom(z => clampZoom(z + ZOOM_STEP))} disabled={zoom >= ZOOM_MAX} title="Zoom in">+</button>
                 <button className="playback-zoom-btn" onClick={() => { setZoom(1.0); setResetPanToken(t => t + 1) }} title="Reset zoom" style={{ fontSize: 10 }}>1:1</button>
-                <button className="playback-zoom-btn" onClick={() => setFullscreen(true)} title="View LEDs fullscreen" style={{ fontSize: 13 }}>⛶</button>
+                <button className="playback-zoom-btn" onClick={openFullscreen} title="Open live console (fullscreen)" style={{ fontSize: 13 }}>⛶</button>
               </div>
             </div>
             <div className="playback-rings-panel-visualization">

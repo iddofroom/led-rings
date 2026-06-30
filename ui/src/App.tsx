@@ -5,6 +5,7 @@ import PlaybackRingsPanel from './components/PlaybackRingsPanel'
 import Spectrogram from './components/Spectrogram'
 import ComposePanel from './components/ComposePanel'
 import LibraryPanel from './components/LibraryPanel'
+import LiveConsole from './components/LiveConsole'
 import { library, fileToBase64 } from './lib/library'
 import { useViewRange } from './hooks/useViewRange'
 import { useUndoHistory } from './hooks/useUndoHistory'
@@ -400,6 +401,8 @@ function App() {
   const [resizing, setResizing] = useState<'playback' | 'details' | 'spectrogram' | 'header' | null>(null)
   const [showCompose, setShowCompose] = useState(false)
   const [showLibrary, setShowLibrary] = useState(false)
+  const [showLiveConsole, setShowLiveConsole] = useState(false)
+  const liveSendTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   // Cloud-library auto-save status, shown next to the floating actions.
   const [librarySaveState, setLibrarySaveState] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
   const lastSavedWorkingRef = useRef<string>('')
@@ -1457,6 +1460,17 @@ function App() {
     }
   }, [song, timeframes])
 
+  // While the Live Console is open, push the (edited) sequence to the LEDs automatically,
+  // debounced so rapid live tweaks coalesce into one send.
+  useEffect(() => {
+    if (!showLiveConsole || !API_BASE || !controlServerAvailable) return
+    if (liveSendTimerRef.current) clearTimeout(liveSendTimerRef.current)
+    liveSendTimerRef.current = setTimeout(() => { void handleSendSequence() }, 700)
+    return () => {
+      if (liveSendTimerRef.current) clearTimeout(liveSendTimerRef.current)
+    }
+  }, [timeframes, showLiveConsole])
+
   /** Surgically replace one analyzed section's timeframes in the LIVE timeline,
    *  preserving manual edits to other sections (used by the Compose per-part reroll). */
   const replaceSection = (sectionIdx: number, rawTimeframes: unknown[]) => {
@@ -1958,6 +1972,29 @@ function App() {
           onClose={() => setShowLibrary(false)}
         />
       )}
+      {showLiveConsole && (
+        <LiveConsole
+          song={song}
+          timeframes={timeframes}
+          onApplyTimeframes={(tfs) => setTimeframes(tfs)}
+          songLengthBeats={songLengthBeats}
+          currentTime={currentTime}
+          isPlaying={isPlaying}
+          onPlayPause={handlePlayPause}
+          onStop={handleStop}
+          onSeekBeat={handleSeekToBeat}
+          brightness={brightness}
+          brightnessConnected={brightnessConnected}
+          onBrightnessChange={(v) => {
+            setBrightnessState(v)
+            fetch(`${API_BASE}/api/brightness`, {
+              method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ value: v }),
+            }).catch(() => {})
+          }}
+          autoSend={controlServerAvailable}
+          onClose={() => setShowLiveConsole(false)}
+        />
+      )}
       {/* Floating action dock — always above the workspace, never clipped by the header. */}
       <div style={{ position: 'fixed', right: 20, bottom: 20, zIndex: 950, display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 10 }}>
         {(librarySaveState !== 'idle' || song.librarySlug) && (
@@ -2201,6 +2238,7 @@ function App() {
                 body: JSON.stringify({ value: v }),
               }).catch(() => {})
             }}
+            onOpenLiveConsole={() => setShowLiveConsole(true)}
           />
         </div>
         <div
