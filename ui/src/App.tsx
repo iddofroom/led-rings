@@ -1689,20 +1689,24 @@ function App() {
           onClose={() => setShowCompose(false)}
         />
       )}
-      {/* Always-visible floating entry point (the header toolbar can clip its buttons off-screen). */}
+      {/* Always-visible entry point, pinned in the header's reserved right slot
+          (the header toolbar itself can clip its inline buttons off-screen). */}
       <button
         type="button"
         onClick={() => setShowCompose(true)}
         disabled={!API_BASE}
         title={!API_BASE ? 'Run the control server (VITE_API_URL)' : 'Compose from audio: analyze + taste rules → timeline'}
         style={{
-          position: 'fixed', top: 10, right: 16, zIndex: 950,
-          background: API_BASE ? '#10b981' : '#6b7280', color: '#fff', border: 'none',
-          borderRadius: 8, padding: '9px 16px', fontSize: 14, fontWeight: 700,
-          cursor: API_BASE ? 'pointer' : 'not-allowed', boxShadow: '0 2px 12px rgba(0,0,0,0.35)',
+          position: 'fixed', top: 8, right: 14, zIndex: 950, height: 40,
+          display: 'inline-flex', alignItems: 'center', gap: 7,
+          background: API_BASE ? 'linear-gradient(135deg,#34d399 0%,#10b981 100%)' : '#6b7280',
+          color: '#fff', border: '1px solid rgba(255,255,255,0.25)',
+          borderRadius: 10, padding: '0 18px', fontSize: 14, fontWeight: 700,
+          cursor: API_BASE ? 'pointer' : 'not-allowed',
+          boxShadow: '0 4px 14px rgba(16,185,129,0.45)', letterSpacing: '0.01em',
         }}
       >
-        🎵 Compose
+        <span style={{ fontSize: 16, lineHeight: 1 }}>🎵</span> Compose
       </button>
       <div
         className="app-resize-handle app-resize-handle-header"
