@@ -38,6 +38,9 @@ interface PatternLibraryProps {
   onApplyEdited?: (timeframes: Timeframe[], name: string) => void
   /** Save the edited pattern into the song's animation set (upsert by name, in place). */
   onSavePattern?: (name: string, tfs: Timeframe[]) => void
+  /** Renamed pattern display names (preset id → name) + setter; persisted by the parent. */
+  patternNames?: Record<string, string>
+  onRenamePattern?: (id: string, name: string) => void
   onHideForSong: (id: string) => void
   onHideGlobal: (id: string) => void
   onRestoreForSong: (id: string) => void
@@ -58,20 +61,22 @@ const isPresetData = (v: unknown): v is PresetData =>
 /** Animated preview of a single pattern on the 12 rings — loops at the song's tempo.
  *  Editable: rename, change speed, recolor (via a palette) before adding to the song. */
 const PatternPreview = ({
-  preset, bpm, onApply, onApplyEdited, onSave, onClose,
+  preset, bpm, initialName, onApply, onApplyEdited, onSave, onRename, onClose,
 }: {
   preset: PresetMetadata
   bpm: number
+  initialName: string
   onApply: (p: PresetMetadata) => void
   onApplyEdited?: (tfs: Timeframe[], name: string) => void
   onSave?: (name: string, tfs: Timeframe[]) => void
+  onRename?: (id: string, name: string) => void
   onClose: () => void
 }) => {
   const baseTfs = useMemo(() => presetToTimeframes(preset, 0, bpm), [preset, bpm])
-  const [name, setName] = useState(preset.displayName)
+  const [name, setName] = useState(initialName)
   const [speed, setSpeed] = useState(1)
   const [paletteSel, setPaletteSel] = useState('original')
-  useEffect(() => { setName(preset.displayName); setSpeed(1); setPaletteSel('original') }, [preset])
+  useEffect(() => { setName(initialName); setSpeed(1); setPaletteSel('original') }, [preset, initialName])
 
   // Apply the live edits (speed + palette) to the previewed/added timeframes.
   const tfs = useMemo(() => baseTfs.map((tf, i) => {
@@ -149,11 +154,11 @@ const PatternPreview = ({
           <span className="pattern-preview-summary">{summarizePresetEffects(preset.data) || '—'}</span>
           <span style={{ flex: 1 }} />
           {onSave && (
-            <button onClick={() => { onSave(name, tfs); onClose() }} title="שמור את האנימציה לשיר (מחליף קיים עם אותו שם)"
+            <button onClick={() => { onRename?.(preset.id, name); onSave(name, tfs); onClose() }} title="שמור את השם והאנימציה (מחליף קיים עם אותו שם)"
               style={{ border: '1px solid #34d399', background: 'transparent', color: '#34d399', borderRadius: 8, padding: '8px 14px', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>💾 שמור</button>
           )}
           <button className="pattern-preview-add"
-            onClick={() => { if (onApplyEdited) onApplyEdited(tfs, name); else onApply(preset); onClose() }}>＋ הוסף לשיר</button>
+            onClick={() => { onRename?.(preset.id, name); if (onApplyEdited) onApplyEdited(tfs, name); else onApply(preset); onClose() }}>＋ הוסף לשיר</button>
         </div>
       </div>
     </div>
@@ -161,9 +166,10 @@ const PatternPreview = ({
 }
 
 const PatternCard = ({
-  preset, onOpen, onApply, onHideForSong, onHideGlobal,
+  preset, name, onOpen, onApply, onHideForSong, onHideGlobal,
 }: {
   preset: PresetMetadata
+  name: string
   onOpen: (p: PresetMetadata) => void
   onApply: (p: PresetMetadata) => void
   onHideForSong: (id: string) => void
@@ -182,7 +188,7 @@ const PatternCard = ({
           ))}
         </div>
         <div className="preset-card-info">
-          <span className="preset-card-name">{preset.displayName}</span>
+          <span className="preset-card-name">{name}</span>
           {summary && <span className="preset-card-effects">{summary}</span>}
         </div>
         <button
@@ -215,7 +221,7 @@ const PatternCard = ({
 
 const PatternLibrary = ({
   imported, globalHidden, songHidden, songName, bpm,
-  onApplyPreset, onApplyEdited, onSavePattern,
+  onApplyPreset, onApplyEdited, onSavePattern, patternNames = {}, onRenamePattern,
   onHideForSong, onHideGlobal, onRestoreForSong, onRestoreGlobal, onImport,
 }: PatternLibraryProps) => {
   const [searchTerm, setSearchTerm] = useState('')
@@ -336,6 +342,7 @@ const PatternLibrary = ({
                     <PatternCard
                       key={preset.id}
                       preset={preset}
+                      name={patternNames[preset.id] ?? preset.displayName}
                       onOpen={setPreview}
                       onApply={onApplyPreset}
                       onHideForSong={onHideForSong}
@@ -373,7 +380,8 @@ const PatternLibrary = ({
       )}
 
       {preview && (
-        <PatternPreview preset={preview} bpm={bpm} onApply={onApplyPreset} onApplyEdited={onApplyEdited} onSave={onSavePattern} onClose={() => setPreview(null)} />
+        <PatternPreview preset={preview} bpm={bpm} initialName={patternNames[preview.id] ?? preview.displayName}
+          onApply={onApplyPreset} onApplyEdited={onApplyEdited} onSave={onSavePattern} onRename={onRenamePattern} onClose={() => setPreview(null)} />
       )}
     </div>
   )

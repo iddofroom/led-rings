@@ -358,6 +358,12 @@ function App() {
   const [importedPatterns, setImportedPatterns] = useState<ImportedPattern[]>(() => {
     try { const v = JSON.parse(localStorage.getItem('kivsee:patternsImported') || '[]'); return Array.isArray(v) ? (v as ImportedPattern[]) : [] } catch { return [] }
   })
+  // Renamed pattern display names (override the preset's default), applied across the library.
+  const [patternNames, setPatternNames] = useState<Record<string, string>>(() => {
+    try { return JSON.parse(localStorage.getItem('kivsee:patternNames') || '{}') } catch { return {} }
+  })
+  useEffect(() => { try { localStorage.setItem('kivsee:patternNames', JSON.stringify(patternNames)) } catch {} }, [patternNames])
+  const renamePattern = (id: string, name: string) => setPatternNames((m) => ({ ...m, [id]: name.trim() || m[id] }))
   const [showHistory, setShowHistory] = useState(false)
   const liveSendTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [liveStrip, setLiveStrip] = useState<{ beats: number[]; energy: number[]; sub: number[]; low: number[]; mid: number[]; high: number[] } | null>(null)
@@ -1421,7 +1427,48 @@ function App() {
 
   /** Regenerate the whole composition from the cached/library analysis (used by the Live Console).
    *  When custom section lines exist, regenerate against THOSE boundaries. */
+  /** Client-side recompose: tile the song's OWN animations across its sections
+   *  (custom section lines if set, else the analysis sections). No server needed. */
+  const recomposeFromAnimations = (): boolean => {
+    const anims = song.animations || []
+    if (!anims.length) return false
+    let ranges: [number, number][] = []
+    const lines = (song.sectionLines || []).filter((b) => b > 0 && b < songLengthBeats).sort((a, b) => a - b)
+    if (lines.length) {
+      const bounds = [0, ...lines, songLengthBeats]
+      for (let i = 0; i < bounds.length - 1; i++) if (bounds[i + 1] > bounds[i]) ranges.push([bounds[i], bounds[i + 1]])
+    } else {
+      const secs = (lastAnalysisRef.current as { sections?: { startMs: number; endMs: number }[] } | null)?.sections
+      if (Array.isArray(secs) && secs.length) {
+        ranges = secs.map((sec) => [audioSecToBeats(sec.startMs / 1000, song), audioSecToBeats(sec.endMs / 1000, song)] as [number, number]).filter(([a, b]) => b > a)
+      }
+    }
+    if (!ranges.length) ranges = [[0, songLengthBeats]]
+    const out: Timeframe[] = []
+    ranges.forEach(([s, e], idx) => {
+      const anim = anims[idx % anims.length]
+      if (!anim.timeframes.length) return
+      const min = Math.min(...anim.timeframes.map((t) => t.startTime))
+      const max = Math.max(...anim.timeframes.map((t) => t.endTime))
+      const len = Math.max(0.5, max - min)
+      let r = 0
+      while (s + r * len < e - 0.01 && r < 256) {
+        const offset = s + r * len - min
+        for (const t of anim.timeframes) {
+          const st = +(t.startTime + offset).toFixed(3)
+          const en = Math.min(e, +(t.endTime + offset).toFixed(3))
+          if (en > st && st < songLengthBeats) out.push({ ...t, id: `rc-${idx}-${r}-${out.length}`, startTime: st, endTime: en, _section: idx, _source: `live:seg ${idx + 1}:${anim.name}` })
+        }
+        r++
+      }
+    })
+    if (out.length) { setTimeframes(out); setFocusedTimeframeId(null); setCurrentTime(0) }
+    return true
+  }
+
   const recomposeCurrent = async () => {
+    // Prefer the song's own animation set when it has one.
+    if (recomposeFromAnimations()) return
     if (!API_BASE) { window.alert('Control server is not running.'); return }
     let analysis = lastAnalysisRef.current
     if (!analysis && song.librarySlug) {
@@ -2446,6 +2493,8 @@ function App() {
                 onApplyPreset={addTimeframesFromPreset}
                 onApplyEdited={(tfs, name) => upsertSongAnimation(name, tfs)}
                 onSavePattern={(name, tfs) => upsertSongAnimation(name, tfs)}
+                patternNames={patternNames}
+                onRenamePattern={renamePattern}
                 onHideForSong={hidePatternForSong}
                 onHideGlobal={hidePatternGlobal}
                 onRestoreForSong={restorePatternForSong}
