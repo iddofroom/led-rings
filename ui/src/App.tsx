@@ -138,6 +138,9 @@ export interface Song {
   sectionLines?: number[]
   /** Pattern ids hidden for THIS song only (curated on the main settings page). */
   hiddenPatterns?: string[]
+  /** The song's own animation set (built via "add to song" / "save"). Offered as pads in
+   *  the Live Console rail and used as the pool when Recompose runs. */
+  animations?: { id: string; name: string; timeframes: Timeframe[] }[]
 }
 
 const LAST_SONG_STORAGE_KEY = 'timelineManager:lastSong'
@@ -358,11 +361,6 @@ function App() {
   const [showHistory, setShowHistory] = useState(false)
   const liveSendTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [liveStrip, setLiveStrip] = useState<{ beats: number[]; energy: number[]; sub: number[]; low: number[]; mid: number[]; high: number[] } | null>(null)
-  // Saved (edited) patterns — reusable, shown in the main pattern library. Persisted locally.
-  const [savedPatterns, setSavedPatterns] = useState<{ id: string; name: string; timeframes: Timeframe[] }[]>(() => {
-    try { return JSON.parse(localStorage.getItem('led:savedPatterns') || '[]') } catch { return [] }
-  })
-  useEffect(() => { try { localStorage.setItem('led:savedPatterns', JSON.stringify(savedPatterns)) } catch {} }, [savedPatterns])
   // Cloud-library auto-save status, shown next to the floating actions.
   const [librarySaveState, setLibrarySaveState] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
   // Git-like version history: which branch we commit to + the version the working timeline
@@ -647,31 +645,17 @@ function App() {
     }
   }
 
-  /** Add an EDITED pattern (renamed / re-sped / recolored in the library preview) to the song. */
-  const addEditedTimeframes = (tfs: Timeframe[], name: string) => {
-    const snappedBeat = Math.round(currentTime)
-    const minStart = tfs.length ? Math.min(...tfs.map((t) => t.startTime)) : 0
-    const shifted = tfs
-      .map((t, i) => ({
-        ...t,
-        id: `lib-${Date.now()}-${i}-${Math.random().toString(36).slice(2, 6)}`,
-        startTime: t.startTime - minStart + snappedBeat,
-        endTime: t.endTime - minStart + snappedBeat,
-        label: name?.trim() || t.label,
-      }))
-      .filter((tf) => tf.endTime <= songLengthBeats)
-    if (shifted.length > 0) {
-      setTimeframes((prev) => [...prev, ...shifted])
-      setFocusedTimeframeId(shifted[0].id)
-    }
-  }
 
-  /** Save an edited pattern to the reusable library (upsert by name). */
-  const saveEditedPattern = (name: string, tfs: Timeframe[]) => {
-    const nm = (name || '').trim() || 'pattern'
-    setSavedPatterns((prev) => [{ id: `saved-${Date.now()}`, name: nm, timeframes: tfs }, ...prev.filter((p) => p.name !== nm)])
+  /** Add/replace an animation in THIS SONG's animation set (upsert by name — so "save"
+   *  replaces the existing one in place instead of piling up duplicates). */
+  const upsertSongAnimation = (name: string, tfs: Timeframe[]) => {
+    const nm = (name || '').trim() || 'animation'
+    setSong((prev) => {
+      const list = (prev.animations || []).filter((a) => a.name !== nm)
+      return { ...prev, animations: [{ id: `anim-${Date.now()}-${Math.random().toString(36).slice(2, 5)}`, name: nm, timeframes: tfs }, ...list] }
+    })
   }
-  const deleteSavedPattern = (id: string) => setSavedPatterns((prev) => prev.filter((p) => p.id !== id))
+  const removeSongAnimation = (id: string) => setSong((prev) => ({ ...prev, animations: (prev.animations || []).filter((a) => a.id !== id) }))
 
   const focusedTimeframe = timeframes.find(tf => tf.id === focusedTimeframeId) || null
 
@@ -1274,6 +1258,7 @@ function App() {
       librarySlug: typeof s.librarySlug === 'string' ? s.librarySlug : undefined,
       sectionLines: Array.isArray(s.sectionLines) ? (s.sectionLines as number[]).filter((n) => typeof n === 'number') : undefined,
       hiddenPatterns: Array.isArray(s.hiddenPatterns) ? (s.hiddenPatterns as unknown[]).filter((x): x is string => typeof x === 'string') : undefined,
+      animations: Array.isArray(s.animations) ? (s.animations as Song['animations']) : undefined,
     }
   }
 
@@ -2150,6 +2135,8 @@ function App() {
           strip={liveStrip}
           sectionLines={song.sectionLines || []}
           onSectionLinesChange={(lines) => handleSongChange({ sectionLines: lines })}
+          songAnimations={song.animations || []}
+          onRemoveAnimation={removeSongAnimation}
           presetPads={curatedPatterns}
           onClose={() => setShowLiveConsole(false)}
         />
@@ -2457,10 +2444,8 @@ function App() {
                 songName={song.name}
                 bpm={song.bpm}
                 onApplyPreset={addTimeframesFromPreset}
-                onApplyEdited={addEditedTimeframes}
-                savedPatterns={savedPatterns}
-                onSavePattern={saveEditedPattern}
-                onDeleteSaved={deleteSavedPattern}
+                onApplyEdited={(tfs, name) => upsertSongAnimation(name, tfs)}
+                onSavePattern={(name, tfs) => upsertSongAnimation(name, tfs)}
                 onHideForSong={hidePatternForSong}
                 onHideGlobal={hidePatternGlobal}
                 onRestoreForSong={restorePatternForSong}

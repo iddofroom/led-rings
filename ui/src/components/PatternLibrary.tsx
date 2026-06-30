@@ -36,10 +36,8 @@ interface PatternLibraryProps {
   onApplyPreset: (preset: PresetMetadata) => void
   /** Add an EDITED version of a pattern (renamed / re-sped / recolored) to the song. */
   onApplyEdited?: (timeframes: Timeframe[], name: string) => void
-  /** Saved (edited) patterns — reusable, shown at the top of the library. */
-  savedPatterns?: { id: string; name: string; timeframes: Timeframe[] }[]
+  /** Save the edited pattern into the song's animation set (upsert by name, in place). */
   onSavePattern?: (name: string, tfs: Timeframe[]) => void
-  onDeleteSaved?: (id: string) => void
   onHideForSong: (id: string) => void
   onHideGlobal: (id: string) => void
   onRestoreForSong: (id: string) => void
@@ -151,7 +149,7 @@ const PatternPreview = ({
           <span className="pattern-preview-summary">{summarizePresetEffects(preset.data) || '—'}</span>
           <span style={{ flex: 1 }} />
           {onSave && (
-            <button onClick={() => onSave(name, tfs)} title="שמור את הפאטרן הערוך לרשימה (לשימוש חוזר)"
+            <button onClick={() => { onSave(name, tfs); onClose() }} title="שמור את האנימציה לשיר (מחליף קיים עם אותו שם)"
               style={{ border: '1px solid #34d399', background: 'transparent', color: '#34d399', borderRadius: 8, padding: '8px 14px', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>💾 שמור</button>
           )}
           <button className="pattern-preview-add"
@@ -217,7 +215,7 @@ const PatternCard = ({
 
 const PatternLibrary = ({
   imported, globalHidden, songHidden, songName, bpm,
-  onApplyPreset, onApplyEdited, savedPatterns = [], onSavePattern, onDeleteSaved,
+  onApplyPreset, onApplyEdited, onSavePattern,
   onHideForSong, onHideGlobal, onRestoreForSong, onRestoreGlobal, onImport,
 }: PatternLibraryProps) => {
   const [searchTerm, setSearchTerm] = useState('')
@@ -318,35 +316,7 @@ const PatternLibrary = ({
       </div>
 
       <div className="pattern-library-scroll">
-        {savedPatterns.length > 0 && (
-          <div className="pattern-library-category">
-            <div className="preset-browser-category-header" style={{ cursor: 'default' }}>
-              <span>💾 השמורים שלי</span>
-              <span className="preset-browser-category-count">{savedPatterns.length}</span>
-            </div>
-            <div className="pattern-library-grid">
-              {savedPatterns.map((sp) => {
-                const colors = Array.from(new Set(sp.timeframes.map((t) => t.color).filter(Boolean))).slice(0, 3)
-                return (
-                  <div key={sp.id} className="pattern-card-wrap">
-                    <div className="preset-card pattern-card" onClick={() => onApplyEdited?.(sp.timeframes, sp.name)} title="הוסף לשיר">
-                      <div className="preset-card-colors">
-                        {colors.map((c, i) => <div key={i} className="preset-card-color-swatch" style={{ background: c }} />)}
-                      </div>
-                      <div className="preset-card-info">
-                        <span className="preset-card-name">{sp.name}</span>
-                        <span className="preset-card-effects">שמור · {sp.timeframes.length} tf</span>
-                      </div>
-                      <button className="pattern-card-add" title="הוסף לשיר" onClick={(e) => { e.stopPropagation(); onApplyEdited?.(sp.timeframes, sp.name) }}>＋</button>
-                      <button className="pattern-card-delete" title="מחק" onClick={(e) => { e.stopPropagation(); onDeleteSaved?.(sp.id) }}>🗑</button>
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
-          </div>
-        )}
-        {orderedCats.length === 0 && savedPatterns.length === 0 && (
+        {orderedCats.length === 0 && (
           <div className="pattern-library-empty">אין פאטרנים להצגה. נסה לייבא, או לשחזר מוסתרים למטה.</div>
         )}
         {orderedCats.map((cat) => {

@@ -48,6 +48,9 @@ interface LiveConsoleProps {
   onSectionLinesChange?: (lines: number[]) => void
   /** Curated preset library for THIS song (after per-song + global hides) — shown as pads. */
   presetPads?: PresetMetadata[]
+  /** The song's own animations ("add to song") — offered as pads in the rail. */
+  songAnimations?: { id: string; name: string; timeframes: Timeframe[] }[]
+  onRemoveAnimation?: (id: string) => void
   onClose: () => void
 }
 
@@ -164,7 +167,7 @@ export default function LiveConsole({
   song, timeframes, onApplyTimeframes, songLengthBeats,
   currentTime, isPlaying, onPlayPause, onStop, onSeekBeat,
   brightness, brightnessConnected, onBrightnessChange, autoSend, onRecompose,
-  strip, sectionLines = [], onSectionLinesChange, presetPads = [], onClose,
+  strip, sectionLines = [], onSectionLinesChange, presetPads = [], songAnimations = [], onRemoveAnimation, onClose,
 }: LiveConsoleProps) {
   const [paletteId, setPaletteId] = useState(DEFAULT_PALETTE.id)
   const palette = paletteById(paletteId)
@@ -416,9 +419,25 @@ export default function LiveConsole({
     if (key.startsWith('preset:')) {
       const p = presetById.get(key.slice('preset:'.length))
       if (p) applyPreset(p, rings, range, targetLabel)
+    } else if (key.startsWith('anim:')) {
+      const a = songAnimations.find((x) => x.id === key.slice('anim:'.length))
+      if (a) applyAnimation(a, range)
     } else {
       apply(key, rings, range, targetLabel)
     }
+  }
+
+  // Drop a saved song-animation: shift its timeframes to start at the target beat.
+  function applyAnimation(anim: { name: string; timeframes: Timeframe[] }, range: [number, number]) {
+    if (!anim.timeframes.length) return
+    const s = snap(range[0])
+    const min = Math.min(...anim.timeframes.map((t) => t.startTime))
+    const shifted = anim.timeframes
+      .map((t) => ({ ...t, id: uid('anim'), startTime: +(t.startTime - min + s).toFixed(3), endTime: +(t.endTime - min + s).toFixed(3) }))
+      .filter((t) => t.startTime < songLengthBeats && t.endTime > t.startTime)
+    if (!shifted.length) return
+    onApplyTimeframes([...timeframes, ...shifted])
+    setFlash(`▶ ${anim.name}`); window.setTimeout(() => setFlash(null), 1100)
   }
 
   // ── Edit an existing block (the click-to-edit panel) ──
@@ -714,6 +733,28 @@ export default function LiveConsole({
             <span style={{ fontSize: 18, width: 22, textAlign: 'center' }}>🎲</span>
             <span style={{ fontSize: 12, fontWeight: 700, color: '#fbbf24' }}>Random</span>
           </div>
+
+          {songAnimations.length > 0 && (
+            <>
+              <div style={railDivider} />
+              <div style={railLabel}>🎬 אנימציות השיר · {songAnimations.length}</div>
+              {songAnimations.map((a) => {
+                const k = `anim:${a.id}`
+                const c = a.timeframes.find((t) => t.color)?.color || '#a855f7'
+                return (
+                  <div key={a.id} draggable
+                    onDragStart={(e) => { e.dataTransfer.setData(DT_KEY, k); e.dataTransfer.effectAllowed = 'copy' }}
+                    onClick={() => setArmed((cur) => (cur === k ? null : k))}
+                    title={`${a.name} — גרור ללֵיין או לחץ לחימוש`}
+                    style={{ ...padV, height: 26, outline: armed === k ? '2px solid #34d399' : '1px solid #2c3645', background: `linear-gradient(160deg, ${c}33, #1b2230)` }}>
+                    <span style={{ width: 11, height: 11, borderRadius: 3, background: c, flexShrink: 0 }} />
+                    <span style={{ fontSize: 12, fontWeight: 600, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{a.name}</span>
+                    {onRemoveAnimation && <button onClick={(e) => { e.stopPropagation(); onRemoveAnimation(a.id) }} title="הסר מהשיר" style={pinBtn}>×</button>}
+                  </div>
+                )
+              })}
+            </>
+          )}
 
           {presetPads.length > 0 && (
             <>
