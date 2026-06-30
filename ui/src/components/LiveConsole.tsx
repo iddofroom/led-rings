@@ -310,6 +310,39 @@ export default function LiveConsole({
   // Close the advanced (full-options) editor when its block goes away (deleted / deselected).
   React.useEffect(() => { if (!selectedTf) setShowAdvanced(false) }, [selectedTf])
 
+  // Keyboard control of the SELECTED block on the timeline:
+  //   Delete/Backspace → remove it · ←/→ → move it in time (Shift = 4 beats)
+  //   ↑/↓ → move it across ring lanes (↑ toward ring 1, ↓ toward ring 12).
+  React.useEffect(() => {
+    if (!selectedTf) return
+    const onKey = (e: KeyboardEvent) => {
+      const tag = (e.target as HTMLElement)?.tagName
+      if (tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA') return // don't hijack field typing
+      const tf = selectedTf
+      if (e.key === 'Delete' || e.key === 'Backspace') {
+        e.preventDefault()
+        onApplyTimeframes(timeframes.filter((t) => t.id !== tf.id))
+        setSelectedId(null)
+      } else if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+        e.preventDefault()
+        const d = (e.key === 'ArrowLeft' ? -1 : 1) * (e.shiftKey ? 4 : 1)
+        const dur = tf.endTime - tf.startTime
+        const s = Math.max(0, Math.min(songLengthBeats - dur, tf.startTime + d))
+        if (s !== tf.startTime) onApplyTimeframes(timeframes.map((t) => (t.id === tf.id ? { ...t, startTime: s, endTime: s + dur } : t)))
+      } else if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+        e.preventDefault()
+        const d = e.key === 'ArrowUp' ? -1 : 1
+        const moved = tf.rings.map((r) => r + d)
+        if (moved.every((r) => r >= 1 && r <= 12)) {
+          const rings = [...new Set(moved)].sort((a, b) => a - b)
+          onApplyTimeframes(timeframes.map((t) => (t.id === tf.id ? { ...t, rings } : t)))
+        }
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [selectedTf, timeframes, songLengthBeats, onApplyTimeframes])
+
   // Soft beat-snap for edge dragging: snap hard to section boundaries, then to the nearest
   // whole beat when close, otherwise free at 0.05-beat resolution.
   const softSnap = (beat: number) => {
@@ -1025,6 +1058,7 @@ export default function LiveConsole({
             <span style={{ fontSize: 11, color: '#8aa' }}>
               {isAllRings(selectedTf) ? 'ALL rings' : `ring${selectedTf.rings.length > 1 ? 's' : ''} ${selectedTf.rings.join(',')}`} · {fmt(selectedTf.startTime)}→{fmt(selectedTf.endTime)} ({selectedTf.endTime - selectedTf.startTime}b)
             </span>
+            <span style={{ fontSize: 10, color: '#556' }} title="Keyboard: ←/→ move in time (Shift = 4b) · ↑/↓ move across rings · Delete removes">⌨ ←→ time · ↑↓ rings · Del</span>
             <span style={{ flex: 1 }} />
             <button
               style={{ ...miniBtn, background: showAdvanced ? '#6366f1' : '#3730a3', color: '#fff' }}
