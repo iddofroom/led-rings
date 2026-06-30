@@ -4,6 +4,8 @@ import { isRingActiveAtBeat } from '../movementGenerators'
 import RingVisualization from './RingVisualization'
 import TimeframePanel from './TimeframePanel'
 import { WLED_PALETTES, DEFAULT_PALETTE, paletteById, paletteGradientCss } from '../../../shared/wled-palettes'
+import { presetToTimeframes, extractPresetColor } from '../presets'
+import type { PresetMetadata } from '../presets'
 
 /**
  * Fullscreen LIVE CONSOLE — a VJ surface for performing the LED show while the song
@@ -44,6 +46,8 @@ interface LiveConsoleProps {
   /** Custom section-boundary beats (white lines) the user added; patterns snap to them. */
   sectionLines?: number[]
   onSectionLinesChange?: (lines: number[]) => void
+  /** Curated preset library for THIS song (after per-song + global hides) — shown as pads. */
+  presetPads?: PresetMetadata[]
   onClose: () => void
 }
 
@@ -143,7 +147,7 @@ export default function LiveConsole({
   song, timeframes, onApplyTimeframes, songLengthBeats,
   currentTime, isPlaying, onPlayPause, onStop, onSeekBeat,
   brightness, brightnessConnected, onBrightnessChange, autoSend, onRecompose,
-  strip, sectionLines = [], onSectionLinesChange, onClose,
+  strip, sectionLines = [], onSectionLinesChange, presetPads = [], onClose,
 }: LiveConsoleProps) {
   const [paletteId, setPaletteId] = useState(DEFAULT_PALETTE.id)
   const palette = paletteById(paletteId)
@@ -159,6 +163,8 @@ export default function LiveConsole({
     if (!p.colors.includes(color)) setColor(p.colors[Math.floor(p.colors.length / 2)] ?? p.colors[0])
   }
   const [armed, setArmed] = useState<string | null>(null) // pad selected by click (apply on lane click)
+  const [padSearch, setPadSearch] = useState('') // filter for the song's preset pads
+  const presetById = useMemo(() => new Map(presetPads.map((p) => [p.id, p])), [presetPads])
   const [dropPreview, setDropPreview] = useState<{ laneKey: string; start: number; end: number } | null>(null)
   const [timelineCollapsed, setTimelineCollapsed] = useState(false)
   const [gridBeats, setGridBeats] = useState(0) // 0 = off; else snap-line spacing in beats
@@ -330,6 +336,49 @@ export default function LiveConsole({
     window.setTimeout(() => setFlash(null), 1100)
   }
 
+  // ── Apply a full preset (from the song's pattern library) onto target rings ──
+  function applyPreset(preset: PresetMetadata, rings: number[], range: [number, number], targetLabel: string) {
+    let s = snap(range[0])
+    let e = snap(range[1])
+    if (!(e > s)) e = Math.min(songLengthBeats, s + 1)
+    if (!(e > s)) { s = Math.max(0, e - 1) }
+    const converted = presetToTimeframes(preset, s, song.bpm || 120)
+    if (converted.length === 0) return
+    const sec = sectionAtBeat(s)
+    const sortedRings = [...rings].sort((a, b) => a - b)
+    const newTfs: Timeframe[] = converted.map((tf) => ({
+      ...tf,
+      id: uid('live'),
+      startTime: s,
+      endTime: e,
+      rings: sortedRings,
+      ...(sec ? { _section: sec.idx, _source: `live:${sec.label}:preset` } : {}),
+    }))
+    const next: Timeframe[] = []
+    for (const tf of timeframes) {
+      const overlaps = tf.startTime < e && tf.endTime > s
+      if (overlaps && tf.rings.some((r) => rings.includes(r))) {
+        const remain = tf.rings.filter((r) => !rings.includes(r))
+        if (remain.length) next.push({ ...tf, rings: remain })
+      } else next.push(tf)
+    }
+    next.push(...newTfs)
+    onApplyTimeframes(next)
+    setSelectedId(newTfs[0].id)
+    setFlash(`🎨 ${preset.displayName} → ${targetLabel}`)
+    window.setTimeout(() => setFlash(null), 1100)
+  }
+
+  // Dispatch a pad key: "preset:<id>" → applyPreset, else a built-in pattern.
+  function applyKey(key: string, rings: number[], range: [number, number], targetLabel: string) {
+    if (key.startsWith('preset:')) {
+      const p = presetById.get(key.slice('preset:'.length))
+      if (p) applyPreset(p, rings, range, targetLabel)
+    } else {
+      apply(key, rings, range, targetLabel)
+    }
+  }
+
   // ── Edit an existing block (the click-to-edit panel) ──
   function patchSelected(patch: { color?: string; rate?: number; patternKey?: string }) {
     if (!selectedTf) return
@@ -425,7 +474,7 @@ export default function LiveConsole({
       const key = e.dataTransfer.getData(DT_KEY) || armed
       if (!key) return
       const beat = xToBeat(e, e.currentTarget as HTMLElement)
-      apply(key, lane.rings, gapAt(lane, beat), `${lane.label} · ${sectionAtBeat(beat).label}`)
+      applyKey(key, lane.rings, gapAt(lane, beat), `${lane.label} · ${sectionAtBeat(beat).label}`)
     }
   }
   // Hover preview: highlight only the gap the pattern would fill (not the whole lane).
@@ -442,7 +491,7 @@ export default function LiveConsole({
       if (panMovedRef.current) return // this was a pan-drag, not a click
       const beat = xToBeat(e, e.currentTarget as HTMLElement)
       if (armed) {
-        apply(armed, lane.rings, gapAt(lane, beat), `${lane.label} · ${sectionAtBeat(beat).label}`)
+        applyKey(armed, lane.rings, gapAt(lane, beat), `${lane.label} · ${sectionAtBeat(beat).label}`)
       } else {
         setSelectedId(null)
         onSeekBeat(beat)
@@ -572,6 +621,35 @@ export default function LiveConsole({
             <span style={{ fontSize: 18, width: 22, textAlign: 'center' }}>🎲</span>
             <span style={{ fontSize: 12, fontWeight: 700, color: '#fbbf24' }}>Random</span>
           </div>
+
+          {presetPads.length > 0 && (
+            <>
+              <div style={railDivider} />
+              <div style={railLabel}>פאטרני השיר · {presetPads.length}</div>
+              <input
+                value={padSearch}
+                onChange={(e) => setPadSearch(e.target.value)}
+                placeholder="חיפוש…"
+                style={{ width: '100%', boxSizing: 'border-box', background: '#1b2230', color: '#e8eef5', border: '1px solid #2c3645', borderRadius: 6, padding: '4px 8px', fontSize: 12, marginBottom: 2 }}
+              />
+              {presetPads
+                .filter((p) => !padSearch.trim() || p.displayName.toLowerCase().includes(padSearch.trim().toLowerCase()))
+                .map((p) => {
+                  const k = `preset:${p.id}`
+                  const c = extractPresetColor(p.data)
+                  return (
+                    <div key={p.id} draggable
+                      onDragStart={(e) => { e.dataTransfer.setData(DT_KEY, k); e.dataTransfer.effectAllowed = 'copy' }}
+                      onClick={() => setArmed((cur) => (cur === k ? null : k))}
+                      title={`${p.displayName} — גרור ללֵיין, או לחץ לחימוש ואז לחץ על לֵיין`}
+                      style={{ ...padV, height: 32, outline: armed === k ? '2px solid #34d399' : '1px solid #2c3645', background: `linear-gradient(160deg, ${c}33, #1b2230)` }}>
+                      <span style={{ width: 11, height: 11, borderRadius: 3, background: c, flexShrink: 0 }} />
+                      <span style={{ fontSize: 12, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.displayName}</span>
+                    </div>
+                  )
+                })}
+            </>
+          )}
 
           <div style={railDivider} />
           <div style={railLabel}>Rate · {rate}b</div>

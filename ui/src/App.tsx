@@ -14,7 +14,7 @@ import { putAudio, getAudio } from './lib/audioCache'
 import { useViewRange } from './hooks/useViewRange'
 import { useUndoHistory } from './hooks/useUndoHistory'
 import { generateSequenceTs } from './generateSequenceTs'
-import { presetToTimeframes } from './presets'
+import { presetToTimeframes, loadAllPresets } from './presets'
 import { normalizeMovement } from './movementGenerators'
 import type { TimeframeMovement } from './movementGenerators'
 import type { PresetMetadata } from './presets'
@@ -342,6 +342,8 @@ function App() {
   const [showCompose, setShowCompose] = useState(false)
   const [showLibrary, setShowLibrary] = useState(false)
   const [showLiveConsole, setShowLiveConsole] = useState(false)
+  // Floating action dock starts collapsed (a single ☰ button) so it never covers the workspace.
+  const [dockOpen, setDockOpen] = useState(false)
   // Main page view: 'patterns' = song settings + pattern library (no timeline);
   // 'timeline' = the timeline editor. The fullscreen Live Console is the primary timeline workspace.
   const [mainView, setMainView] = useState<'patterns' | 'timeline'>('patterns')
@@ -622,6 +624,13 @@ function App() {
     const ids = new Set(patterns.map((p) => p.id))
     setGlobalHiddenPatterns((prev) => prev.filter((x) => !ids.has(x)))
   }
+  /** The song's curated pattern set: all presets + imports, minus global & per-song hides.
+   *  Drives both the settings-page grid and the Live Console pads. */
+  const curatedPatterns = React.useMemo<PresetMetadata[]>(() => {
+    const all: PresetMetadata[] = [...loadAllPresets(), ...importedPatterns]
+    const hidden = new Set([...globalHiddenPatterns, ...(song.hiddenPatterns ?? [])])
+    return all.filter((p) => !hidden.has(p.id))
+  }, [importedPatterns, globalHiddenPatterns, song.hiddenPatterns])
 
   const addTimeframesFromPreset = (preset: PresetMetadata) => {
     const snappedBeat = Math.round(currentTime)
@@ -2110,6 +2119,7 @@ function App() {
           strip={liveStrip}
           sectionLines={song.sectionLines || []}
           onSectionLinesChange={(lines) => handleSongChange({ sectionLines: lines })}
+          presetPads={curatedPatterns}
           onClose={() => setShowLiveConsole(false)}
         />
       )}
@@ -2130,43 +2140,55 @@ function App() {
                 : `✓ נשמר · ${currentBranch}`}
           </div>
         )}
+        {dockOpen && (
+          <>
+            <button
+              type="button"
+              onClick={() => void saveVersion()}
+              title={`שמירת גרסה חדשה בבראנץ' "${currentBranch}"`}
+              style={{ ...fabBase, background: 'linear-gradient(135deg,#38bdf8 0%,#0284c7 100%)', boxShadow: '0 4px 14px rgba(2,132,199,0.45)' }}
+            >
+              <span style={{ fontSize: 16, lineHeight: 1 }}>💾</span> שמור
+            </button>
+            <button
+              type="button"
+              onClick={() => setShowHistory(true)}
+              title="היסטוריית גרסאות ובראנצ'ים"
+              style={{ ...fabBase, background: 'linear-gradient(135deg,#fbbf24 0%,#d97706 100%)', boxShadow: '0 4px 14px rgba(217,119,6,0.45)' }}
+            >
+              <span style={{ fontSize: 16, lineHeight: 1 }}>🕘</span> היסטוריה
+            </button>
+            <button
+              type="button"
+              onClick={() => setShowLibrary(true)}
+              title="ספריית השירים: שירים, אנליזות ואנימציות שמורות"
+              style={{ ...fabBase, background: 'linear-gradient(135deg,#818cf8 0%,#6366f1 100%)', boxShadow: '0 4px 14px rgba(99,102,241,0.45)' }}
+            >
+              <span style={{ fontSize: 16, lineHeight: 1 }}>📚</span> ספרייה
+            </button>
+            <button
+              type="button"
+              onClick={() => setShowCompose(true)}
+              disabled={!API_BASE}
+              title={!API_BASE ? 'הרץ את שרת השליטה (VITE_API_URL)' : 'הלחנה משיר: אנליזה + חוקי טעם ← ציר הזמן'}
+              style={{
+                ...fabBase,
+                background: API_BASE ? 'linear-gradient(135deg,#34d399 0%,#10b981 100%)' : '#6b7280',
+                cursor: API_BASE ? 'pointer' : 'not-allowed',
+                boxShadow: '0 6px 18px rgba(16,185,129,0.5)', fontSize: 15, padding: '0 22px', height: 46,
+              }}
+            >
+              <span style={{ fontSize: 18, lineHeight: 1 }}>🎵</span> Compose
+            </button>
+          </>
+        )}
         <button
           type="button"
-          onClick={() => void saveVersion()}
-          title={`שמירת גרסה חדשה בבראנץ' "${currentBranch}"`}
-          style={{ ...fabBase, background: 'linear-gradient(135deg,#38bdf8 0%,#0284c7 100%)', boxShadow: '0 4px 14px rgba(2,132,199,0.45)' }}
+          onClick={() => setDockOpen((o) => !o)}
+          title={dockOpen ? 'סגור' : 'פעולות: שמירה / היסטוריה / ספרייה / Compose'}
+          style={{ ...fabBase, background: dockOpen ? 'rgba(15,23,42,0.92)' : 'linear-gradient(135deg,#475569 0%,#1e293b 100%)', boxShadow: '0 4px 14px rgba(0,0,0,0.4)' }}
         >
-          <span style={{ fontSize: 16, lineHeight: 1 }}>💾</span> שמור
-        </button>
-        <button
-          type="button"
-          onClick={() => setShowHistory(true)}
-          title="היסטוריית גרסאות ובראנצ'ים"
-          style={{ ...fabBase, background: 'linear-gradient(135deg,#fbbf24 0%,#d97706 100%)', boxShadow: '0 4px 14px rgba(217,119,6,0.45)' }}
-        >
-          <span style={{ fontSize: 16, lineHeight: 1 }}>🕘</span> היסטוריה
-        </button>
-        <button
-          type="button"
-          onClick={() => setShowLibrary(true)}
-          title="ספריית השירים: שירים, אנליזות ואנימציות שמורות"
-          style={{ ...fabBase, background: 'linear-gradient(135deg,#818cf8 0%,#6366f1 100%)', boxShadow: '0 4px 14px rgba(99,102,241,0.45)' }}
-        >
-          <span style={{ fontSize: 16, lineHeight: 1 }}>📚</span> ספרייה
-        </button>
-        <button
-          type="button"
-          onClick={() => setShowCompose(true)}
-          disabled={!API_BASE}
-          title={!API_BASE ? 'הרץ את שרת השליטה (VITE_API_URL)' : 'הלחנה משיר: אנליזה + חוקי טעם ← ציר הזמן'}
-          style={{
-            ...fabBase,
-            background: API_BASE ? 'linear-gradient(135deg,#34d399 0%,#10b981 100%)' : '#6b7280',
-            cursor: API_BASE ? 'pointer' : 'not-allowed',
-            boxShadow: '0 6px 18px rgba(16,185,129,0.5)', fontSize: 15, padding: '0 22px', height: 46,
-          }}
-        >
-          <span style={{ fontSize: 18, lineHeight: 1 }}>🎵</span> Compose
+          <span style={{ fontSize: 16, lineHeight: 1 }}>{dockOpen ? '✕' : '☰'}</span> {dockOpen ? 'סגור' : 'פעולות'}
         </button>
       </div>
       <div
