@@ -7,6 +7,7 @@ import segmentsData from '../segments.json'
 import RingVisualization from './RingVisualization'
 import PresetBrowser from './PresetBrowser'
 import HsvColorPicker from './HsvColorPicker'
+import { WLED_PALETTES, DEFAULT_PALETTE, paletteById } from '../../../shared/wled-palettes'
 import './TimeframePanel.css'
 
 // Effect options by category (brightness.ts, hue.ts, motion.ts — coloring removed)
@@ -311,6 +312,8 @@ interface TimeframePanelProps {
 const TimeframePanel = ({ timeframe, onUpdate, onClose, onApplyPreset, onLoadCategoryPreview, songLengthBeats }: TimeframePanelProps) => {
   const [editingField, setEditingField] = useState<'label' | 'startTime' | 'endTime' | null>(null)
   const [colorPickerOpen, setColorPickerOpen] = useState(false)
+  const [panelPaletteId, setPanelPaletteId] = useState(DEFAULT_PALETTE.id)
+  const panelPalette = paletteById(panelPaletteId)
   const colorPickerRef = React.useRef<HTMLDivElement>(null)
   const openColorPicker = useCallback(() => setColorPickerOpen(true), [])
 
@@ -661,6 +664,18 @@ const TimeframePanel = ({ timeframe, onUpdate, onClose, onApplyPreset, onLoadCat
                 </div>
               )
             })()}
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 8, flexWrap: 'wrap' }}>
+            <select value={panelPaletteId} onChange={(e) => setPanelPaletteId(e.target.value)} title="Pick a colour palette, then click a swatch"
+              style={{ background: 'var(--surface2)', color: 'var(--text)', border: '1px solid var(--border2)', borderRadius: 6, padding: '4px 6px', fontSize: 12, maxWidth: 150 }}>
+              {WLED_PALETTES.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+            </select>
+            <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+              {panelPalette.colors.map((c, i) => (
+                <button key={`${c}-${i}`} type="button" title={c} onClick={() => onUpdate({ color: c, hasExplicitColor: undefined })}
+                  style={{ width: 20, height: 20, borderRadius: 5, background: c, cursor: 'pointer', border: (timeframe.color || '').toLowerCase() === c.toLowerCase() ? '2px solid #fff' : '1px solid #0006' }} />
+              ))}
+            </div>
           </div>
           <label className="timeframe-panel-checkbox-label" title="When checked, this timeframe does not contribute color (no constColor). Only its effects (e.g. brightness, hue shift) apply on top of underlying layers. Timeline shows gray.">
             <input
