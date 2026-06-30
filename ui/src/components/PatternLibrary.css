@@ -105,6 +105,7 @@
 .pattern-card-wrap:hover .pattern-card-add,
 .pattern-card-wrap:hover .pattern-card-delete { opacity: 1; }
 .pattern-card-add:hover { background: #14532d; color: #bbf7d0; }
+.pattern-card-add.added { opacity: 1; color: #34d399; font-weight: 800; }
 .pattern-card-delete:hover { background: #7f1d1d; color: #fecaca; }
 
 /* ── Animated preview modal ── */

@@ -57,6 +57,23 @@ const isPresetData = (v: unknown): v is PresetData =>
   !!v && typeof v === 'object' && !Array.isArray(v) &&
   Object.keys(v as object).some((k) => /^ring\d+$/.test(k))
 
+/** Apply a pattern's edits (speed + palette) to its base timeframes — shared by the
+ *  preview modal and the card's quick "add to the song" action. */
+function editedTimeframes(baseTfs: Timeframe[], speed: number, paletteSel: string): Timeframe[] {
+  return baseTfs.map((tf, i) => {
+    const e: Timeframe = { ...tf }
+    if (paletteSel !== 'original') {
+      const pal = paletteById(paletteSel)
+      e.color = pal.colors[i % pal.colors.length]
+      e.hasExplicitColor = undefined
+    }
+    if (speed !== 1 && tf.cycles) {
+      e.cycles = tf.cycles.map((c) => ('beatsInCycle' in c ? { ...c, beatsInCycle: Math.max(0.25, +(c.beatsInCycle / speed).toFixed(2)) } : c))
+    }
+    return e
+  })
+}
+
 /** Animated preview of a single pattern on the 12 rings — loops at the song's tempo.
  *  Editable: rename, change speed, recolor (via a palette) before adding to the song. */
 const PatternPreview = ({
@@ -81,18 +98,7 @@ const PatternPreview = ({
   const persistEdit = () => onSaveEdit?.(preset.id, { name, speed, paletteId: paletteSel })
 
   // Apply the live edits (speed + palette) to the previewed/added timeframes.
-  const tfs = useMemo(() => baseTfs.map((tf, i) => {
-    const e: Timeframe = { ...tf }
-    if (paletteSel !== 'original') {
-      const pal = paletteById(paletteSel)
-      e.color = pal.colors[i % pal.colors.length]
-      e.hasExplicitColor = undefined
-    }
-    if (speed !== 1 && tf.cycles) {
-      e.cycles = tf.cycles.map((c) => ('beatsInCycle' in c ? { ...c, beatsInCycle: Math.max(0.25, +(c.beatsInCycle / speed).toFixed(2)) } : c))
-    }
-    return e
-  }), [baseTfs, speed, paletteSel])
+  const tfs = useMemo(() => editedTimeframes(baseTfs, speed, paletteSel), [baseTfs, speed, paletteSel])
 
   const loopBeats = useMemo(() => Math.max(1, ...tfs.map((t) => t.endTime)), [tfs])
   const [t, setT] = useState(0)
@@ -181,6 +187,7 @@ const PatternCard = ({
   const colors = useMemo(() => colorsOverride ?? extractPresetColors(preset.data), [colorsOverride, preset.data])
   const summary = useMemo(() => summarizePresetEffects(preset.data), [preset.data])
   const [confirming, setConfirming] = useState(false)
+  const [added, setAdded] = useState(false)
 
   return (
     <div className="pattern-card-wrap">
@@ -195,10 +202,10 @@ const PatternCard = ({
           {summary && <span className="preset-card-effects">{summary}</span>}
         </div>
         <button
-          className="pattern-card-add"
-          title="הוסף לשיר"
-          onClick={(e) => { e.stopPropagation(); onApply(preset) }}
-        >＋</button>
+          className={`pattern-card-add${added ? ' added' : ''}`}
+          title="הוסף לפאטרני המסך המלא (Live Console)"
+          onClick={(e) => { e.stopPropagation(); onApply(preset); setAdded(true); window.setTimeout(() => setAdded(false), 900) }}
+        >{added ? '✓' : '＋'}</button>
         <button
           className="pattern-card-delete"
           title="הסר פאטרן זה"
@@ -261,6 +268,17 @@ const PatternLibrary = ({
     return out
   }, [globalHidden, songHidden, byId, globalSet])
 
+  // ＋ on a card adds the pattern (with its saved name/speed/colors) to the song's
+  // pattern set — the pads in the fullscreen Live Console — NOT onto the timeline.
+  const addToSong = (preset: PresetMetadata) => {
+    const edit = patternEdits[preset.id] ?? {}
+    const base = presetToTimeframes(preset, 0, bpm)
+    const tfs = editedTimeframes(base, edit.speed ?? 1, edit.paletteId ?? 'original')
+    const name = edit.name ?? preset.displayName
+    if (onApplyEdited) onApplyEdited(tfs, name)
+    else onSavePattern?.(name, tfs)
+  }
+
   async function handleFiles(files: FileList | null) {
     if (!files || files.length === 0) return
     const out: ImportedPattern[] = []
@@ -322,7 +340,7 @@ const PatternLibrary = ({
                 name={patternEdits[preset.id]?.name ?? preset.displayName}
                 colorsOverride={patternEdits[preset.id]?.paletteId && patternEdits[preset.id]!.paletteId !== 'original' ? paletteById(patternEdits[preset.id]!.paletteId!).colors : undefined}
                 onOpen={setPreview}
-                onApply={onApplyPreset}
+                onApply={addToSong}
                 onHideForSong={onHideForSong}
                 onHideGlobal={onHideGlobal}
               />
