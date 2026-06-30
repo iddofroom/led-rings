@@ -11,6 +11,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { loadAllPresets, extractPresetColors, summarizePresetEffects, presetToTimeframes } from '../presets'
 import type { PresetMetadata, PresetData } from '../presets'
+import type { Timeframe } from '../App'
+import { WLED_PALETTES, paletteById } from '../../../shared/wled-palettes'
 import RingVisualization from './RingVisualization'
 import './PresetBrowser.css'
 import './PatternLibrary.css'
@@ -32,6 +34,8 @@ interface PatternLibraryProps {
   /** Song BPM — drives the preview animation tempo. */
   bpm: number
   onApplyPreset: (preset: PresetMetadata) => void
+  /** Add an EDITED version of a pattern (renamed / re-sped / recolored) to the song. */
+  onApplyEdited?: (timeframes: Timeframe[], name: string) => void
   onHideForSong: (id: string) => void
   onHideGlobal: (id: string) => void
   onRestoreForSong: (id: string) => void
@@ -49,16 +53,37 @@ const isPresetData = (v: unknown): v is PresetData =>
   !!v && typeof v === 'object' && !Array.isArray(v) &&
   Object.keys(v as object).some((k) => /^ring\d+$/.test(k))
 
-/** Animated preview of a single pattern on the 12 rings — loops at the song's tempo. */
+/** Animated preview of a single pattern on the 12 rings — loops at the song's tempo.
+ *  Editable: rename, change speed, recolor (via a palette) before adding to the song. */
 const PatternPreview = ({
-  preset, bpm, onApply, onClose,
+  preset, bpm, onApply, onApplyEdited, onClose,
 }: {
   preset: PresetMetadata
   bpm: number
   onApply: (p: PresetMetadata) => void
+  onApplyEdited?: (tfs: Timeframe[], name: string) => void
   onClose: () => void
 }) => {
-  const tfs = useMemo(() => presetToTimeframes(preset, 0, bpm), [preset, bpm])
+  const baseTfs = useMemo(() => presetToTimeframes(preset, 0, bpm), [preset, bpm])
+  const [name, setName] = useState(preset.displayName)
+  const [speed, setSpeed] = useState(1)
+  const [paletteSel, setPaletteSel] = useState('original')
+  useEffect(() => { setName(preset.displayName); setSpeed(1); setPaletteSel('original') }, [preset])
+
+  // Apply the live edits (speed + palette) to the previewed/added timeframes.
+  const tfs = useMemo(() => baseTfs.map((tf, i) => {
+    const e: Timeframe = { ...tf }
+    if (paletteSel !== 'original') {
+      const pal = paletteById(paletteSel)
+      e.color = pal.colors[i % pal.colors.length]
+      e.hasExplicitColor = undefined
+    }
+    if (speed !== 1 && tf.cycles) {
+      e.cycles = tf.cycles.map((c) => ('beatsInCycle' in c ? { ...c, beatsInCycle: Math.max(0.25, +(c.beatsInCycle / speed).toFixed(2)) } : c))
+    }
+    return e
+  }), [baseTfs, speed, paletteSel])
+
   const loopBeats = useMemo(() => Math.max(1, ...tfs.map((t) => t.endTime)), [tfs])
   const [t, setT] = useState(0)
 
@@ -85,7 +110,8 @@ const PatternPreview = ({
     <div className="pattern-preview-overlay" onClick={onClose}>
       <div className="pattern-preview-modal" onClick={(e) => e.stopPropagation()}>
         <div className="pattern-preview-head">
-          <span className="pattern-preview-name">{preset.displayName}</span>
+          <input className="pattern-preview-name-input" value={name} onChange={(e) => setName(e.target.value)}
+            title="שם הפאטרן" style={{ background: '#0d1117', color: '#e8eef5', border: '1px solid #2c3645', borderRadius: 6, padding: '4px 8px', fontSize: 15, fontWeight: 700, minWidth: 0, flex: '0 1 240px' }} />
           <span className="pattern-preview-cat">{CATEGORY_LABELS[preset.category] || preset.category}</span>
           <span style={{ flex: 1 }} />
           <button className="pattern-preview-close" onClick={onClose} title="סגור (Esc)">✕</button>
@@ -93,10 +119,27 @@ const PatternPreview = ({
         <div className="pattern-preview-stage">
           <RingVisualization mapping="all" timeframes={tfs} currentTime={t} globalBrightness={1} darkOff />
         </div>
+        {/* Edit: speed + colors */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '8px 14px', flexWrap: 'wrap', borderTop: '1px solid #2c3645' }}>
+          <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: '#9ab' }}>
+            מהירות
+            <input type="range" min={0.25} max={4} step={0.05} value={speed} onChange={(e) => setSpeed(parseFloat(e.target.value))} style={{ width: 120, accentColor: '#f59e0b' }} />
+            <span style={{ width: 34, textAlign: 'center', fontVariantNumeric: 'tabular-nums' }}>{speed}×</span>
+          </label>
+          <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: '#9ab' }}>
+            צבעים
+            <select value={paletteSel} onChange={(e) => setPaletteSel(e.target.value)}
+              style={{ background: '#0d1117', color: '#e8eef5', border: '1px solid #2c3645', borderRadius: 6, padding: '4px 6px', fontSize: 12, maxWidth: 160 }}>
+              <option value="original">מקורי</option>
+              {WLED_PALETTES.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+            </select>
+          </label>
+        </div>
         <div className="pattern-preview-foot">
           <span className="pattern-preview-summary">{summarizePresetEffects(preset.data) || '—'}</span>
           <span style={{ flex: 1 }} />
-          <button className="pattern-preview-add" onClick={() => { onApply(preset); onClose() }}>＋ הוסף לשיר</button>
+          <button className="pattern-preview-add"
+            onClick={() => { if (onApplyEdited) onApplyEdited(tfs, name); else onApply(preset); onClose() }}>＋ הוסף לשיר</button>
         </div>
       </div>
     </div>
@@ -158,7 +201,7 @@ const PatternCard = ({
 
 const PatternLibrary = ({
   imported, globalHidden, songHidden, songName, bpm,
-  onApplyPreset, onHideForSong, onHideGlobal, onRestoreForSong, onRestoreGlobal, onImport,
+  onApplyPreset, onApplyEdited, onHideForSong, onHideGlobal, onRestoreForSong, onRestoreGlobal, onImport,
 }: PatternLibraryProps) => {
   const [searchTerm, setSearchTerm] = useState('')
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set())
@@ -315,7 +358,7 @@ const PatternLibrary = ({
       )}
 
       {preview && (
-        <PatternPreview preset={preview} bpm={bpm} onApply={onApplyPreset} onClose={() => setPreview(null)} />
+        <PatternPreview preset={preview} bpm={bpm} onApply={onApplyPreset} onApplyEdited={onApplyEdited} onClose={() => setPreview(null)} />
       )}
     </div>
   )

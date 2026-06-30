@@ -642,6 +642,25 @@ function App() {
     }
   }
 
+  /** Add an EDITED pattern (renamed / re-sped / recolored in the library preview) to the song. */
+  const addEditedTimeframes = (tfs: Timeframe[], name: string) => {
+    const snappedBeat = Math.round(currentTime)
+    const minStart = tfs.length ? Math.min(...tfs.map((t) => t.startTime)) : 0
+    const shifted = tfs
+      .map((t, i) => ({
+        ...t,
+        id: `lib-${Date.now()}-${i}-${Math.random().toString(36).slice(2, 6)}`,
+        startTime: t.startTime - minStart + snappedBeat,
+        endTime: t.endTime - minStart + snappedBeat,
+        label: name?.trim() || t.label,
+      }))
+      .filter((tf) => tf.endTime <= songLengthBeats)
+    if (shifted.length > 0) {
+      setTimeframes((prev) => [...prev, ...shifted])
+      setFocusedTimeframeId(shifted[0].id)
+    }
+  }
+
   const focusedTimeframe = timeframes.find(tf => tf.id === focusedTimeframeId) || null
 
   const handlePanelUpdate = (updates: Partial<Timeframe>) => {
@@ -2426,6 +2445,7 @@ function App() {
                 songName={song.name}
                 bpm={song.bpm}
                 onApplyPreset={addTimeframesFromPreset}
+                onApplyEdited={addEditedTimeframes}
                 onHideForSong={hidePatternForSong}
                 onHideGlobal={hidePatternGlobal}
                 onRestoreForSong={restorePatternForSong}
