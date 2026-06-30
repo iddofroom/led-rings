@@ -117,21 +117,24 @@ export default function LiveConsole({
   )
 
   // ── Apply a pattern onto target rings over a beat range ("paint" semantics) ──
-  function apply(patternKey: string, rings: number[], range: [number, number], targetLabel: string) {
+  function apply(patternKey: string, rings: number[], range: [number, number], targetLabel: string, opts?: { color?: string; rate?: number }) {
     const pat = PATTERNS.find((p) => p.key === patternKey)
     if (!pat) return
     const [s, e] = range
     if (!(e > s)) return
+    // Allow explicit overrides so callers (e.g. Random) don't race React's async color/rate state.
+    const useColor = opts?.color ?? color
+    const useRate = opts?.rate ?? rate
     const newTf: Timeframe = {
       id: uid('live'),
       startTime: s,
       endTime: e,
       label: `${pat.label} · ${targetLabel}`,
-      color,
+      color: useColor,
       hasExplicitColor: true,
       rings: [...rings].sort((a, b) => a - b),
       mapping: 'all',
-      ...(pat.cyclic ? { cycles: [{ type: 'cycle' as const, beatsInCycle: rate }] } : {}),
+      ...(pat.cyclic ? { cycles: [{ type: 'cycle' as const, beatsInCycle: useRate }] } : {}),
       effects: pat.effects().map((ef) => ({ id: uid('ef'), ...ef })),
       ...(currentSection ? { _section: currentSection.idx, _source: `live:${currentSection.label}:${pat.key}` } : {}),
     }
@@ -172,6 +175,18 @@ export default function LiveConsole({
   function onPadClick(key: string) {
     setArmed(key)
     apply(key, ALL_RINGS, currentRange(), `ALL · ${currentSection?.label ?? 'song'}`)
+  }
+
+  // 🎲 Random: pick a random pattern (+ color + rate) and replace the current
+  // section's pattern across ALL rings. Each press shuffles to a fresh look.
+  function onRandomize() {
+    const pat = PATTERNS[Math.floor(Math.random() * PATTERNS.length)]
+    const c = COLORS[Math.floor(Math.random() * COLORS.length)]
+    const rt = RATE_TICKS[Math.floor(Math.random() * RATE_TICKS.length)]
+    setColor(c)
+    setRate(rt)
+    setArmed(pat.key)
+    apply(pat.key, ALL_RINGS, currentRange(), `🎲 ${pat.label} · ${currentSection?.label ?? 'song'}`, { color: c, rate: rt })
   }
 
   const pct = (beat: number) => `${Math.max(0, Math.min(100, (beat / Math.max(1, songLengthBeats)) * 100))}%`
@@ -270,6 +285,14 @@ export default function LiveConsole({
               <span style={{ fontSize: 11, fontWeight: 600 }}>{p.label}</span>
             </div>
           ))}
+          {/* 🎲 Random — swap the current pattern for a random one (pattern + color + rate). */}
+          <div
+            onClick={onRandomize}
+            title={`Random pattern — replace the current pattern of "${currentSection?.label ?? 'song'}" with a random one`}
+            style={{ ...pad, cursor: 'pointer', outline: '1px solid #f59e0b88', background: 'linear-gradient(160deg, #f59e0b33, #2a1f10)' }}>
+            <span style={{ fontSize: 20 }}>🎲</span>
+            <span style={{ fontSize: 11, fontWeight: 700, color: '#fbbf24' }}>Random</span>
+          </div>
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 18, flexWrap: 'wrap', marginTop: 10 }}>
