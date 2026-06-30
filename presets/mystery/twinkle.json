@@ -1,0 +1,1502 @@
+{
+  "ring1": {
+    "effects": [
+      {
+        "effect_config": {
+          "segments": "all",
+          "start_time": 0,
+          "end_time": 30000
+        },
+        "const_color": {
+          "color": {
+            "hue": 0.6,
+            "sat": 0.7,
+            "val": 0.45
+          }
+        }
+      },
+      {
+        "effect_config": {
+          "segments": "rand",
+          "start_time": 0,
+          "end_time": 30000,
+          "repeat_num": 40,
+          "repeat_start": 0,
+          "repeat_end": 1
+        },
+        "snake": {
+          "head": {
+            "sin": {
+              "min": 0,
+              "max": 1,
+              "phase": 0,
+              "repeats": 1
+            }
+          },
+          "tailLength": {
+            "constValue": {
+              "value": 0.08
+            }
+          }
+        }
+      },
+      {
+        "effect_config": {
+          "segments": "rand",
+          "start_time": 0,
+          "end_time": 30000,
+          "repeat_num": 60,
+          "repeat_start": 0,
+          "repeat_end": 1
+        },
+        "snake": {
+          "head": {
+            "linear": {
+              "start": 0,
+              "end": 1
+            }
+          },
+          "tailLength": {
+            "constValue": {
+              "value": 0.05
+            }
+          },
+          "cyclic": true
+        }
+      },
+      {
+        "effect_config": {
+          "segments": "all",
+          "start_time": 0,
+          "end_time": 30000,
+          "repeat_num": 1,
+          "repeat_start": 0,
+          "repeat_end": 1
+        },
+        "hue": {
+          "offset_factor": {
+            "sin": {
+              "min": 0,
+              "max": 0.1,
+              "phase": 0,
+              "repeats": 1
+            }
+          }
+        }
+      },
+      {
+        "effect_config": {
+          "segments": "all",
+          "start_time": 0,
+          "end_time": 30000,
+          "repeat_num": 1,
+          "repeat_start": 0,
+          "repeat_end": 0.016666666666666666
+        },
+        "brightness": {
+          "mult_factor": {
+            "linear": {
+              "start": 0,
+              "end": 1
+            }
+          }
+        }
+      },
+      {
+        "effect_config": {
+          "segments": "all",
+          "start_time": 0,
+          "end_time": 30000,
+          "repeat_num": 1,
+          "repeat_start": 0.9833333333333333,
+          "repeat_end": 1
+        },
+        "brightness": {
+          "mult_factor": {
+            "linear": {
+              "start": 1,
+              "end": 0
+            }
+          }
+        }
+      }
+    ],
+    "duration_ms": 30000,
+    "num_repeats": 0
+  },
+  "ring2": {
+    "effects": [
+      {
+        "effect_config": {
+          "segments": "all",
+          "start_time": 0,
+          "end_time": 30000
+        },
+        "const_color": {
+          "color": {
+            "hue": 0.63,
+            "sat": 0.7,
+            "val": 0.45
+          }
+        }
+      },
+      {
+        "effect_config": {
+          "segments": "rand",
+          "start_time": 0,
+          "end_time": 30000,
+          "repeat_num": 40,
+          "repeat_start": 0,
+          "repeat_end": 1
+        },
+        "snake": {
+          "head": {
+            "sin": {
+              "min": 0,
+              "max": 1,
+              "phase": 0.37,
+              "repeats": 1
+            }
+          },
+          "tailLength": {
+            "constValue": {
+              "value": 0.08
+            }
+          }
+        }
+      },
+      {
+        "effect_config": {
+          "segments": "rand",
+          "start_time": 0,
+          "end_time": 30000,
+          "repeat_num": 60,
+          "repeat_start": 0,
+          "repeat_end": 1
+        },
+        "snake": {
+          "head": {
+            "linear": {
+              "start": 0,
+              "end": 1
+            }
+          },
+          "tailLength": {
+            "constValue": {
+              "value": 0.05
+            }
+          },
+          "cyclic": true
+        }
+      },
+      {
+        "effect_config": {
+          "segments": "all",
+          "start_time": 0,
+          "end_time": 30000,
+          "repeat_num": 1,
+          "repeat_start": 0,
+          "repeat_end": 1
+        },
+        "hue": {
+          "offset_factor": {
+            "sin": {
+              "min": 0,
+              "max": 0.1,
+              "phase": 0,
+              "repeats": 1
+            }
+          }
+        }
+      },
+      {
+        "effect_config": {
+          "segments": "all",
+          "start_time": 0,
+          "end_time": 30000,
+          "repeat_num": 1,
+          "repeat_start": 0,
+          "repeat_end": 0.016666666666666666
+        },
+        "brightness": {
+          "mult_factor": {
+            "linear": {
+              "start": 0,
+              "end": 1
+            }
+          }
+        }
+      },
+      {
+        "effect_config": {
+          "segments": "all",
+          "start_time": 0,
+          "end_time": 30000,
+          "repeat_num": 1,
+          "repeat_start": 0.9833333333333333,
+          "repeat_end": 1
+        },
+        "brightness": {
+          "mult_factor": {
+            "linear": {
+              "start": 1,
+              "end": 0
+            }
+          }
+        }
+      }
+    ],
+    "duration_ms": 30000,
+    "num_repeats": 0
+  },
+  "ring3": {
+    "effects": [
+      {
+        "effect_config": {
+          "segments": "all",
+          "start_time": 0,
+          "end_time": 30000
+        },
+        "const_color": {
+          "color": {
+            "hue": 0.6599999999999999,
+            "sat": 0.7,
+            "val": 0.45
+          }
+        }
+      },
+      {
+        "effect_config": {
+          "segments": "rand",
+          "start_time": 0,
+          "end_time": 30000,
+          "repeat_num": 40,
+          "repeat_start": 0,
+          "repeat_end": 1
+        },
+        "snake": {
+          "head": {
+            "sin": {
+              "min": 0,
+              "max": 1,
+              "phase": 0.74,
+              "repeats": 1
+            }
+          },
+          "tailLength": {
+            "constValue": {
+              "value": 0.08
+            }
+          }
+        }
+      },
+      {
+        "effect_config": {
+          "segments": "rand",
+          "start_time": 0,
+          "end_time": 30000,
+          "repeat_num": 60,
+          "repeat_start": 0,
+          "repeat_end": 1
+        },
+        "snake": {
+          "head": {
+            "linear": {
+              "start": 0,
+              "end": 1
+            }
+          },
+          "tailLength": {
+            "constValue": {
+              "value": 0.05
+            }
+          },
+          "cyclic": true
+        }
+      },
+      {
+        "effect_config": {
+          "segments": "all",
+          "start_time": 0,
+          "end_time": 30000,
+          "repeat_num": 1,
+          "repeat_start": 0,
+          "repeat_end": 1
+        },
+        "hue": {
+          "offset_factor": {
+            "sin": {
+              "min": 0,
+              "max": 0.1,
+              "phase": 0,
+              "repeats": 1
+            }
+          }
+        }
+      },
+      {
+        "effect_config": {
+          "segments": "all",
+          "start_time": 0,
+          "end_time": 30000,
+          "repeat_num": 1,
+          "repeat_start": 0,
+          "repeat_end": 0.016666666666666666
+        },
+        "brightness": {
+          "mult_factor": {
+            "linear": {
+              "start": 0,
+              "end": 1
+            }
+          }
+        }
+      },
+      {
+        "effect_config": {
+          "segments": "all",
+          "start_time": 0,
+          "end_time": 30000,
+          "repeat_num": 1,
+          "repeat_start": 0.9833333333333333,
+          "repeat_end": 1
+        },
+        "brightness": {
+          "mult_factor": {
+            "linear": {
+              "start": 1,
+              "end": 0
+            }
+          }
+        }
+      }
+    ],
+    "duration_ms": 30000,
+    "num_repeats": 0
+  },
+  "ring4": {
+    "effects": [
+      {
+        "effect_config": {
+          "segments": "all",
+          "start_time": 0,
+          "end_time": 30000
+        },
+        "const_color": {
+          "color": {
+            "hue": 0.69,
+            "sat": 0.7,
+            "val": 0.45
+          }
+        }
+      },
+      {
+        "effect_config": {
+          "segments": "rand",
+          "start_time": 0,
+          "end_time": 30000,
+          "repeat_num": 40,
+          "repeat_start": 0,
+          "repeat_end": 1
+        },
+        "snake": {
+          "head": {
+            "sin": {
+              "min": 0,
+              "max": 1,
+              "phase": 1.1099999999999999,
+              "repeats": 1
+            }
+          },
+          "tailLength": {
+            "constValue": {
+              "value": 0.08
+            }
+          }
+        }
+      },
+      {
+        "effect_config": {
+          "segments": "rand",
+          "start_time": 0,
+          "end_time": 30000,
+          "repeat_num": 60,
+          "repeat_start": 0,
+          "repeat_end": 1
+        },
+        "snake": {
+          "head": {
+            "linear": {
+              "start": 0,
+              "end": 1
+            }
+          },
+          "tailLength": {
+            "constValue": {
+              "value": 0.05
+            }
+          },
+          "cyclic": true
+        }
+      },
+      {
+        "effect_config": {
+          "segments": "all",
+          "start_time": 0,
+          "end_time": 30000,
+          "repeat_num": 1,
+          "repeat_start": 0,
+          "repeat_end": 1
+        },
+        "hue": {
+          "offset_factor": {
+            "sin": {
+              "min": 0,
+              "max": 0.1,
+              "phase": 0,
+              "repeats": 1
+            }
+          }
+        }
+      },
+      {
+        "effect_config": {
+          "segments": "all",
+          "start_time": 0,
+          "end_time": 30000,
+          "repeat_num": 1,
+          "repeat_start": 0,
+          "repeat_end": 0.016666666666666666
+        },
+        "brightness": {
+          "mult_factor": {
+            "linear": {
+              "start": 0,
+              "end": 1
+            }
+          }
+        }
+      },
+      {
+        "effect_config": {
+          "segments": "all",
+          "start_time": 0,
+          "end_time": 30000,
+          "repeat_num": 1,
+          "repeat_start": 0.9833333333333333,
+          "repeat_end": 1
+        },
+        "brightness": {
+          "mult_factor": {
+            "linear": {
+              "start": 1,
+              "end": 0
+            }
+          }
+        }
+      }
+    ],
+    "duration_ms": 30000,
+    "num_repeats": 0
+  },
+  "ring5": {
+    "effects": [
+      {
+        "effect_config": {
+          "segments": "all",
+          "start_time": 0,
+          "end_time": 30000
+        },
+        "const_color": {
+          "color": {
+            "hue": 0.72,
+            "sat": 0.7,
+            "val": 0.45
+          }
+        }
+      },
+      {
+        "effect_config": {
+          "segments": "rand",
+          "start_time": 0,
+          "end_time": 30000,
+          "repeat_num": 40,
+          "repeat_start": 0,
+          "repeat_end": 1
+        },
+        "snake": {
+          "head": {
+            "sin": {
+              "min": 0,
+              "max": 1,
+              "phase": 1.48,
+              "repeats": 1
+            }
+          },
+          "tailLength": {
+            "constValue": {
+              "value": 0.08
+            }
+          }
+        }
+      },
+      {
+        "effect_config": {
+          "segments": "rand",
+          "start_time": 0,
+          "end_time": 30000,
+          "repeat_num": 60,
+          "repeat_start": 0,
+          "repeat_end": 1
+        },
+        "snake": {
+          "head": {
+            "linear": {
+              "start": 0,
+              "end": 1
+            }
+          },
+          "tailLength": {
+            "constValue": {
+              "value": 0.05
+            }
+          },
+          "cyclic": true
+        }
+      },
+      {
+        "effect_config": {
+          "segments": "all",
+          "start_time": 0,
+          "end_time": 30000,
+          "repeat_num": 1,
+          "repeat_start": 0,
+          "repeat_end": 1
+        },
+        "hue": {
+          "offset_factor": {
+            "sin": {
+              "min": 0,
+              "max": 0.1,
+              "phase": 0,
+              "repeats": 1
+            }
+          }
+        }
+      },
+      {
+        "effect_config": {
+          "segments": "all",
+          "start_time": 0,
+          "end_time": 30000,
+          "repeat_num": 1,
+          "repeat_start": 0,
+          "repeat_end": 0.016666666666666666
+        },
+        "brightness": {
+          "mult_factor": {
+            "linear": {
+              "start": 0,
+              "end": 1
+            }
+          }
+        }
+      },
+      {
+        "effect_config": {
+          "segments": "all",
+          "start_time": 0,
+          "end_time": 30000,
+          "repeat_num": 1,
+          "repeat_start": 0.9833333333333333,
+          "repeat_end": 1
+        },
+        "brightness": {
+          "mult_factor": {
+            "linear": {
+              "start": 1,
+              "end": 0
+            }
+          }
+        }
+      }
+    ],
+    "duration_ms": 30000,
+    "num_repeats": 0
+  },
+  "ring6": {
+    "effects": [
+      {
+        "effect_config": {
+          "segments": "all",
+          "start_time": 0,
+          "end_time": 30000
+        },
+        "const_color": {
+          "color": {
+            "hue": 0.75,
+            "sat": 0.7,
+            "val": 0.45
+          }
+        }
+      },
+      {
+        "effect_config": {
+          "segments": "rand",
+          "start_time": 0,
+          "end_time": 30000,
+          "repeat_num": 40,
+          "repeat_start": 0,
+          "repeat_end": 1
+        },
+        "snake": {
+          "head": {
+            "sin": {
+              "min": 0,
+              "max": 1,
+              "phase": 1.85,
+              "repeats": 1
+            }
+          },
+          "tailLength": {
+            "constValue": {
+              "value": 0.08
+            }
+          }
+        }
+      },
+      {
+        "effect_config": {
+          "segments": "rand",
+          "start_time": 0,
+          "end_time": 30000,
+          "repeat_num": 60,
+          "repeat_start": 0,
+          "repeat_end": 1
+        },
+        "snake": {
+          "head": {
+            "linear": {
+              "start": 0,
+              "end": 1
+            }
+          },
+          "tailLength": {
+            "constValue": {
+              "value": 0.05
+            }
+          },
+          "cyclic": true
+        }
+      },
+      {
+        "effect_config": {
+          "segments": "all",
+          "start_time": 0,
+          "end_time": 30000,
+          "repeat_num": 1,
+          "repeat_start": 0,
+          "repeat_end": 1
+        },
+        "hue": {
+          "offset_factor": {
+            "sin": {
+              "min": 0,
+              "max": 0.1,
+              "phase": 0,
+              "repeats": 1
+            }
+          }
+        }
+      },
+      {
+        "effect_config": {
+          "segments": "all",
+          "start_time": 0,
+          "end_time": 30000,
+          "repeat_num": 1,
+          "repeat_start": 0,
+          "repeat_end": 0.016666666666666666
+        },
+        "brightness": {
+          "mult_factor": {
+            "linear": {
+              "start": 0,
+              "end": 1
+            }
+          }
+        }
+      },
+      {
+        "effect_config": {
+          "segments": "all",
+          "start_time": 0,
+          "end_time": 30000,
+          "repeat_num": 1,
+          "repeat_start": 0.9833333333333333,
+          "repeat_end": 1
+        },
+        "brightness": {
+          "mult_factor": {
+            "linear": {
+              "start": 1,
+              "end": 0
+            }
+          }
+        }
+      }
+    ],
+    "duration_ms": 30000,
+    "num_repeats": 0
+  },
+  "ring7": {
+    "effects": [
+      {
+        "effect_config": {
+          "segments": "all",
+          "start_time": 0,
+          "end_time": 30000
+        },
+        "const_color": {
+          "color": {
+            "hue": 0.78,
+            "sat": 0.7,
+            "val": 0.45
+          }
+        }
+      },
+      {
+        "effect_config": {
+          "segments": "rand",
+          "start_time": 0,
+          "end_time": 30000,
+          "repeat_num": 40,
+          "repeat_start": 0,
+          "repeat_end": 1
+        },
+        "snake": {
+          "head": {
+            "sin": {
+              "min": 0,
+              "max": 1,
+              "phase": 2.2199999999999998,
+              "repeats": 1
+            }
+          },
+          "tailLength": {
+            "constValue": {
+              "value": 0.08
+            }
+          }
+        }
+      },
+      {
+        "effect_config": {
+          "segments": "rand",
+          "start_time": 0,
+          "end_time": 30000,
+          "repeat_num": 60,
+          "repeat_start": 0,
+          "repeat_end": 1
+        },
+        "snake": {
+          "head": {
+            "linear": {
+              "start": 0,
+              "end": 1
+            }
+          },
+          "tailLength": {
+            "constValue": {
+              "value": 0.05
+            }
+          },
+          "cyclic": true
+        }
+      },
+      {
+        "effect_config": {
+          "segments": "all",
+          "start_time": 0,
+          "end_time": 30000,
+          "repeat_num": 1,
+          "repeat_start": 0,
+          "repeat_end": 1
+        },
+        "hue": {
+          "offset_factor": {
+            "sin": {
+              "min": 0,
+              "max": 0.1,
+              "phase": 0,
+              "repeats": 1
+            }
+          }
+        }
+      },
+      {
+        "effect_config": {
+          "segments": "all",
+          "start_time": 0,
+          "end_time": 30000,
+          "repeat_num": 1,
+          "repeat_start": 0,
+          "repeat_end": 0.016666666666666666
+        },
+        "brightness": {
+          "mult_factor": {
+            "linear": {
+              "start": 0,
+              "end": 1
+            }
+          }
+        }
+      },
+      {
+        "effect_config": {
+          "segments": "all",
+          "start_time": 0,
+          "end_time": 30000,
+          "repeat_num": 1,
+          "repeat_start": 0.9833333333333333,
+          "repeat_end": 1
+        },
+        "brightness": {
+          "mult_factor": {
+            "linear": {
+              "start": 1,
+              "end": 0
+            }
+          }
+        }
+      }
+    ],
+    "duration_ms": 30000,
+    "num_repeats": 0
+  },
+  "ring8": {
+    "effects": [
+      {
+        "effect_config": {
+          "segments": "all",
+          "start_time": 0,
+          "end_time": 30000
+        },
+        "const_color": {
+          "color": {
+            "hue": 0.8099999999999999,
+            "sat": 0.7,
+            "val": 0.45
+          }
+        }
+      },
+      {
+        "effect_config": {
+          "segments": "rand",
+          "start_time": 0,
+          "end_time": 30000,
+          "repeat_num": 40,
+          "repeat_start": 0,
+          "repeat_end": 1
+        },
+        "snake": {
+          "head": {
+            "sin": {
+              "min": 0,
+              "max": 1,
+              "phase": 2.59,
+              "repeats": 1
+            }
+          },
+          "tailLength": {
+            "constValue": {
+              "value": 0.08
+            }
+          }
+        }
+      },
+      {
+        "effect_config": {
+          "segments": "rand",
+          "start_time": 0,
+          "end_time": 30000,
+          "repeat_num": 60,
+          "repeat_start": 0,
+          "repeat_end": 1
+        },
+        "snake": {
+          "head": {
+            "linear": {
+              "start": 0,
+              "end": 1
+            }
+          },
+          "tailLength": {
+            "constValue": {
+              "value": 0.05
+            }
+          },
+          "cyclic": true
+        }
+      },
+      {
+        "effect_config": {
+          "segments": "all",
+          "start_time": 0,
+          "end_time": 30000,
+          "repeat_num": 1,
+          "repeat_start": 0,
+          "repeat_end": 1
+        },
+        "hue": {
+          "offset_factor": {
+            "sin": {
+              "min": 0,
+              "max": 0.1,
+              "phase": 0,
+              "repeats": 1
+            }
+          }
+        }
+      },
+      {
+        "effect_config": {
+          "segments": "all",
+          "start_time": 0,
+          "end_time": 30000,
+          "repeat_num": 1,
+          "repeat_start": 0,
+          "repeat_end": 0.016666666666666666
+        },
+        "brightness": {
+          "mult_factor": {
+            "linear": {
+              "start": 0,
+              "end": 1
+            }
+          }
+        }
+      },
+      {
+        "effect_config": {
+          "segments": "all",
+          "start_time": 0,
+          "end_time": 30000,
+          "repeat_num": 1,
+          "repeat_start": 0.9833333333333333,
+          "repeat_end": 1
+        },
+        "brightness": {
+          "mult_factor": {
+            "linear": {
+              "start": 1,
+              "end": 0
+            }
+          }
+        }
+      }
+    ],
+    "duration_ms": 30000,
+    "num_repeats": 0
+  },
+  "ring9": {
+    "effects": [
+      {
+        "effect_config": {
+          "segments": "all",
+          "start_time": 0,
+          "end_time": 30000
+        },
+        "const_color": {
+          "color": {
+            "hue": 0.84,
+            "sat": 0.7,
+            "val": 0.45
+          }
+        }
+      },
+      {
+        "effect_config": {
+          "segments": "rand",
+          "start_time": 0,
+          "end_time": 30000,
+          "repeat_num": 40,
+          "repeat_start": 0,
+          "repeat_end": 1
+        },
+        "snake": {
+          "head": {
+            "sin": {
+              "min": 0,
+              "max": 1,
+              "phase": 2.96,
+              "repeats": 1
+            }
+          },
+          "tailLength": {
+            "constValue": {
+              "value": 0.08
+            }
+          }
+        }
+      },
+      {
+        "effect_config": {
+          "segments": "rand",
+          "start_time": 0,
+          "end_time": 30000,
+          "repeat_num": 60,
+          "repeat_start": 0,
+          "repeat_end": 1
+        },
+        "snake": {
+          "head": {
+            "linear": {
+              "start": 0,
+              "end": 1
+            }
+          },
+          "tailLength": {
+            "constValue": {
+              "value": 0.05
+            }
+          },
+          "cyclic": true
+        }
+      },
+      {
+        "effect_config": {
+          "segments": "all",
+          "start_time": 0,
+          "end_time": 30000,
+          "repeat_num": 1,
+          "repeat_start": 0,
+          "repeat_end": 1
+        },
+        "hue": {
+          "offset_factor": {
+            "sin": {
+              "min": 0,
+              "max": 0.1,
+              "phase": 0,
+              "repeats": 1
+            }
+          }
+        }
+      },
+      {
+        "effect_config": {
+          "segments": "all",
+          "start_time": 0,
+          "end_time": 30000,
+          "repeat_num": 1,
+          "repeat_start": 0,
+          "repeat_end": 0.016666666666666666
+        },
+        "brightness": {
+          "mult_factor": {
+            "linear": {
+              "start": 0,
+              "end": 1
+            }
+          }
+        }
+      },
+      {
+        "effect_config": {
+          "segments": "all",
+          "start_time": 0,
+          "end_time": 30000,
+          "repeat_num": 1,
+          "repeat_start": 0.9833333333333333,
+          "repeat_end": 1
+        },
+        "brightness": {
+          "mult_factor": {
+            "linear": {
+              "start": 1,
+              "end": 0
+            }
+          }
+        }
+      }
+    ],
+    "duration_ms": 30000,
+    "num_repeats": 0
+  },
+  "ring10": {
+    "effects": [
+      {
+        "effect_config": {
+          "segments": "all",
+          "start_time": 0,
+          "end_time": 30000
+        },
+        "const_color": {
+          "color": {
+            "hue": 0.87,
+            "sat": 0.7,
+            "val": 0.45
+          }
+        }
+      },
+      {
+        "effect_config": {
+          "segments": "rand",
+          "start_time": 0,
+          "end_time": 30000,
+          "repeat_num": 40,
+          "repeat_start": 0,
+          "repeat_end": 1
+        },
+        "snake": {
+          "head": {
+            "sin": {
+              "min": 0,
+              "max": 1,
+              "phase": 3.33,
+              "repeats": 1
+            }
+          },
+          "tailLength": {
+            "constValue": {
+              "value": 0.08
+            }
+          }
+        }
+      },
+      {
+        "effect_config": {
+          "segments": "rand",
+          "start_time": 0,
+          "end_time": 30000,
+          "repeat_num": 60,
+          "repeat_start": 0,
+          "repeat_end": 1
+        },
+        "snake": {
+          "head": {
+            "linear": {
+              "start": 0,
+              "end": 1
+            }
+          },
+          "tailLength": {
+            "constValue": {
+              "value": 0.05
+            }
+          },
+          "cyclic": true
+        }
+      },
+      {
+        "effect_config": {
+          "segments": "all",
+          "start_time": 0,
+          "end_time": 30000,
+          "repeat_num": 1,
+          "repeat_start": 0,
+          "repeat_end": 1
+        },
+        "hue": {
+          "offset_factor": {
+            "sin": {
+              "min": 0,
+              "max": 0.1,
+              "phase": 0,
+              "repeats": 1
+            }
+          }
+        }
+      },
+      {
+        "effect_config": {
+          "segments": "all",
+          "start_time": 0,
+          "end_time": 30000,
+          "repeat_num": 1,
+          "repeat_start": 0,
+          "repeat_end": 0.016666666666666666
+        },
+        "brightness": {
+          "mult_factor": {
+            "linear": {
+              "start": 0,
+              "end": 1
+            }
+          }
+        }
+      },
+      {
+        "effect_config": {
+          "segments": "all",
+          "start_time": 0,
+          "end_time": 30000,
+          "repeat_num": 1,
+          "repeat_start": 0.9833333333333333,
+          "repeat_end": 1
+        },
+        "brightness": {
+          "mult_factor": {
+            "linear": {
+              "start": 1,
+              "end": 0
+            }
+          }
+        }
+      }
+    ],
+    "duration_ms": 30000,
+    "num_repeats": 0
+  },
+  "ring11": {
+    "effects": [
+      {
+        "effect_config": {
+          "segments": "all",
+          "start_time": 0,
+          "end_time": 30000
+        },
+        "const_color": {
+          "color": {
+            "hue": 0.8999999999999999,
+            "sat": 0.7,
+            "val": 0.45
+          }
+        }
+      },
+      {
+        "effect_config": {
+          "segments": "rand",
+          "start_time": 0,
+          "end_time": 30000,
+          "repeat_num": 40,
+          "repeat_start": 0,
+          "repeat_end": 1
+        },
+        "snake": {
+          "head": {
+            "sin": {
+              "min": 0,
+              "max": 1,
+              "phase": 3.7,
+              "repeats": 1
+            }
+          },
+          "tailLength": {
+            "constValue": {
+              "value": 0.08
+            }
+          }
+        }
+      },
+      {
+        "effect_config": {
+          "segments": "rand",
+          "start_time": 0,
+          "end_time": 30000,
+          "repeat_num": 60,
+          "repeat_start": 0,
+          "repeat_end": 1
+        },
+        "snake": {
+          "head": {
+            "linear": {
+              "start": 0,
+              "end": 1
+            }
+          },
+          "tailLength": {
+            "constValue": {
+              "value": 0.05
+            }
+          },
+          "cyclic": true
+        }
+      },
+      {
+        "effect_config": {
+          "segments": "all",
+          "start_time": 0,
+          "end_time": 30000,
+          "repeat_num": 1,
+          "repeat_start": 0,
+          "repeat_end": 1
+        },
+        "hue": {
+          "offset_factor": {
+            "sin": {
+              "min": 0,
+              "max": 0.1,
+              "phase": 0,
+              "repeats": 1
+            }
+          }
+        }
+      },
+      {
+        "effect_config": {
+          "segments": "all",
+          "start_time": 0,
+          "end_time": 30000,
+          "repeat_num": 1,
+          "repeat_start": 0,
+          "repeat_end": 0.016666666666666666
+        },
+        "brightness": {
+          "mult_factor": {
+            "linear": {
+              "start": 0,
+              "end": 1
+            }
+          }
+        }
+      },
+      {
+        "effect_config": {
+          "segments": "all",
+          "start_time": 0,
+          "end_time": 30000,
+          "repeat_num": 1,
+          "repeat_start": 0.9833333333333333,
+          "repeat_end": 1
+        },
+        "brightness": {
+          "mult_factor": {
+            "linear": {
+              "start": 1,
+              "end": 0
+            }
+          }
+        }
+      }
+    ],
+    "duration_ms": 30000,
+    "num_repeats": 0
+  },
+  "ring12": {
+    "effects": [
+      {
+        "effect_config": {
+          "segments": "all",
+          "start_time": 0,
+          "end_time": 30000
+        },
+        "const_color": {
+          "color": {
+            "hue": 0.9299999999999999,
+            "sat": 0.7,
+            "val": 0.45
+          }
+        }
+      },
+      {
+        "effect_config": {
+          "segments": "rand",
+          "start_time": 0,
+          "end_time": 30000,
+          "repeat_num": 40,
+          "repeat_start": 0,
+          "repeat_end": 1
+        },
+        "snake": {
+          "head": {
+            "sin": {
+              "min": 0,
+              "max": 1,
+              "phase": 4.07,
+              "repeats": 1
+            }
+          },
+          "tailLength": {
+            "constValue": {
+              "value": 0.08
+            }
+          }
+        }
+      },
+      {
+        "effect_config": {
+          "segments": "rand",
+          "start_time": 0,
+          "end_time": 30000,
+          "repeat_num": 60,
+          "repeat_start": 0,
+          "repeat_end": 1
+        },
+        "snake": {
+          "head": {
+            "linear": {
+              "start": 0,
+              "end": 1
+            }
+          },
+          "tailLength": {
+            "constValue": {
+              "value": 0.05
+            }
+          },
+          "cyclic": true
+        }
+      },
+      {
+        "effect_config": {
+          "segments": "all",
+          "start_time": 0,
+          "end_time": 30000,
+          "repeat_num": 1,
+          "repeat_start": 0,
+          "repeat_end": 1
+        },
+        "hue": {
+          "offset_factor": {
+            "sin": {
+              "min": 0,
+              "max": 0.1,
+              "phase": 0,
+              "repeats": 1
+            }
+          }
+        }
+      },
+      {
+        "effect_config": {
+          "segments": "all",
+          "start_time": 0,
+          "end_time": 30000,
+          "repeat_num": 1,
+          "repeat_start": 0,
+          "repeat_end": 0.016666666666666666
+        },
+        "brightness": {
+          "mult_factor": {
+            "linear": {
+              "start": 0,
+              "end": 1
+            }
+          }
+        }
+      },
+      {
+        "effect_config": {
+          "segments": "all",
+          "start_time": 0,
+          "end_time": 30000,
+          "repeat_num": 1,
+          "repeat_start": 0.9833333333333333,
+          "repeat_end": 1
+        },
+        "brightness": {
+          "mult_factor": {
+            "linear": {
+              "start": 1,
+              "end": 0
+            }
+          }
+        }
+      }
+    ],
+    "duration_ms": 30000,
+    "num_repeats": 0
+  }
+}
