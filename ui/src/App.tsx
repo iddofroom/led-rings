@@ -523,10 +523,12 @@ function App() {
     return updates
   }
 
+  // A user edit marks the timeframe _source:'manual' so the Compose reroll/regenerate
+  // treats it as sacred and never overwrites it.
   const updateTimeframe = (id: string, updates: Partial<Timeframe>) => {
     const clamped = clampTimeframeUpdates(updates)
     setTimeframes(timeframes.map(tf =>
-      tf.id === id ? { ...tf, ...clamped } : tf
+      tf.id === id ? { ...tf, ...clamped, _source: 'manual' } : tf
     ))
   }
 
@@ -534,7 +536,7 @@ function App() {
   const updateTimeframeSilent = (id: string, updates: Partial<Timeframe>) => {
     const clamped = clampTimeframeUpdates(updates)
     setTimeframesSilent(prev => prev.map(tf =>
-      tf.id === id ? { ...tf, ...clamped } : tf
+      tf.id === id ? { ...tf, ...clamped, _source: 'manual' } : tf
     ))
   }
 
@@ -542,7 +544,7 @@ function App() {
   const updateTimeframesSilentBatch = (batch: Map<string, Partial<Timeframe>>) => {
     setTimeframesSilent(prev => prev.map(tf => {
       const u = batch.get(tf.id)
-      return u ? { ...tf, ...clampTimeframeUpdates(u) } : tf
+      return u ? { ...tf, ...clampTimeframeUpdates(u), _source: 'manual' } : tf
     }))
   }
 
@@ -1289,7 +1291,8 @@ function App() {
           ...(typeof item._source === 'string' ? { _source: item._source } : {}),
         } as Timeframe
       })
-    setTimeframes(prev => [...prev.filter(t => t._section !== sectionIdx), ...mapped].sort((a, b) => a.startTime - b.startTime))
+    // Keep manual edits in this section sacred; only replace the auto-generated ones.
+    setTimeframes(prev => [...prev.filter(t => t._section !== sectionIdx || t._source === 'manual'), ...mapped].sort((a, b) => a.startTime - b.startTime))
     setFocusedTimeframeId(null)
   }
 
