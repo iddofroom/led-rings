@@ -50,7 +50,8 @@ export default function ComposePanel({ apiBase, song, onLoad, onReplaceSection, 
   const [busy, setBusy] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [status, setStatus] = useState<string | null>(null)
-  const [useLlm, setUseLlm] = useState(false)
+  // Always compose with Gemini (the control server falls back to rules if the key is missing).
+  const useLlm = true
   const [composed, setComposed] = useState<{ song: Record<string, unknown>; timeframes: any[] } | null>(null)
   const [rerolling, setRerolling] = useState<number | null>(null)
 
@@ -247,10 +248,9 @@ export default function ComposePanel({ apiBase, song, onLoad, onReplaceSection, 
         {/* 3. Generate */}
         <section style={card}>
           <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 14 }}>
-            <label style={{ fontSize: 12, color: '#9aa', display: 'flex', alignItems: 'center', gap: 6 }} title="Let Gemini pick the pattern + palette per section (needs GEMINI_API_KEY on the control server). Falls back to rules if unavailable.">
-              <input type="checkbox" checked={useLlm} onChange={(e) => setUseLlm(e.target.checked)} />
-              Use Gemini (LLM)
-            </label>
+            <span style={{ fontSize: 12, color: '#9aa', display: 'inline-flex', alignItems: 'center', gap: 5 }} title="Sections are designed by Gemini (the control server falls back to taste rules if the key is unavailable).">
+              ✨ Gemini
+            </span>
             <button onClick={generate} disabled={!!busy} style={{ ...primaryBtn, fontSize: 15, padding: '10px 20px', opacity: busy ? 0.65 : 1, display: 'inline-flex', alignItems: 'center', gap: 8 }}>
               {busy && <span style={{ width: 14, height: 14, border: '2px solid #fff', borderTopColor: 'transparent', borderRadius: '50%', display: 'inline-block', animation: 'composeSpin 0.8s linear infinite' }} />}
               {busy ? 'Working…' : (composed ? 'Regenerate all ↻' : 'Generate composition → timeline ▸')}
