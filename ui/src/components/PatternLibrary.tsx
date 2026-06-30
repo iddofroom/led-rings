@@ -52,7 +52,6 @@ const CATEGORY_LABELS: Record<string, string> = {
   background: 'Background', chill: 'Chill', mystery: 'Mystery',
   party: 'Party', psychedelic: 'Psychedelic', imported: 'Imported',
 }
-const CATEGORY_ORDER = ['background', 'chill', 'mystery', 'party', 'psychedelic', 'imported']
 
 const isPresetData = (v: unknown): v is PresetData =>
   !!v && typeof v === 'object' && !Array.isArray(v) &&
@@ -229,7 +228,6 @@ const PatternLibrary = ({
   onHideForSong, onHideGlobal, onRestoreForSong, onRestoreGlobal, onImport,
 }: PatternLibraryProps) => {
   const [searchTerm, setSearchTerm] = useState('')
-  const [collapsed, setCollapsed] = useState<Set<string>>(new Set())
   const [showHidden, setShowHidden] = useState(false)
   const [preview, setPreview] = useState<PresetMetadata | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -247,20 +245,14 @@ const PatternLibrary = ({
     [allPatterns, globalSet, songSet],
   )
 
-  const grouped = useMemo(() => {
-    const groups: Record<string, PresetMetadata[]> = {}
+  // All patterns in a single flat list (no category groups), filtered by search.
+  const filtered = useMemo(() => {
     const q = searchTerm.trim().toLowerCase()
-    for (const p of visible) {
-      if (q && !p.displayName.toLowerCase().includes(q) && !p.category.toLowerCase().includes(q)) continue
-      ;(groups[p.category] ??= []).push(p)
-    }
-    return groups
+    if (!q) return visible
+    return visible.filter(
+      (p) => p.displayName.toLowerCase().includes(q) || p.category.toLowerCase().includes(q),
+    )
   }, [visible, searchTerm])
-
-  const orderedCats = useMemo(
-    () => [...new Set([...CATEGORY_ORDER, ...Object.keys(grouped)])].filter((c) => grouped[c]?.length),
-    [grouped],
-  )
 
   const hiddenEntries = useMemo(() => {
     const out: { preset: PresetMetadata; scope: 'song' | 'global' }[] = []
@@ -268,13 +260,6 @@ const PatternLibrary = ({
     for (const id of songHidden) { if (globalSet.has(id)) continue; const p = byId.get(id); if (p) out.push({ preset: p, scope: 'song' }) }
     return out
   }, [globalHidden, songHidden, byId, globalSet])
-
-  const toggleCat = (cat: string) =>
-    setCollapsed((prev) => {
-      const next = new Set(prev)
-      if (next.has(cat)) next.delete(cat); else next.add(cat)
-      return next
-    })
 
   async function handleFiles(files: FileList | null) {
     if (!files || files.length === 0) return
@@ -326,39 +311,24 @@ const PatternLibrary = ({
       </div>
 
       <div className="pattern-library-scroll">
-        {orderedCats.length === 0 && (
+        {filtered.length === 0 ? (
           <div className="pattern-library-empty">אין פאטרנים להצגה. נסה לייבא, או לשחזר מוסתרים למטה.</div>
+        ) : (
+          <div className="pattern-library-grid">
+            {filtered.map((preset) => (
+              <PatternCard
+                key={preset.id}
+                preset={preset}
+                name={patternEdits[preset.id]?.name ?? preset.displayName}
+                colorsOverride={patternEdits[preset.id]?.paletteId && patternEdits[preset.id]!.paletteId !== 'original' ? paletteById(patternEdits[preset.id]!.paletteId!).colors : undefined}
+                onOpen={setPreview}
+                onApply={onApplyPreset}
+                onHideForSong={onHideForSong}
+                onHideGlobal={onHideGlobal}
+              />
+            ))}
+          </div>
         )}
-        {orderedCats.map((cat) => {
-          const list = grouped[cat]
-          if (!list || list.length === 0) return null
-          const isCollapsed = collapsed.has(cat) && !searchTerm
-          return (
-            <div key={cat} className="pattern-library-category">
-              <button className="preset-browser-category-header" onClick={() => toggleCat(cat)}>
-                <span className="preset-browser-category-arrow">{isCollapsed ? '▶' : '▼'}</span>
-                <span>{CATEGORY_LABELS[cat] || cat}</span>
-                <span className="preset-browser-category-count">{list.length}</span>
-              </button>
-              {!isCollapsed && (
-                <div className="pattern-library-grid">
-                  {list.map((preset) => (
-                    <PatternCard
-                      key={preset.id}
-                      preset={preset}
-                      name={patternEdits[preset.id]?.name ?? preset.displayName}
-                      colorsOverride={patternEdits[preset.id]?.paletteId && patternEdits[preset.id]!.paletteId !== 'original' ? paletteById(patternEdits[preset.id]!.paletteId!).colors : undefined}
-                      onOpen={setPreview}
-                      onApply={onApplyPreset}
-                      onHideForSong={onHideForSong}
-                      onHideGlobal={onHideGlobal}
-                    />
-                  ))}
-                </div>
-              )}
-            </div>
-          )
-        })}
       </div>
 
       {hiddenEntries.length > 0 && (
