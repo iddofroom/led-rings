@@ -1,14 +1,17 @@
 /**
  * PatternLibrary — the song's "general settings" pattern surface (shown on the main
  * page instead of the timeline). Lists every available pattern (the preset library +
- * any imported patterns), lets you apply one to the song, and curate the set:
- *   • 🗑 a pattern → choose "this song only" (per-song hide) or "all songs" (global hide).
+ * any imported patterns), lets you preview, apply, and curate the set:
+ *   • click a card → animated preview of the pattern on the 12 rings ("examine").
+ *   • ＋ → add the pattern to the song.
+ *   • 🗑 → choose "this song only" (per-song hide) or "all songs" (global hide).
  *   • ⬆ Import → load pattern JSON files back in, so a globally-removed pattern is never lost.
  * Hidden patterns are listed at the bottom and can be restored in one click.
  */
-import { useMemo, useRef, useState } from 'react'
-import { loadAllPresets, extractPresetColors, summarizePresetEffects } from '../presets'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { loadAllPresets, extractPresetColors, summarizePresetEffects, presetToTimeframes } from '../presets'
 import type { PresetMetadata, PresetData } from '../presets'
+import RingVisualization from './RingVisualization'
 import './PresetBrowser.css'
 import './PatternLibrary.css'
 
@@ -26,6 +29,8 @@ interface PatternLibraryProps {
   /** Pattern ids hidden for the CURRENT song only. */
   songHidden: string[]
   songName: string
+  /** Song BPM — drives the preview animation tempo. */
+  bpm: number
   onApplyPreset: (preset: PresetMetadata) => void
   onHideForSong: (id: string) => void
   onHideGlobal: (id: string) => void
@@ -44,10 +49,65 @@ const isPresetData = (v: unknown): v is PresetData =>
   !!v && typeof v === 'object' && !Array.isArray(v) &&
   Object.keys(v as object).some((k) => /^ring\d+$/.test(k))
 
-const PatternCard = ({
-  preset, onApply, onHideForSong, onHideGlobal,
+/** Animated preview of a single pattern on the 12 rings — loops at the song's tempo. */
+const PatternPreview = ({
+  preset, bpm, onApply, onClose,
 }: {
   preset: PresetMetadata
+  bpm: number
+  onApply: (p: PresetMetadata) => void
+  onClose: () => void
+}) => {
+  const tfs = useMemo(() => presetToTimeframes(preset, 0, bpm), [preset, bpm])
+  const loopBeats = useMemo(() => Math.max(1, ...tfs.map((t) => t.endTime)), [tfs])
+  const [t, setT] = useState(0)
+
+  useEffect(() => {
+    let raf = 0
+    let last = 0
+    const beatsPerSec = Math.max(0.05, bpm / 60)
+    const tick = (ts: number) => {
+      if (last) setT((prev) => (prev + ((ts - last) / 1000) * beatsPerSec) % loopBeats)
+      last = ts
+      raf = requestAnimationFrame(tick)
+    }
+    raf = requestAnimationFrame(tick)
+    return () => cancelAnimationFrame(raf)
+  }, [loopBeats, bpm])
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [onClose])
+
+  return (
+    <div className="pattern-preview-overlay" onClick={onClose}>
+      <div className="pattern-preview-modal" onClick={(e) => e.stopPropagation()}>
+        <div className="pattern-preview-head">
+          <span className="pattern-preview-name">{preset.displayName}</span>
+          <span className="pattern-preview-cat">{CATEGORY_LABELS[preset.category] || preset.category}</span>
+          <span style={{ flex: 1 }} />
+          <button className="pattern-preview-close" onClick={onClose} title="סגור (Esc)">✕</button>
+        </div>
+        <div className="pattern-preview-stage">
+          <RingVisualization mapping="all" timeframes={tfs} currentTime={t} globalBrightness={1} darkOff />
+        </div>
+        <div className="pattern-preview-foot">
+          <span className="pattern-preview-summary">{summarizePresetEffects(preset.data) || '—'}</span>
+          <span style={{ flex: 1 }} />
+          <button className="pattern-preview-add" onClick={() => { onApply(preset); onClose() }}>＋ הוסף לשיר</button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+const PatternCard = ({
+  preset, onOpen, onApply, onHideForSong, onHideGlobal,
+}: {
+  preset: PresetMetadata
+  onOpen: (p: PresetMetadata) => void
   onApply: (p: PresetMetadata) => void
   onHideForSong: (id: string) => void
   onHideGlobal: (id: string) => void
@@ -58,7 +118,7 @@ const PatternCard = ({
 
   return (
     <div className="pattern-card-wrap">
-      <div className="preset-card pattern-card" onClick={() => onApply(preset)} title="הוסף את הפאטרן לשיר">
+      <div className="preset-card pattern-card" onClick={() => onOpen(preset)} title="לחץ לתצוגה מקדימה">
         <div className="preset-card-colors">
           {colors.slice(0, 3).map((c, i) => (
             <div key={i} className="preset-card-color-swatch" style={{ background: c }} />
@@ -68,6 +128,11 @@ const PatternCard = ({
           <span className="preset-card-name">{preset.displayName}</span>
           {summary && <span className="preset-card-effects">{summary}</span>}
         </div>
+        <button
+          className="pattern-card-add"
+          title="הוסף לשיר"
+          onClick={(e) => { e.stopPropagation(); onApply(preset) }}
+        >＋</button>
         <button
           className="pattern-card-delete"
           title="הסר פאטרן זה"
@@ -92,12 +157,13 @@ const PatternCard = ({
 }
 
 const PatternLibrary = ({
-  imported, globalHidden, songHidden, songName,
+  imported, globalHidden, songHidden, songName, bpm,
   onApplyPreset, onHideForSong, onHideGlobal, onRestoreForSong, onRestoreGlobal, onImport,
 }: PatternLibraryProps) => {
   const [searchTerm, setSearchTerm] = useState('')
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set())
   const [showHidden, setShowHidden] = useState(false)
+  const [preview, setPreview] = useState<PresetMetadata | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const allPatterns = useMemo<PresetMetadata[]>(
@@ -138,7 +204,7 @@ const PatternLibrary = ({
   const toggleCat = (cat: string) =>
     setCollapsed((prev) => {
       const next = new Set(prev)
-      next.has(cat) ? next.delete(cat) : next.add(cat)
+      if (next.has(cat)) next.delete(cat); else next.add(cat)
       return next
     })
 
@@ -212,6 +278,7 @@ const PatternLibrary = ({
                     <PatternCard
                       key={preset.id}
                       preset={preset}
+                      onOpen={setPreview}
                       onApply={onApplyPreset}
                       onHideForSong={onHideForSong}
                       onHideGlobal={onHideGlobal}
@@ -245,6 +312,10 @@ const PatternLibrary = ({
             </div>
           )}
         </div>
+      )}
+
+      {preview && (
+        <PatternPreview preset={preview} bpm={bpm} onApply={onApplyPreset} onClose={() => setPreview(null)} />
       )}
     </div>
   )

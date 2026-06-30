@@ -2402,6 +2402,7 @@ function App() {
                 globalHidden={globalHiddenPatterns}
                 songHidden={song.hiddenPatterns ?? []}
                 songName={song.name}
+                bpm={song.bpm}
                 onApplyPreset={addTimeframesFromPreset}
                 onHideForSong={hidePatternForSong}
                 onHideGlobal={hidePatternGlobal}
