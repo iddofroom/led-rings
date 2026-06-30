@@ -5,7 +5,7 @@ import ComposePanel from './components/ComposePanel'
 import LibraryPanel from './components/LibraryPanel'
 import LiveConsole from './components/LiveConsole'
 import HistoryPanel from './components/HistoryPanel'
-import PatternLibrary from './components/PatternLibrary'
+import PatternLibrary, { editedTimeframes } from './components/PatternLibrary'
 import type { ImportedPattern } from './components/PatternLibrary'
 import { library, fileToBase64 } from './lib/library'
 import { putAudio, getAudio } from './lib/audioCache'
@@ -1364,9 +1364,12 @@ function App() {
    *  When custom section lines exist, regenerate against THOSE boundaries. */
   /** Client-side recompose: tile the song's OWN animations across its sections
    *  (custom section lines if set, else the analysis sections). No server needed. */
-  const recomposeFromAnimations = (): boolean => {
-    const anims = song.animations || []
-    if (!anims.length) return false
+  // Compose the song from the WHOLE pattern library (all named patterns, minus hidden):
+  // split into sections (custom lines or analysis), assign a DIFFERENT pattern to each part
+  // (avoiding back-to-back repeats) and tile it across that part. This is the default compose.
+  const recomposeFromLibrary = (): boolean => {
+    const pool = curatedPatterns
+    if (!pool.length) return false
     let ranges: [number, number][] = []
     const lines = (song.sectionLines || []).filter((b) => b > 0 && b < songLengthBeats).sort((a, b) => a - b)
     if (lines.length) {
@@ -1380,19 +1383,27 @@ function App() {
     }
     if (!ranges.length) ranges = [[0, songLengthBeats]]
     const out: Timeframe[] = []
+    let prevId: string | null = null
     ranges.forEach(([s, e], idx) => {
-      const anim = anims[idx % anims.length]
-      if (!anim.timeframes.length) return
-      const min = Math.min(...anim.timeframes.map((t) => t.startTime))
-      const max = Math.max(...anim.timeframes.map((t) => t.endTime))
+      // A DIFFERENT pattern per part — pick at random but never repeat the previous section's.
+      let choices = pool.filter((p) => p.id !== prevId)
+      if (!choices.length) choices = pool
+      const preset = choices[Math.floor(Math.random() * choices.length)]
+      prevId = preset.id
+      const edit = patternEdits[preset.id] ?? {}
+      const tfs = editedTimeframes(presetToTimeframes(preset, 0, song.bpm), edit.speed ?? 1, edit.paletteId ?? 'original')
+      if (!tfs.length) return
+      const name = edit.name ?? preset.displayName
+      const min = Math.min(...tfs.map((t) => t.startTime))
+      const max = Math.max(...tfs.map((t) => t.endTime))
       const len = Math.max(0.5, max - min)
       let r = 0
       while (s + r * len < e - 0.01 && r < 256) {
         const offset = s + r * len - min
-        for (const t of anim.timeframes) {
+        for (const t of tfs) {
           const st = +(t.startTime + offset).toFixed(3)
           const en = Math.min(e, +(t.endTime + offset).toFixed(3))
-          if (en > st && st < songLengthBeats) out.push({ ...t, id: `rc-${idx}-${r}-${out.length}`, startTime: st, endTime: en, _section: idx, _source: `live:seg ${idx + 1}:${anim.name}` })
+          if (en > st && st < songLengthBeats) out.push({ ...t, id: `rc-${idx}-${r}-${out.length}`, startTime: st, endTime: en, _section: idx, _source: `lib:seg ${idx + 1}:${name}` })
         }
         r++
       }
@@ -1402,8 +1413,8 @@ function App() {
   }
 
   const recomposeCurrent = async () => {
-    // Prefer the song's own animation set when it has one.
-    if (recomposeFromAnimations()) return
+    // Default: build the song from the whole pattern library, a different pattern per section.
+    if (recomposeFromLibrary()) return
     if (!API_BASE) { window.alert('Control server is not running.'); return }
     let analysis = lastAnalysisRef.current
     if (!analysis && song.librarySlug) {
@@ -2077,6 +2088,7 @@ function App() {
           onLoad={loadCategoryPreview}
           onReplaceSection={replaceSection}
           onAnalyzed={handleComposeAnalyzed}
+          onComposeFromLibrary={(a) => { lastAnalysisRef.current = a; return recomposeFromLibrary() }}
           alreadyComposed={timeframes.some((tf) => typeof tf._section === 'number')}
           onClose={() => setShowCompose(false)}
         />

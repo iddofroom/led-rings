@@ -58,8 +58,8 @@ const isPresetData = (v: unknown): v is PresetData =>
   Object.keys(v as object).some((k) => /^ring\d+$/.test(k))
 
 /** Apply a pattern's edits (speed + palette) to its base timeframes — shared by the
- *  preview modal and the card's quick "add to the song" action. */
-function editedTimeframes(baseTfs: Timeframe[], speed: number, paletteSel: string): Timeframe[] {
+ *  preview modal, the card's quick "add to the song" action, and library-based compose. */
+export function editedTimeframes(baseTfs: Timeframe[], speed: number, paletteSel: string): Timeframe[] {
   return baseTfs.map((tf, i) => {
     const e: Timeframe = { ...tf }
     if (paletteSel !== 'original') {

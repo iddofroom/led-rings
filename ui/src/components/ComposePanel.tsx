@@ -33,6 +33,9 @@ interface Props {
   onReplaceSection?: (sectionIdx: number, timeframes: unknown[]) => void
   /** Fired after a successful analyze — lets the app archive the song + analysis in the library. */
   onAnalyzed?: (analysis: unknown, audioPath: string) => void
+  /** Compose the song from the user's named pattern LIBRARY (a different pattern per part)
+   *  instead of the abstract generator patterns. Needs an analysis (for the section split). */
+  onComposeFromLibrary?: (analysis: unknown) => boolean | void
   /** True when the current timeline already holds a composition (this song was composed
    *  before, e.g. loaded from the library) — so the action reads "Recompose". */
   alreadyComposed?: boolean
@@ -45,7 +48,7 @@ const LABEL_COLORS: Record<string, string> = {
 }
 const fmtTime = (ms: number) => `${Math.floor(ms / 60000)}:${String(Math.floor((ms % 60000) / 1000)).padStart(2, '0')}`
 
-export default function ComposePanel({ apiBase, song, onLoad, onReplaceSection, onAnalyzed, alreadyComposed, onClose }: Props) {
+export default function ComposePanel({ apiBase, song, onLoad, onReplaceSection, onAnalyzed, onComposeFromLibrary, alreadyComposed, onClose }: Props) {
   const [audioPath, setAudioPath] = useState(song.audioFilePath || 'ODESZA - A Moment Apart.mp3')
   const [bpmHint, setBpmHint] = useState<string>('')
   const [sectionsK, setSectionsK] = useState<string>('')
@@ -117,6 +120,18 @@ export default function ComposePanel({ apiBase, song, onLoad, onReplaceSection, 
       setStatus(`Loaded ${result.timeframes.length} timeframes into the timeline. Reroll any part below.`)
     } catch (e) { setError(e instanceof Error ? e.message : String(e)) }
     finally { setBusy(null) }
+  }
+
+  /** Compose from the user's named pattern LIBRARY — a different pattern per part.
+   *  Needs an analysis (to split the song into parts); re-click for another mix. */
+  function composeFromMyPatterns() {
+    if (!onComposeFromLibrary) return
+    if (!analysis) { setError('Analyze the song first so it can be split into parts.'); return }
+    setError(null)
+    const ok = onComposeFromLibrary(analysis)
+    setStatus(ok === false
+      ? 'No patterns available — add some in the library first.'
+      : 'Composed from your pattern library — a different pattern per part. Click again for another mix.')
   }
 
   /** Reroll ONE section's pattern: re-translate just that section and swap its
@@ -252,13 +267,20 @@ export default function ComposePanel({ apiBase, song, onLoad, onReplaceSection, 
 
         {/* 3. Generate */}
         <section style={card}>
-          <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 14 }}>
-            <span style={{ fontSize: 12, color: '#9aa', display: 'inline-flex', alignItems: 'center', gap: 5 }} title="Sections are designed by Gemini (the control server falls back to taste rules if the key is unavailable).">
+          <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+            {onComposeFromLibrary && (
+              <button onClick={composeFromMyPatterns} disabled={!!busy || !analysis}
+                title={analysis ? 'Fill each part of the song with a DIFFERENT pattern from your library' : 'Analyze the song first'}
+                style={{ ...primaryBtn, background: 'linear-gradient(135deg,#10b981 0%,#059669 100%)', fontSize: 15, padding: '10px 20px', opacity: (busy || !analysis) ? 0.6 : 1 }}>
+                🎨 {composed || alreadyComposed ? 'Recompose from my patterns' : 'Compose from my patterns → timeline ▸'}
+              </button>
+            )}
+            <span style={{ fontSize: 11, color: '#9aa', display: 'inline-flex', alignItems: 'center', gap: 5 }} title="Alternative: design each section from the abstract generator patterns (build-up, sweep, pulse…) with Gemini.">
               ✨ Gemini
             </span>
-            <button onClick={generate} disabled={!!busy} style={{ ...primaryBtn, fontSize: 15, padding: '10px 20px', opacity: busy ? 0.65 : 1, display: 'inline-flex', alignItems: 'center', gap: 8 }}>
-              {busy && <span style={{ width: 14, height: 14, border: '2px solid #fff', borderTopColor: 'transparent', borderRadius: '50%', display: 'inline-block', animation: 'composeSpin 0.8s linear infinite' }} />}
-              {busy ? 'Working…' : (composed || alreadyComposed ? '↻ Recompose' : 'Generate composition → timeline ▸')}
+            <button onClick={generate} disabled={!!busy} style={{ ...secondaryBtn, fontSize: 13, opacity: busy ? 0.65 : 1, display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+              {busy && <span style={{ width: 12, height: 12, border: '2px solid #fff', borderTopColor: 'transparent', borderRadius: '50%', display: 'inline-block', animation: 'composeSpin 0.8s linear infinite' }} />}
+              {busy ? 'Working…' : (composed || alreadyComposed ? '↻ Recompose (Gemini)' : 'Generate (Gemini)')}
             </button>
           </div>
 
