@@ -207,6 +207,7 @@ export default function LiveConsole({
   const [railLabels, setRailLabels] = useState<Record<string, string>>({})
   const [pinned, setPinned] = useState<string[]>(PATTERNS.map((p) => p.key))
   const [editPads, setEditPads] = useState(false)
+  const [libFilter, setLibFilter] = useState('') // filter for the full library-patterns list
   React.useEffect(() => {
     try {
       const raw = localStorage.getItem('liveConsole:rail')
@@ -834,6 +835,40 @@ export default function LiveConsole({
             <div style={{ fontSize: 11, color: '#667', padding: '6px 2px', lineHeight: 1.5 }}>
               אין עדיין פאטרנים שמורים לשיר. ערוך פאטרן במסך הראשי ולחץ "💾 שמור" / "＋ הוסף לשיר".
             </div>
+          )}
+
+          {/* Full pattern library — every named pattern, ready to drag onto a lane. */}
+          {presetPads.length > 0 && (
+            <>
+              <div style={railDivider} />
+              <div style={railLabel}>📚 ספריית פאטרנים · {presetPads.length}</div>
+              <input
+                value={libFilter}
+                onChange={(e) => setLibFilter(e.target.value)}
+                placeholder="חיפוש פאטרן…"
+                style={{ width: '100%', boxSizing: 'border-box', background: '#0d1117', color: '#e8eef5', border: '1px solid #2c3645', borderRadius: 6, padding: '4px 8px', fontSize: 11, marginBottom: 2 }}
+              />
+              {presetPads
+                .filter((p) => {
+                  const q = libFilter.trim().toLowerCase()
+                  return !q || labelFor(`preset:${p.id}`, p.displayName).toLowerCase().includes(q)
+                })
+                .map((p) => {
+                  const k = `preset:${p.id}`
+                  const c = extractPresetColor(p.data)
+                  const label = labelFor(k, p.displayName)
+                  return (
+                    <div key={p.id} draggable
+                      onDragStart={(e) => { e.dataTransfer.setData(DT_KEY, k); e.dataTransfer.effectAllowed = 'copy' }}
+                      onClick={() => setArmed((cur) => (cur === k ? null : k))}
+                      title={`${label} — גרור ללֵיין או לחץ לחימוש`}
+                      style={{ ...padV, height: 26, cursor: 'grab', outline: armed === k ? '2px solid #34d399' : '1px solid #2c3645', background: `linear-gradient(160deg, ${c}33, #1b2230)` }}>
+                      <span style={{ width: 11, height: 11, borderRadius: 3, background: c, flexShrink: 0 }} />
+                      <span style={{ fontSize: 12, fontWeight: 600, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{label}</span>
+                    </div>
+                  )
+                })}
+            </>
           )}
 
           <div style={railDivider} />

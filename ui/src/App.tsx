@@ -584,6 +584,12 @@ function App() {
     return all.filter((p) => !hidden.has(p.id))
   }, [importedPatterns, globalHiddenPatterns, song.hiddenPatterns])
 
+  // Same list, but showing the name the user gave each pattern — for the Live Console rail.
+  const libraryPads = React.useMemo<PresetMetadata[]>(
+    () => curatedPatterns.map((p) => (patternEdits[p.id]?.name ? { ...p, displayName: patternEdits[p.id]!.name! } : p)),
+    [curatedPatterns, patternEdits],
+  )
+
   const addTimeframesFromPreset = (preset: PresetMetadata) => {
     const snappedBeat = Math.round(currentTime)
     const newTimeframes = presetToTimeframes(preset, snappedBeat, song.bpm)
@@ -2146,7 +2152,7 @@ function App() {
           onSectionLinesChange={(lines) => handleSongChange({ sectionLines: lines })}
           songAnimations={song.animations || []}
           onRemoveAnimation={removeSongAnimation}
-          presetPads={curatedPatterns}
+          presetPads={libraryPads}
           onClose={() => setShowLiveConsole(false)}
         />
       )}
