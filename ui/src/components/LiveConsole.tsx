@@ -240,6 +240,7 @@ export default function LiveConsole({
   const [showAdvanced, setShowAdvanced] = useState(false) // full per-property editor for the selected block
   const [resizeDraft, setResizeDraft] = useState<{ id: string; edge: 'start' | 'end'; startTime: number; endTime: number } | null>(null)
   const [ctxMenu, setCtxMenu] = useState<{ x: number; y: number; beat: number } | null>(null)
+  const [laneMenu, setLaneMenu] = useState<{ x: number; y: number; beat: number } | null>(null) // right-click on a lane → clear
   const scrollRef = useRef<HTMLDivElement>(null)
   const innerRef = useRef<HTMLDivElement>(null)
 
@@ -522,6 +523,18 @@ export default function LiveConsole({
     onApplyTimeframes(timeframes.filter((t) => t.id !== selectedTf.id))
     setSelectedId(null)
   }
+  /** Wipe the whole timeline. */
+  function clearAllBlocks() {
+    onApplyTimeframes([])
+    setSelectedId(null)
+    setShowAdvanced(false)
+  }
+  /** Delete every block overlapping the part (section) at `beat`. */
+  function deleteBlocksInSection(beat: number) {
+    const sec = sectionAtBeat(beat)
+    onApplyTimeframes(timeframes.filter((t) => !(t.startTime < sec.endBeat && t.endTime > sec.startBeat)))
+    setSelectedId(null)
+  }
   function nudgeSelected(deltaStart: number, deltaEnd: number) {
     if (!selectedTf) return
     const s = snap(selectedTf.startTime + deltaStart)
@@ -753,6 +766,13 @@ export default function LiveConsole({
               {recomposing ? 'Recomposing…' : '↻ Recompose'}
             </button>
           )}
+          <button
+            onClick={() => { if (timeframes.length && window.confirm(`למחוק את כל ${timeframes.length} הבלוקים ולנקות את הטיימליין?`)) clearAllBlocks() }}
+            disabled={!timeframes.length}
+            title="Delete every block and clear the timeline (also on right-click)"
+            style={{ ...closeBtn, background: '#7f1d1d', opacity: timeframes.length ? 1 : 0.5 }}>
+            🗑 Clear
+          </button>
           <span style={{ fontSize: 12, color: '#8aa' }}>Brightness</span>
           <input type="range" min={0} max={1} step={0.01} value={brightness} disabled={!brightnessConnected}
             onChange={(e) => onBrightnessChange(parseFloat(e.target.value))} style={{ width: 120, accentColor: '#34d399' }} />
@@ -1010,7 +1030,8 @@ export default function LiveConsole({
                         onDrop={onLaneDrop(lane)}
                         onMouseDown={onTrackMouseDown}
                         onClick={onLaneClick(lane)}
-                        title={`${lane.label} — drag a pattern here (or click while a pad is armed). Click a block to edit it.`}
+                        onContextMenu={(e) => { e.preventDefault(); setLaneMenu({ x: e.clientX, y: e.clientY, beat: xToBeat(e, e.currentTarget as HTMLElement) }) }}
+                        title={`${lane.label} — drag a pattern here (or click while a pad is armed). Click a block to edit it. Right-click to clear.`}
                         style={{
                           position: 'relative', flex: 1, height: 15, borderRadius: 4, cursor: armed ? 'copy' : zoom > 1 ? 'grab' : 'pointer',
                           background: lane.key === 'all' ? '#171d29' : '#12161f',
@@ -1226,6 +1247,19 @@ export default function LiveConsole({
             <div style={{ height: 1, background: '#2c3645', margin: '4px 0' }} />
             <button style={ctxItem} onClick={() => { removeLineNear(ctxMenu.beat); setCtxMenu(null) }}>－ Remove nearest line</button>
             <button style={{ ...ctxItem, color: '#fca5a5' }} onClick={() => { onSectionLinesChange?.([]); setCtxMenu(null) }}>🗑 Clear all lines</button>
+          </div>
+        </>
+      )}
+
+      {/* Right-click on a lane → clear patterns */}
+      {laneMenu && (
+        <>
+          <div onClick={() => setLaneMenu(null)} onContextMenu={(e) => { e.preventDefault(); setLaneMenu(null) }} style={{ position: 'fixed', inset: 0, zIndex: 2200 }} />
+          <div style={{ position: 'fixed', left: Math.min(laneMenu.x, window.innerWidth - 260), top: Math.min(laneMenu.y, window.innerHeight - 150), zIndex: 2201, background: '#1b2230', border: '1px solid #2c3645', borderRadius: 8, padding: 6, boxShadow: '0 10px 30px #000b', minWidth: 240 }}>
+            <div style={{ fontSize: 10, color: '#778', padding: '2px 8px 6px', fontWeight: 700 }}>{timeframes.length} בלוקים בטיימליין</div>
+            <button style={{ ...ctxItem, color: '#fca5a5' }} onClick={() => { deleteBlocksInSection(laneMenu.beat); setLaneMenu(null) }}>🗑 מחק את החלק הזה · {sectionAtBeat(laneMenu.beat).label}</button>
+            <div style={{ height: 1, background: '#2c3645', margin: '4px 0' }} />
+            <button style={{ ...ctxItem, color: '#fecaca', background: '#7f1d1d' }} onClick={() => { clearAllBlocks(); setLaneMenu(null) }}>🗑 נקה את כל הטיימליין ({timeframes.length})</button>
           </div>
         </>
       )}
