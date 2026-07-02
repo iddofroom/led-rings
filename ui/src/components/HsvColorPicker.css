@@ -104,3 +104,9 @@
   color: var(--text-muted);
   font-size: 11px;
 }
+
+.hsv-picker-hex-group input {
+  text-align: left;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  letter-spacing: 0.5px;
+}

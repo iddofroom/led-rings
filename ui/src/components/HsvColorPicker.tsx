@@ -111,6 +111,12 @@ const HsvColorPicker = ({ value, onChange }: HsvColorPickerProps) => {
     onChange(hsvToHex(next.h, next.s, next.v))
   }
 
+  const handleHexInput = (raw: string) => {
+    const trimmed = raw.trim()
+    const withHash = trimmed.startsWith('#') ? trimmed : `#${trimmed}`
+    if (/^#[0-9a-fA-F]{6}$/.test(withHash)) onChange(withHash.toLowerCase())
+  }
+
   // Cursor position in SV square
   const cursorX = hsv.s * SV_SIZE
   const cursorY = (1 - hsv.v) * SV_SIZE
@@ -179,6 +185,18 @@ const HsvColorPicker = ({ value, onChange }: HsvColorPickerProps) => {
           <span className="hsv-picker-unit">%</span>
         </label>
       </div>
+
+      <label className="hsv-picker-input-group hsv-picker-hex-group">
+        <span>Hex</span>
+        <input
+          type="text"
+          spellCheck={false}
+          value={value}
+          onChange={(e) => handleHexInput(e.target.value)}
+          onFocus={(e) => e.currentTarget.select()}
+          title="Copy or paste hex color (e.g. #ff8800)"
+        />
+      </label>
     </div>
   )
 }

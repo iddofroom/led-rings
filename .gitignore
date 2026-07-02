@@ -23,6 +23,10 @@ src/audio/*.m4a
 *.song.json
 .compose-tmp/
 
+# Packaged Windows app output
+release
+packaging/dist
+
 # Logs
 logs
 *.log

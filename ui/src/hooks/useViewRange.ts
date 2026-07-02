@@ -16,6 +16,8 @@ export interface ViewRangeActions {
   /** Auto-scroll to keep a beat visible during playback.
    *  Scrolls so that beat is at targetFraction of the screen (e.g. 0.75). */
   autoScrollTo: (beat: number, targetFraction: number) => void
+  /** Restore a saved view (zoom + scroll). Clamps both to valid ranges. */
+  setView: (startBeat: number, beatsPerScreen: number) => void
 }
 
 const MIN_BEATS_PER_SCREEN = 4
@@ -74,5 +76,12 @@ export function useViewRange(songLengthBeats: number): [ViewRangeState, ViewRang
     })
   }, [clampStart])
 
-  return [state, { scrollTo, zoomAt, panBy, autoScrollTo }]
+  const setView = useCallback((startBeat: number, beatsPerScreen: number) => {
+    setState(() => {
+      const bps = Math.max(MIN_BEATS_PER_SCREEN, Math.min(maxBeatRef.current, beatsPerScreen))
+      return { beatsPerScreen: bps, startBeat: clampStart(startBeat, bps) }
+    })
+  }, [clampStart])
+
+  return [state, { scrollTo, zoomAt, panBy, autoScrollTo, setView }]
 }

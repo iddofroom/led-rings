@@ -52,6 +52,13 @@ export class Animation {
 
     private effects: EffectWithElements[] = [];
 
+    // Ring numbers that have a lilum pendant mirroring them. Each entry N makes
+    // getSequence() emit a `lilum${N}` thing with an exact copy of ring N's
+    // effects, so the pendant plays the same animation as that ring. Songs opt
+    // in via mirrorToLilum(); see src/lilum/segments.ts for the matching
+    // segment aliases that let position-based effects resolve on the pendant.
+    private lilumRings: number[] = [];
+
     constructor(
         public name: string,
         public bpm: number,
@@ -59,6 +66,13 @@ export class Animation {
         public startOffsetMs: number = 0,
         public beatTimestampsMs?: number[]
     ) { }
+
+    /** Mirror the given ring number(s) onto same-named lilum pendant(s):
+     *  ring N -> thing `lilum${N}`. No-op for songs that don't call it. */
+    public mirrorToLilum(rings: number | number[]) {
+        const list = Array.isArray(rings) ? rings : [rings];
+        for (const r of list) if (!this.lilumRings.includes(r)) this.lilumRings.push(r);
+    }
 
     public sync(cb: Function) {
         const emptyEffectConfig: Partial<EffectConfig> = {
@@ -112,6 +126,15 @@ export class Animation {
                 seqPerThing[thingName].effects.push(effectWithElements.effect);
             });
         });
+        // Mirror chosen rings onto their lilum pendants: lilum${N} gets an exact
+        // copy of ring${N}'s sequence (same effects/segments). The pendant's
+        // object defines the same segment names (lilum/segments.ts), so position
+        // effects resolve over its 3-rings-of-9 geometry.
+        for (const ring of this.lilumRings) {
+            const source = seqPerThing[`ring${ring}`];
+            if (!source) continue;
+            seqPerThing[`lilum${ring}`] = JSON.parse(JSON.stringify(source));
+        }
         return seqPerThing;
     }
 

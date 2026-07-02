@@ -77,6 +77,8 @@ const Timeline = ({ timeframes, songLengthBeats, bpm, onUpdate, onUpdateSilent, 
   /** Original positions of all selected timeframes at drag start (for multi-select move/resize). */
   const [dragOriginals, setDragOriginals] = useState<Map<string, { startTime: number; endTime: number }> | null>(null)
   const [isDraggingTimeIndicator, setIsDraggingTimeIndicator] = useState(false)
+  /** Latest beat reached while dragging the time indicator; committed as Run-from on drag end. */
+  const lastIndicatorBeatRef = React.useRef<number | null>(null)
   const timelineScrollViewRef = React.useRef<HTMLDivElement>(null)
   const timelineWrapperRef = React.useRef<HTMLDivElement>(null)
   const [visibleHeightPx, setVisibleHeightPx] = useState<number>(600)
@@ -374,8 +376,9 @@ const Timeline = ({ timeframes, songLengthBeats, bpm, onUpdate, onUpdateSilent, 
       e.preventDefault()
       e.stopPropagation()
       setIsDraggingTimeIndicator(true)
-      const beat = yToBeat(e.clientY)
-      onCurrentTimeChange(Math.max(0, Math.min(beat, maxTime)))
+      const beat = Math.max(0, Math.min(maxTime, yToBeat(e.clientY)))
+      lastIndicatorBeatRef.current = beat
+      onCurrentTimeChange(beat)
       return
     }
     
@@ -495,6 +498,8 @@ const Timeline = ({ timeframes, songLengthBeats, bpm, onUpdate, onUpdateSilent, 
   const handleMouseUp = () => {
     if (isDraggingTimeIndicator) {
       setIsDraggingTimeIndicator(false)
+      if (lastIndicatorBeatRef.current !== null) onSeekToBeat?.(lastIndicatorBeatRef.current)
+      lastIndicatorBeatRef.current = null
       return
     }
     if (!isDragging) {
@@ -570,6 +575,7 @@ const Timeline = ({ timeframes, songLengthBeats, bpm, onUpdate, onUpdateSilent, 
         const rect = timelineWrapperRef.current.getBoundingClientRect()
         const relativeY = e.clientY - rect.top
         const beat = Math.max(0, Math.min(maxTime, relativeY / pxPerBeat))
+        lastIndicatorBeatRef.current = beat
         onCurrentTimeChange(beat)
         return
       }
@@ -614,6 +620,9 @@ const Timeline = ({ timeframes, songLengthBeats, bpm, onUpdate, onUpdateSilent, 
     const handleGlobalMouseUp = () => {
       if (isDraggingTimeIndicator) {
         setIsDraggingTimeIndicator(false)
+        // Commit the final marker position as the Run-from point, matching a click.
+        if (lastIndicatorBeatRef.current !== null) onSeekToBeat?.(lastIndicatorBeatRef.current)
+        lastIndicatorBeatRef.current = null
         return
       }
       if (!isDragging) {
@@ -686,7 +695,7 @@ const Timeline = ({ timeframes, songLengthBeats, bpm, onUpdate, onUpdateSilent, 
         document.removeEventListener('mouseup', handleGlobalMouseUp)
       }
     }
-  }, [isDragging, isDraggingTimeIndicator, dragStart, dragCurrent, resizingTimeframeId, resizingEdge, movingTimeframeId, moveStartBeat, moveOriginalStart, moveOriginalEnd, dragOriginals, timeframes, onAdd, onUpdate, onUpdateSilent, onUpdateSilentBatch, maxTime, onCurrentTimeChange])
+  }, [isDragging, isDraggingTimeIndicator, dragStart, dragCurrent, resizingTimeframeId, resizingEdge, movingTimeframeId, moveStartBeat, moveOriginalStart, moveOriginalEnd, dragOriginals, timeframes, onAdd, onUpdate, onUpdateSilent, onUpdateSilentBatch, maxTime, onCurrentTimeChange, onSeekToBeat])
 
   const dragStartBeat = dragStart !== null ? dragStart : 0
   const dragEndBeat = dragCurrent !== null ? dragCurrent : dragStartBeat
@@ -928,6 +937,7 @@ const Timeline = ({ timeframes, songLengthBeats, bpm, onUpdate, onUpdateSilent, 
                 e.preventDefault()
                 e.stopPropagation()
                 setIsDraggingTimeIndicator(true)
+                lastIndicatorBeatRef.current = currentTime
               }}
             ></div>
           </div>

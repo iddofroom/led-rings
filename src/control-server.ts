@@ -11,6 +11,7 @@ import { spawn, execSync } from "child_process";
 import { sendSequence } from "./services/sequence";
 import { startSong, stop, trigger } from "./services/trigger";
 import { initMqttBrightness, getBrightnessState, setBrightness } from "./mqtt-brightness";
+import { initMqttTrigger, publishTrigger } from "./mqtt-trigger";
 
 const PORT = parseInt(process.env.CONTROL_SERVER_PORT || "3080", 10);
 const ROOT = process.cwd();
@@ -176,9 +177,14 @@ async function handleSendSequence(runnerCode: string, res: http.ServerResponse) 
 }
 
 async function handleParseSong(songCode: string, fileName: string, res: http.ServerResponse) {
-  // Write to src/songs/ so relative imports (../effects/, ../time/, etc.) resolve
+  // Choose temp dir based on import style: files with ./effects/, ./services/, etc.
+  // belong directly under src/; files with ../effects/, ../services/ are song-style and
+  // belong under src/songs/. This lets us import either kind without rewriting imports.
+  const hasSrcStyleImports = /from\s+["']\.\/(effects|services|animation|time|objects|phase|recorder|sys-config|async-local-storage)\//.test(songCode);
   const safeName = `.tmp-parse-${Date.now()}-${fileName.replace(/[^a-zA-Z0-9._-]/g, "")}`;
-  const songPath = path.join(ROOT, "src", "songs", safeName);
+  const songPath = hasSrcStyleImports
+    ? path.join(ROOT, "src", safeName)
+    : path.join(ROOT, "src", "songs", safeName);
   const outPath = path.join(ROOT, `.tmp-parse-out-${Date.now()}.json`);
   try {
     fs.writeFileSync(songPath, songCode, "utf8");
@@ -293,6 +299,30 @@ const server = http.createServer(async (req, res) => {
       console.error("trigger failed", e);
       send(res, 500, JSON.stringify({ error: "trigger failed" }));
     }
+    return;
+  }
+
+  // POST /api/mqtt-trigger — publish retained {trigger_name} on MQTT 'trigger' topic.
+  // Bypasses the trigger service; used to switch firmware to a static trigger like 'clock'.
+  if (req.method === "POST" && pathname === "/api/mqtt-trigger") {
+    const body = await parseBody(req);
+    let payload: { triggerName?: string };
+    try {
+      payload = JSON.parse(body);
+    } catch {
+      send(res, 400, JSON.stringify({ error: "Invalid JSON" }));
+      return;
+    }
+    if (typeof payload.triggerName !== "string" || !payload.triggerName.trim()) {
+      send(res, 400, JSON.stringify({ error: "Missing triggerName" }));
+      return;
+    }
+    const ok = publishTrigger(payload.triggerName.trim());
+    if (!ok) {
+      send(res, 503, JSON.stringify({ error: "MQTT not connected" }));
+      return;
+    }
+    send(res, 200, JSON.stringify({ ok: true }));
     return;
   }
 
@@ -612,6 +642,7 @@ process.on("unhandledRejection", (e) => console.error("[control-server] unhandle
 server.on("clientError", (_err, socket) => { try { socket.destroy(); } catch {} });
 
 initMqttBrightness();
+initMqttTrigger();
 
 server.listen(PORT, () => {
   console.log(`Control server listening on http://localhost:${PORT}`);

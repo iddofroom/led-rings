@@ -331,6 +331,16 @@ const TimeframePanel = ({ timeframe, onUpdate, onClose, onApplyPreset, onLoadCat
   const [tempStartTime, setTempStartTime] = useState<string>('')
   const [tempEndTime, setTempEndTime] = useState<string>('')
 
+  // Raw text for the custom ring-order input. Kept local so partial input
+  // (e.g. a trailing comma) isn't stripped on each keystroke. Re-synced from
+  // the stored order only when the focused timeframe changes — NOT on every
+  // edit, which would clobber in-progress typing.
+  const [ringOrderText, setRingOrderText] = useState<string>('')
+  useEffect(() => {
+    setRingOrderText((timeframe?.movement?.customOrder ?? []).join(', '))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [timeframe?.id])
+
   // Extract segment names from segments.json, filtering out numeric indices (0-11)
   const segmentNames = useMemo(() => {
     return segmentsData.segments
@@ -656,11 +666,19 @@ const TimeframePanel = ({ timeframe, onUpdate, onClose, onApplyPreset, onLoadCat
             </div>
             {(() => {
               const { h, s, v } = hexToHsv(timeframe.color || '#000000')
+              const hex = (timeframe.color || '#000000').toLowerCase()
               return (
-                <div className="timeframe-panel-color-hsv" onClick={openColorPicker}>
-                  <span className="timeframe-panel-color-hsv-item"><span className="timeframe-panel-color-hsv-label">H</span>{h}°</span>
-                  <span className="timeframe-panel-color-hsv-item"><span className="timeframe-panel-color-hsv-label">S</span>{s}%</span>
-                  <span className="timeframe-panel-color-hsv-item"><span className="timeframe-panel-color-hsv-label">V</span>{v}%</span>
+                <div className="timeframe-panel-color-hsv">
+                  <span className="timeframe-panel-color-hsv-item" onClick={openColorPicker}><span className="timeframe-panel-color-hsv-label">H</span>{h}°</span>
+                  <span className="timeframe-panel-color-hsv-item" onClick={openColorPicker}><span className="timeframe-panel-color-hsv-label">S</span>{s}%</span>
+                  <span className="timeframe-panel-color-hsv-item" onClick={openColorPicker}><span className="timeframe-panel-color-hsv-label">V</span>{v}%</span>
+                  <span
+                    className="timeframe-panel-color-hsv-hex"
+                    title="Click to copy hex color"
+                    onClick={() => { navigator.clipboard?.writeText(hex).catch(() => {}) }}
+                  >
+                    {hex}
+                  </span>
                 </div>
               )
             })()}
@@ -1181,16 +1199,18 @@ const TimeframePanel = ({ timeframe, onUpdate, onClose, onApplyPreset, onLoadCat
             return (
               <div className="timeframe-panel-movement-config">
                 <p className="timeframe-panel-movement-desc">{typeDef?.description}</p>
-                {mv.type !== 'random' && (
+                {/* Direction: hidden for random unless using a custom order (random shuffles otherwise). */}
+                {(mv.type !== 'random' || mv.direction === 'custom') && (
                   <div className="timeframe-panel-movement-param-row">
                     <label className="timeframe-panel-effect-param-label">Direction</label>
                     <select
                       value={mv.direction}
                       onChange={(e) => {
                         const dir = e.target.value as MovementDirection
-                        const bpr = defaultBeatsPerRing(mv.type, timeframe.startTime, timeframe.endTime, timeframe.rings, dir, mv.bounce, mv.retire)
+                        const customOrder = dir === 'custom' ? (mv.customOrder ?? []) : undefined
+                        const bpr = defaultBeatsPerRing(mv.type, timeframe.startTime, timeframe.endTime, timeframe.rings, dir, mv.bounce, mv.retire, customOrder)
                         onUpdate({
-                          movement: { ...mv, direction: dir, beatsPerRing: bpr },
+                          movement: { ...mv, direction: dir, beatsPerRing: bpr, customOrder },
                         })
                       }}
                       className="timeframe-panel-select timeframe-panel-select-small"
@@ -1201,6 +1221,56 @@ const TimeframePanel = ({ timeframe, onUpdate, onClose, onApplyPreset, onLoadCat
                     </select>
                   </div>
                 )}
+                {/* Random: offer enabling a custom order (replaces the shuffle). */}
+                {mv.type === 'random' && mv.direction !== 'custom' && (
+                  <div className="timeframe-panel-movement-param-row">
+                    <label className="timeframe-panel-checkbox-label">
+                      <input
+                        type="checkbox"
+                        checked={false}
+                        onChange={() => {
+                          const bpr = defaultBeatsPerRing(mv.type, timeframe.startTime, timeframe.endTime, timeframe.rings, 'custom', mv.bounce, mv.retire, [])
+                          onUpdate({ movement: { ...mv, direction: 'custom', beatsPerRing: bpr, customOrder: [] } })
+                        }}
+                        className="timeframe-panel-checkbox"
+                      />
+                      <span>Use custom order</span>
+                    </label>
+                  </div>
+                )}
+                {mv.direction === 'custom' && (
+                  <div className="timeframe-panel-movement-param-row">
+                    <label className="timeframe-panel-effect-param-label">Ring order</label>
+                    <input
+                      type="text"
+                      value={ringOrderText}
+                      placeholder="e.g. 1, 2, 3, 4, 6"
+                      onChange={(e) => {
+                        setRingOrderText(e.target.value)
+                        const seen = new Set<number>()
+                        const order = e.target.value
+                          .split(/[\s,]+/)
+                          .map(s => parseInt(s, 10))
+                          .filter(n => Number.isInteger(n) && n >= 1 && n <= 12 && !seen.has(n) && (seen.add(n), true))
+                        const bpr = defaultBeatsPerRing(mv.type, timeframe.startTime, timeframe.endTime, timeframe.rings, 'custom', mv.bounce, mv.retire, order)
+                        onUpdate({ movement: { ...mv, customOrder: order, beatsPerRing: bpr } })
+                      }}
+                      className="timeframe-panel-effect-param-input"
+                    />
+                  </div>
+                )}
+                {mv.direction === 'custom' && (() => {
+                  const order = mv.customOrder ?? []
+                  const notInSet = order.filter(r => !timeframe.rings.includes(r))
+                  const stayOn = timeframe.rings.filter(r => !order.includes(r)).sort((a, b) => a - b)
+                  return (
+                    <p className="timeframe-panel-movement-desc">
+                      {order.length === 0 && 'Enter a ring order above.'}
+                      {notInSet.length > 0 && `Ignored (not in this timeframe): ${notInSet.join(', ')}. `}
+                      {stayOn.length > 0 && `Stay on full-time: ${stayOn.join(', ')}.`}
+                    </p>
+                  )
+                })()}
                 <div className="timeframe-panel-movement-param-row">
                   <label className="timeframe-panel-effect-param-label">Beats / ring</label>
                   <input

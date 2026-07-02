@@ -5,7 +5,7 @@
  */
 
 export type MovementType = 'spread' | 'sweep' | 'stagger' | 'random'
-export type MovementDirection = 'forward' | 'backward' | 'center-out' | 'edges-in'
+export type MovementDirection = 'forward' | 'backward' | 'center-out' | 'edges-in' | 'pairs-forward' | 'pairs-backward' | 'custom'
 
 export interface TimeframeMovement {
   type: MovementType
@@ -17,6 +17,11 @@ export interface TimeframeMovement {
   bounce?: boolean
   /** Random: each ring turns on at its step and stays on for the rest of the timeframe. */
   accumulate?: boolean
+  /**
+   * Custom direction: explicit ring order. Rings step in this order; rings in
+   * the timeframe's set but absent from this list stay on for the full timeframe.
+   */
+  customOrder?: number[]
 }
 
 export interface MovementTypeDef {
@@ -65,7 +70,47 @@ export const MOVEMENT_DIRECTIONS: Array<{ id: MovementDirection; label: string }
   { id: 'backward', label: '12 \u2192 1' },
   { id: 'center-out', label: 'Center \u2192 Out' },
   { id: 'edges-in', label: 'Edges \u2192 In' },
+  { id: 'pairs-forward', label: 'Opposite pairs \u2192' },
+  { id: 'pairs-backward', label: 'Opposite pairs \u2190' },
+  { id: 'custom', label: 'Custom order\u2026' },
 ]
+
+const RING_COUNT = 12
+
+/** Opposite ring across the circle (6 apart on a 12-ring layout). */
+function oppositeRing(r: number): number {
+  return ((r - 1 + RING_COUNT / 2) % RING_COUNT) + 1
+}
+
+/**
+ * Group rings into opposite pairs (r and r+6). A ring whose partner is absent
+ * from the set forms its own (singleton) group. Groups are keyed and ordered by
+ * their lowest ring number. Returns the step map; reversed for backward.
+ */
+function getPairSteps(rings: number[], reverse: boolean): Map<number, number> {
+  const present = new Set(rings)
+  const seen = new Set<number>()
+  const groups: number[][] = []
+  for (const r of [...rings].sort((a, b) => a - b)) {
+    if (seen.has(r)) continue
+    const partner = oppositeRing(r)
+    if (present.has(partner) && partner !== r) {
+      groups.push([r, partner])
+      seen.add(r)
+      seen.add(partner)
+    } else {
+      groups.push([r])
+      seen.add(r)
+    }
+  }
+  // groups already ordered by lowest ring (rings were sorted ascending)
+  const ordered = reverse ? [...groups].reverse() : groups
+  const stepMap = new Map<number, number>()
+  ordered.forEach((group, step) => {
+    for (const r of group) stepMap.set(r, step)
+  })
+  return stepMap
+}
 
 // ---------------------------------------------------------------------------
 // Ring step assignment — maps each ring to its step index.
@@ -86,8 +131,30 @@ function shuffledRingOrder(rings: number[]): number[] {
   return arr
 }
 
-function getRingSteps(rings: number[], direction: MovementDirection, type?: MovementType): Map<number, number> {
+/**
+ * Custom order: rings step in the order listed in customOrder (restricted to the
+ * present ring set, deduped). Rings present but not in customOrder are omitted
+ * from the map entirely so callers can give them a full-timeframe window.
+ */
+function getCustomSteps(rings: number[], customOrder: number[] | undefined): Map<number, number> {
+  const present = new Set(rings)
+  const stepMap = new Map<number, number>()
+  let step = 0
+  for (const r of customOrder ?? []) {
+    if (present.has(r) && !stepMap.has(r)) {
+      stepMap.set(r, step++)
+    }
+  }
+  return stepMap
+}
+
+function getRingSteps(rings: number[], direction: MovementDirection, type?: MovementType, customOrder?: number[]): Map<number, number> {
   const sorted = [...rings].sort((a, b) => a - b)
+
+  // Custom order takes precedence over type-based ordering (e.g. random shuffle).
+  if (direction === 'custom') {
+    return getCustomSteps(rings, customOrder)
+  }
 
   if (type === 'random') {
     const order = shuffledRingOrder(rings)
@@ -99,6 +166,10 @@ function getRingSteps(rings: number[], direction: MovementDirection, type?: Move
       return new Map(sorted.map((r, i) => [r, i]))
     case 'backward':
       return new Map(sorted.map((r, i) => [r, sorted.length - 1 - i]))
+    case 'pairs-forward':
+      return getPairSteps(rings, false)
+    case 'pairs-backward':
+      return getPairSteps(rings, true)
     case 'center-out': {
       const withDist = sorted.map(r => ({ r, dist: Math.abs(r - RING_CENTER) }))
       withDist.sort((a, b) => a.dist - b.dist)
@@ -133,9 +204,10 @@ function getRingSteps(rings: number[], direction: MovementDirection, type?: Move
 }
 
 /** Number of distinct steps for a given ring set and direction (and optional movement type for random). */
-export function getNumSteps(rings: number[], direction: MovementDirection, type?: MovementType): number {
+export function getNumSteps(rings: number[], direction: MovementDirection, type?: MovementType, customOrder?: number[]): number {
   if (rings.length === 0) return 0
-  const steps = getRingSteps(rings, direction, type)
+  const steps = getRingSteps(rings, direction, type, customOrder)
+  if (steps.size === 0) return 0
   return Math.max(...steps.values()) + 1
 }
 
@@ -147,9 +219,10 @@ export function defaultBeatsPerRing(
   direction: MovementDirection,
   bounce?: boolean,
   retire?: boolean,
+  customOrder?: number[],
 ): number {
   const duration = endTime - startTime
-  const numSteps = getNumSteps(rings, direction, type)
+  const numSteps = getNumSteps(rings, direction, type, customOrder)
   if (numSteps <= 0) return 1
 
   if (type === 'random') {
@@ -224,9 +297,15 @@ export function getMovementRingWindows(
     return rings.includes(ringNum) ? [{ start: startTime, end: endTime }] : []
   }
 
-  const steps = getRingSteps(rings, movement.direction, movement.type)
+  const steps = getRingSteps(rings, movement.direction, movement.type, movement.customOrder)
   const step = steps.get(ringNum)
-  if (step == null) return []
+  if (step == null) {
+    // Custom direction: rings in the set but not in the order list stay on full-time.
+    if (movement.direction === 'custom' && rings.includes(ringNum)) {
+      return [{ start: startTime, end: endTime }]
+    }
+    return []
+  }
 
   const bpr = movement.beatsPerRing
   const numSteps = Math.max(...steps.values()) + 1
@@ -336,7 +415,7 @@ export function getMovementRingT(
       if (w.holdOff) return { t: 1, windowStart: w.start, windowEnd: w.end, holdOff: true }
       if (movement.type === 'stagger') {
         // For stagger, shift t by the ring's phase offset
-        const steps = getRingSteps(rings, movement.direction, movement.type)
+        const steps = getRingSteps(rings, movement.direction, movement.type, movement.customOrder)
         const step = steps.get(ringNum) ?? 0
         const dur = w.end - w.start
         if (dur <= 0) return { t: 0, windowStart: w.start, windowEnd: w.end }
@@ -365,14 +444,18 @@ export function getMovementCodeGenEntries(
   movement: TimeframeMovement,
 ): Array<{ ringNum: number; windows: MovementWindow[]; staggerOffset?: number }> {
   const sorted = [...rings].sort((a, b) => a - b)
-  const steps = getRingSteps(rings, movement.direction, movement.type)
+  const steps = getRingSteps(rings, movement.direction, movement.type, movement.customOrder)
   return sorted.map(ringNum => {
     const windows = getMovementRingWindows(startTime, endTime, rings, movement, ringNum)
-    const step = steps.get(ringNum) ?? 0
+    const step = steps.get(ringNum)
+    // Stagger offset only applies to stepped rings; custom outside-rings (no step) stay full-time.
+    const staggerOffset = movement.type === 'stagger' && step != null
+      ? step * movement.beatsPerRing
+      : undefined
     return {
       ringNum,
       windows,
-      staggerOffset: movement.type === 'stagger' ? step * movement.beatsPerRing : undefined,
+      staggerOffset,
     }
   })
 }
@@ -384,17 +467,34 @@ export function normalizeMovement(raw: unknown): TimeframeMovement | undefined {
   if (!raw || typeof raw !== 'object') return undefined
   const o = raw as Record<string, unknown>
   const validTypes: MovementType[] = ['spread', 'sweep', 'stagger', 'random']
-  const validDirs: MovementDirection[] = ['forward', 'backward', 'center-out', 'edges-in']
+  const validDirs: MovementDirection[] = ['forward', 'backward', 'center-out', 'edges-in', 'pairs-forward', 'pairs-backward', 'custom']
   if (!validTypes.includes(o.type as MovementType)) return undefined
   if (!validDirs.includes(o.direction as MovementDirection)) return undefined
   const bpr = Number(o.beatsPerRing)
   if (!Number.isFinite(bpr) || bpr <= 0) return undefined
+
+  // Parse customOrder: integers 1–12, deduped, order preserved.
+  let customOrder: number[] | undefined
+  if (Array.isArray(o.customOrder)) {
+    const seen = new Set<number>()
+    customOrder = o.customOrder
+      .map(n => Number(n))
+      .filter(n => Number.isInteger(n) && n >= 1 && n <= RING_COUNT && !seen.has(n) && (seen.add(n), true))
+  }
+  let direction = o.direction as MovementDirection
+  // Custom direction requires a non-empty order; fall back to forward otherwise.
+  if (direction === 'custom' && (!customOrder || customOrder.length === 0)) {
+    direction = 'forward'
+    customOrder = undefined
+  }
+
   return {
     type: o.type as MovementType,
-    direction: o.direction as MovementDirection,
+    direction,
     beatsPerRing: bpr,
     retire: o.retire === true ? true : undefined,
     bounce: o.bounce === true ? true : undefined,
     accumulate: o.accumulate === true ? true : undefined,
+    customOrder,
   }
 }

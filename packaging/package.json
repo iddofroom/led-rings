@@ -1,0 +1,10 @@
+{
+  "name": "kivsee-time-simulator",
+  "version": "1.0.0",
+  "private": true,
+  "bin": "static-server.js",
+  "pkg": {
+    "assets": ["dist/**/*"],
+    "targets": ["node22-win-x64", "node22-mac-arm64", "node22-mac-x64"]
+  }
+}
