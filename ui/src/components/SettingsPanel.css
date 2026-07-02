@@ -1,0 +1,121 @@
+.settings-panel-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.settings-panel {
+  width: 480px;
+  max-width: calc(100vw - 32px);
+  background: var(--surface);
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.4);
+}
+
+.settings-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 18px 20px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+}
+
+.settings-panel-header h2 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.settings-panel-close {
+  background: none;
+  border: none;
+  color: white;
+  font-size: 22px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0 4px;
+}
+
+.settings-panel-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 20px 20px 0;
+  font-size: 13px;
+  color: var(--text);
+}
+
+.settings-panel-field input {
+  padding: 8px 12px;
+  border: 1px solid var(--border2);
+  border-radius: 6px;
+  font-size: 14px;
+  outline: none;
+  background: var(--bg);
+  color: var(--text);
+}
+
+.settings-panel-field input:focus {
+  border-color: #667eea;
+}
+
+.settings-panel-hint {
+  margin: 10px 20px 0;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--text-faint);
+}
+
+.settings-panel-hint code {
+  background: var(--bg);
+  border-radius: 4px;
+  padding: 1px 5px;
+}
+
+.settings-panel-status {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 14px 20px 0;
+  font-size: 12px;
+  color: var(--text-faint);
+}
+
+.settings-panel-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #ef4444;
+  flex-shrink: 0;
+}
+
+.settings-panel-dot.connected {
+  background: #22c55e;
+}
+
+.settings-panel-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 16px 20px 20px;
+}
+
+.settings-panel-actions-spacer {
+  flex: 1;
+}
+
+.settings-panel-test-ok {
+  color: #22c55e;
+  font-size: 13px;
+}
+
+.settings-panel-test-fail {
+  color: #ef4444;
+  font-size: 13px;
+}

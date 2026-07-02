@@ -163,21 +163,80 @@
   margin-left: auto;
 }
 
-.app-theme-toggle {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  font-size: 12px;
-  font-weight: 500;
-  color: rgba(255, 255, 255, 0.85);
+.app-theme-switch {
+  --switch-w: 52px;
+  --switch-h: 24px;
+  --knob-size: 18px;
+  --knob-pad: 3px;
+  position: relative;
+  width: var(--switch-w);
+  height: var(--switch-h);
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  background: rgba(20, 28, 50, 0.85);
+  padding: 0;
   cursor: pointer;
-  user-select: none;
-  white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  transition: background 0.25s ease, border-color 0.25s ease;
+  flex-shrink: 0;
 }
 
-.app-theme-toggle input {
-  cursor: pointer;
-  margin: 0;
+.app-theme-switch:hover {
+  border-color: rgba(255, 255, 255, 0.6);
+}
+
+.app-theme-switch:focus-visible {
+  outline: 2px solid #667eea;
+  outline-offset: 2px;
+}
+
+.app-theme-switch.is-light {
+  background: linear-gradient(135deg, #fde68a, #fbbf24);
+  border-color: rgba(0, 0, 0, 0.15);
+}
+
+.app-theme-switch-icon {
+  position: relative;
+  z-index: 1;
+  margin: 0 5px;
+  transition: color 0.25s ease;
+  pointer-events: none;
+}
+
+.app-theme-switch-icon-sun {
+  color: #fbbf24;
+}
+
+.app-theme-switch-icon-moon {
+  color: #cbd5e1;
+}
+
+.app-theme-switch.is-light .app-theme-switch-icon-sun {
+  color: #92400e;
+}
+
+.app-theme-switch.is-light .app-theme-switch-icon-moon {
+  color: rgba(0, 0, 0, 0.45);
+}
+
+.app-theme-switch-knob {
+  position: absolute;
+  top: var(--knob-pad);
+  left: var(--knob-pad);
+  width: var(--knob-size);
+  height: var(--knob-size);
+  border-radius: 50%;
+  background: #f9fafb;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+  transition: transform 0.25s ease, background 0.25s ease;
+  pointer-events: none;
+}
+
+.app-theme-switch.is-light .app-theme-switch-knob {
+  transform: translateX(calc(var(--switch-w) - var(--knob-size) - var(--knob-pad) * 2 - 2px));
+  background: #ffffff;
 }
 
 .song-name-input {
@@ -212,6 +271,37 @@
 .song-browse-button {
   padding: 6px 12px;
   font-size: 12px;
+}
+
+.song-reconnect-button {
+  background: rgba(245, 158, 11, 0.25);
+  border-color: rgba(245, 158, 11, 0.6);
+}
+
+.song-reconnect-button:hover {
+  background: rgba(245, 158, 11, 0.4);
+}
+
+.app-settings-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.app-settings-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #ef4444;
+  flex-shrink: 0;
+}
+
+.app-settings-button.is-connected .app-settings-dot {
+  background: #22c55e;
+}
+
+.app-settings-button.is-disconnected .app-settings-dot {
+  background: #ef4444;
 }
 
 .song-name-input::placeholder {

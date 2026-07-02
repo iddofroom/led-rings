@@ -583,6 +583,18 @@ export default function Spectrogram({
     }
   }, [hasAudio])
 
+  // Esc clears the range selection (so the user can quickly drop a mark).
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return
+      const tag = (e.target as HTMLElement)?.tagName
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return
+      setRangeSelection(null)
+    }
+    document.addEventListener('keydown', onKeyDown)
+    return () => document.removeEventListener('keydown', onKeyDown)
+  }, [])
+
   // Document-level drag handlers for moving a beat
   dragPreviewMsRef.current = dragPreviewMs
   useEffect(() => {

@@ -76,6 +76,24 @@
   -moz-appearance: textfield;
 }
 
+.playback-run-from-reset {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  background: rgba(255, 255, 255, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  border-radius: 4px;
+  color: white;
+  cursor: pointer;
+}
+
+.playback-run-from-reset:hover {
+  background: rgba(255, 255, 255, 0.35);
+}
+
 
 .playback-rings-panel-controls {
   display: flex;

@@ -25,11 +25,15 @@ interface PlaybackRingsPanelProps {
   onSimPlayPause: () => void
   runFromSeconds: number
   onRunFromChange: (n: number) => void
+  /** Reset Run from to a literal 0s (before beat 0, where the marker can't reach). */
+  onResetRunFrom: () => void
   brightness: number
   brightnessConnected: boolean
   onBrightnessChange: (v: number) => void
   /** Open the fullscreen live VJ console instead of the plain fullscreen viz. */
   onOpenLiveConsole?: () => void
+  /** Called when the clock preview toggle changes. Lets the parent push an MQTT trigger in Live mode. */
+  onClockModeChange?: (active: boolean) => void
 }
 
 function getActiveTimeframesAt(time: number, timeframes: Timeframe[]): Timeframe[] {
@@ -66,10 +70,12 @@ const PlaybackRingsPanel = ({
   onSimPlayPause,
   runFromSeconds,
   onRunFromChange,
+  onResetRunFrom,
   brightness,
   brightnessConnected,
   onBrightnessChange,
   onOpenLiveConsole,
+  onClockModeChange,
 }: PlaybackRingsPanelProps) => {
   const openFullscreen = () => (onOpenLiveConsole ? onOpenLiveConsole() : setFullscreen(true))
   // FPS counter: measure time between renders, keep a rolling window of 30 samples
@@ -99,6 +105,31 @@ const PlaybackRingsPanel = ({
   const [brightnessInput, setBrightnessInput] = React.useState<string | null>(null)
   React.useEffect(() => { setBrightnessInput(null) }, [brightness])
 
+  // Run-from accepts seconds (153), mm:ss (2:33), or hh:mm:ss (1:02:33).
+  // Display preserves the user's chosen format until they type again.
+  const formatRunFrom = (sec: number): string => {
+    if (sec < 60) return sec % 1 === 0 ? String(sec) : sec.toFixed(1)
+    const h = Math.floor(sec / 3600)
+    const m = Math.floor((sec % 3600) / 60)
+    const s = sec % 60
+    const sStr = s % 1 === 0 ? String(Math.floor(s)).padStart(2, '0') : s.toFixed(1).padStart(4, '0')
+    return h > 0 ? `${h}:${String(m).padStart(2, '0')}:${sStr}` : `${m}:${sStr}`
+  }
+  const parseRunFrom = (raw: string): number | null => {
+    const trimmed = raw.trim()
+    if (!trimmed) return null
+    if (/^\d+(\.\d+)?$/.test(trimmed)) return parseFloat(trimmed)
+    const parts = trimmed.split(':')
+    if (parts.length < 2 || parts.length > 3) return null
+    const nums = parts.map(p => parseFloat(p))
+    if (nums.some(n => isNaN(n) || n < 0)) return null
+    return parts.length === 2
+      ? nums[0] * 60 + nums[1]
+      : nums[0] * 3600 + nums[1] * 60 + nums[2]
+  }
+  const [runFromInput, setRunFromInput] = React.useState<string | null>(null)
+  React.useEffect(() => { setRunFromInput(null) }, [runFromSeconds])
+
   const [clockMode, setClockMode] = React.useState(false)
   const [clockNow, setClockNow] = React.useState(() => new Date())
   React.useEffect(() => {
@@ -126,17 +157,36 @@ const PlaybackRingsPanel = ({
       <div className="playback-rings-panel-header">
         <div className="playback-rings-panel-header-top">
           <h2>Playback</h2>
-          <label className="playback-run-from" title="Timeline position when you press Run">
+          <label className="playback-run-from" title="Timeline position when you press Run. Accepts seconds (153), mm:ss (2:33), or hh:mm:ss (1:02:33).">
             <span>Run from</span>
             <input
-              type="number"
-              min={0}
-              step={0.1}
-              value={runFromSeconds}
-              onChange={(e) => { const n = parseFloat(e.target.value); if (!isNaN(n) && n >= 0) onRunFromChange(n) }}
+              type="text"
+              inputMode="decimal"
+              value={runFromInput ?? formatRunFrom(runFromSeconds)}
+              onChange={(e) => setRunFromInput(e.target.value)}
+              onBlur={() => {
+                const n = parseRunFrom(runFromInput ?? '')
+                if (n !== null) onRunFromChange(n)
+                setRunFromInput(null)
+              }}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') (e.target as HTMLInputElement).blur()
+                if (e.key === 'Escape') setRunFromInput(null)
+              }}
               className="playback-run-from-input"
             />
-            <span>sec</span>
+            <button
+              type="button"
+              className="playback-run-from-reset"
+              title="Reset Run from to 0"
+              aria-label="Reset Run from to 0"
+              onClick={() => { setRunFromInput(null); onResetRunFrom() }}
+            >
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <polyline points="11 17 6 12 11 7" />
+                <polyline points="18 17 13 12 18 7" />
+              </svg>
+            </button>
           </label>
           <div className="playback-brightness-group">
             <span className={`playback-brightness-dot${brightnessConnected ? ' connected' : ''}`} title={brightnessConnected ? 'MQTT broker connected' : 'MQTT broker not connected'} />
@@ -223,7 +273,13 @@ const PlaybackRingsPanel = ({
           </button>
           <button
             className={`playback-mute-btn playback-clock-btn${clockMode ? ' active' : ''}`}
-            onClick={() => setClockMode(m => !m)}
+            onClick={() => {
+              setClockMode(m => {
+                const next = !m
+                onClockModeChange?.(next)
+                return next
+              })
+            }}
             title="Preview clock mode — shows live time across all 12 rings"
           >
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">

@@ -86,27 +86,30 @@ export function computeClockColors(
     const fillPixels        = fullSubRings * 12 + partialPixels
     const brightness        = 1.0 * pulseBrightness * globalBrightness
 
-    // Snake: sweeps cyclically through sub-ring fullSubRings over the 2-second pulse period
+    // Snake: sweeps cyclically through sub-ring fullSubRings (in fill order) over the 2-second pulse period
     const SNAKE_TAIL        = 3
-    const snakeSubringStart = fullSubRings * 12
+    const snakeFillStart    = fullSubRings * 12  // start of snake sub-ring in fill order
     const headPos           = relCycle * 12  // 0.0 → 12.0
 
-    for (let i = 0; i < 144; i++) {
-      if (i < fillPixels) {
-        const hue = i / 143
+    // Fill order starts at sub-ring 9 (1 o'clock) and walks counter-clockwise around the face.
+    // Map fill-order index f → actual pixel index i.
+    arr.fill('rgb(0,0,0)')
+    const fillSubToPixelSub = (sub: number) => (sub + 9) % 12
+    for (let f = 0; f < 144; f++) {
+      const fillSub = Math.floor(f / 12)
+      const pos     = f % 12
+      const i       = fillSubToPixelSub(fillSub) * 12 + pos
+      if (f < fillPixels) {
+        const hue = f / 143
         arr[i] = hsvToRgbString(hue, 1, brightness)
-      } else if (i >= snakeSubringStart && i < snakeSubringStart + 12) {
-        const pos  = i - snakeSubringStart                    // 0–11 within snake sub-ring
-        const dist = ((headPos - pos) % 12 + 12) % 12        // cyclic distance behind head
+      } else if (f >= snakeFillStart && f < snakeFillStart + 12) {
+        const snakePos = f - snakeFillStart
+        const dist     = ((headPos - snakePos) % 12 + 12) % 12
         if (dist <= SNAKE_TAIL) {
           const snakeBrightness = (1 - dist / SNAKE_TAIL) * brightness
-          const hue = i / 143
+          const hue = f / 143
           arr[i] = hsvToRgbString(hue, 1, snakeBrightness)
-        } else {
-          arr[i] = 'rgb(0,0,0)'
         }
-      } else {
-        arr[i] = 'rgb(0,0,0)'
       }
     }
     colors.set(ringNumber, arr)

@@ -20,6 +20,8 @@ export interface Song {
   audioFilePath?: string
   /** Detected beat positions in milliseconds. When present, beatToMs uses lookup instead of fixed-BPM formula. Index = beat number, value = ms timestamp. */
   beatTimestampsMs?: number[]
+  /** Ring numbers that have a lilum pendant mirroring them. Emits anim.mirrorToLilum([...]) so ring N -> thing lilum${N}. */
+  lilumRings?: number[]
 }
 
 export type TimeframeCycleEntry =
@@ -416,6 +418,14 @@ ${indentBlock(core, 6)}
     })`
 }
 
+/** Emits an `anim.mirrorToLilum([...]);` line (indented 2) when rings are set,
+ *  else an empty string. ring N -> thing lilum${N}; see src/lilum/segments.ts. */
+function mirrorToLilumCall(rings: number[] | undefined): string {
+  if (!rings || rings.length === 0) return ''
+  const sorted = [...new Set(rings)].sort((a, b) => a - b)
+  return `  anim.mirrorToLilum([${sorted.join(', ')}]);\n`
+}
+
 function toIdentifier(name: string): string {
   const safe = (name || 'sequence').trim() || 'sequence'
   const camel = safe.replace(/[^a-zA-Z0-9]+(.)?/g, (_, c) => (c ? c.toUpperCase() : '')).replace(/^[^a-zA-Z]/, '')
@@ -455,6 +465,7 @@ export function generateSequenceTs(song: Song, timeframes: Timeframe[], importPr
     ? `, ${JSON.stringify(song.beatTimestampsMs)}`
     : ''
   const animationCtor = `new Animation("${escapedName}", ${song.bpm}, ${totalTimeSeconds.toFixed(2)}, ${startOffsetMs}${beatTimestampsArg})`
+  const mirrorCall = mirrorToLilumCall(song.lilumRings)
   const runCall = isTrigger
     ? `await trigger("${escapedName}"${startOffsetMs > 0 ? `, ${startOffsetMs / 1000}` : ''});`
     : `await startSong("${startSongName}", 0);`
@@ -514,7 +525,7 @@ const ${fnName} = async () => {
 ${bodyBlocks}
   });
 
-  console.log("sending sequence");
+${mirrorCall}  console.log("sending sequence");
   await sendSequence("${escapedName}", anim.getSequence());
   if (!process.env.SEND_ONLY) {
     ${runCall}
@@ -550,6 +561,7 @@ export function generateSequenceRunnerTs(song: Song, timeframes: Timeframe[]): s
     ? `, ${JSON.stringify(song.beatTimestampsMs)}`
     : ''
   const animationCtor = `new Animation("${escapedName}", ${song.bpm}, ${totalTimeSeconds.toFixed(2)}, ${startOffsetMs}${beatTimestampsArg})`
+  const mirrorCall = mirrorToLilumCall(song.lilumRings)
   const fnName = toIdentifier(safeName)
   return `// Runner: builds sequence and writes to TMP_SEQUENCE_OUT.
 import * as fs from "fs";
@@ -603,7 +615,7 @@ const ${fnName} = async () => {
   anim.sync(() => {
 ${bodyBlocks}
   });
-  const outPath = process.env.TMP_SEQUENCE_OUT || ".tmp-sequence-out.json";
+${mirrorCall}  const outPath = process.env.TMP_SEQUENCE_OUT || ".tmp-sequence-out.json";
   fs.writeFileSync(outPath, JSON.stringify({ triggerName: "${escapedName}", sequence: anim.getSequence() }));
 };
 

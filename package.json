@@ -6,6 +6,8 @@
   "scripts": {
     "test": "ts-node-dev --respawn src/test.ts",
     "sync-segments": "ts-node src/ring-segments/index.ts",
+    "lilum-segments": "ts-node src/lilum/segments.ts",
+    "lilum": "ts-node src/lilum/lilum.ts",
     "start": "ts-node-dev --respawn src/index.ts",
     "playground": "ts-node-dev --respawn src/playground.ts",
     "idle": "ts-node-dev --respawn src/idle.ts",
@@ -15,13 +17,17 @@
     "index-trigger": "ts-node-dev --respawn src/index-trigger.ts",
     "preset": "ts-node src/preset-runner.ts",
     "play": "ts-node src/play-preset.ts",
+    "loop": "ts-node src/songs/loop.ts",
     "buttons": "ts-node-dev --respawn src/songs/buttons.ts",
     "agent": "ts-node-dev --respawn src/songs/agent.ts",
     "control-server": "ts-node-dev --respawn src/control-server.ts",
+    "ui": "yarn --cwd ui dev",
+    "dev": "concurrently -n server,ui -c blue,magenta \"yarn control-server\" \"yarn ui\"",
     "export-song": "ts-node src/export-song.ts",
     "gen-ui-song": "ts-node src/generate-category-ui-song.ts",
     "roundtrip": "ts-node --transpile-only scripts/roundtrip-check.ts",
-    "compose": "ts-node --transpile-only scripts/compose.ts"
+    "compose": "ts-node --transpile-only scripts/compose.ts",
+    "package:win": "node packaging/build.js"
   },
   "dependencies": {
     "@types/node": "^22.10.10",
@@ -36,5 +42,9 @@
     "minimatch": ">=3.1.4",
     "brace-expansion": ">=1.1.12",
     "diff": ">=4.0.4"
+  },
+  "devDependencies": {
+    "@yao-pkg/pkg": "^6.20.0",
+    "concurrently": "^9.2.1"
   }
 }
