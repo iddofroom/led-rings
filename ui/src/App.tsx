@@ -377,7 +377,7 @@ function App() {
   const [showLiveConsole, setShowLiveConsole] = useState(false)
   // Main-screen body: 'patterns' shows the pattern library + settings; 'timeline' shows the
   // inline horizontal timeline editor (+ details panel). The fullscreen Live Console is separate.
-  const [mainView, setMainView] = useState<'patterns' | 'timeline'>('patterns')
+  const [mainView, setMainView] = useState<'patterns' | 'timeline'>('timeline')
   // Floating action dock starts collapsed (a single ☰ button) so it never covers the workspace.
   const [dockOpen, setDockOpen] = useState(false)
   // The main page is the song settings + pattern library. The full-screen "עורך שירים"
