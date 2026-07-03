@@ -767,7 +767,7 @@ export default function LiveConsole({
             </button>
           )}
           <button
-            onClick={() => { if (timeframes.length && window.confirm(`למחוק את כל ${timeframes.length} הבלוקים ולנקות את הטיימליין?`)) clearAllBlocks() }}
+            onClick={() => { if (timeframes.length && window.confirm(`Delete all ${timeframes.length} blocks and clear the timeline?`)) clearAllBlocks() }}
             disabled={!timeframes.length}
             title="Delete every block and clear the timeline (also on right-click)"
             style={{ ...closeBtn, background: '#7f1d1d', opacity: timeframes.length ? 1 : 0.5 }}>
@@ -832,7 +832,7 @@ export default function LiveConsole({
           {songAnimations.length > 0 && (
             <>
               <div style={railDivider} />
-              <div style={railLabel}>🎬 פאטרני השיר · {songAnimations.length}</div>
+              <div style={railLabel}>🎬 Song patterns · {songAnimations.length}</div>
               {songAnimations.map((a) => {
                 const k = `anim:${a.id}`
                 const c = a.timeframes.find((t) => t.color)?.color || '#a855f7'
@@ -840,11 +840,11 @@ export default function LiveConsole({
                   <div key={a.id} draggable
                     onDragStart={(e) => { e.dataTransfer.setData(DT_KEY, k); e.dataTransfer.effectAllowed = 'copy' }}
                     onClick={() => setArmed((cur) => (cur === k ? null : k))}
-                    title={`${a.name} — גרור ללֵיין או לחץ לחימוש`}
+                    title={`${a.name} — drag to a lane or click to arm`}
                     style={{ ...padV, height: 26, outline: armed === k ? '2px solid #34d399' : '1px solid #2c3645', background: `linear-gradient(160deg, ${c}33, #1b2230)` }}>
                     <span style={{ width: 11, height: 11, borderRadius: 3, background: c, flexShrink: 0 }} />
                     <span style={{ fontSize: 12, fontWeight: 600, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{a.name}</span>
-                    {onRemoveAnimation && <button onClick={(e) => { e.stopPropagation(); onRemoveAnimation(a.id) }} title="הסר מהשיר" style={pinBtn}>×</button>}
+                    {onRemoveAnimation && <button onClick={(e) => { e.stopPropagation(); onRemoveAnimation(a.id) }} title="Remove from song" style={pinBtn}>×</button>}
                   </div>
                 )
               })}
@@ -853,7 +853,7 @@ export default function LiveConsole({
 
           {songAnimations.length === 0 && (
             <div style={{ fontSize: 11, color: '#667', padding: '6px 2px', lineHeight: 1.5 }}>
-              אין עדיין פאטרנים שמורים לשיר. ערוך פאטרן במסך הראשי ולחץ "💾 שמור" / "＋ הוסף לשיר".
+              No patterns saved to this song yet. Edit a pattern on the main screen and click "💾 Save" / "＋ Add to song".
             </div>
           )}
 
@@ -861,11 +861,11 @@ export default function LiveConsole({
           {presetPads.length > 0 && (
             <>
               <div style={railDivider} />
-              <div style={railLabel}>📚 ספריית פאטרנים · {presetPads.length}</div>
+              <div style={railLabel}>📚 Pattern library · {presetPads.length}</div>
               <input
                 value={libFilter}
                 onChange={(e) => setLibFilter(e.target.value)}
-                placeholder="חיפוש פאטרן…"
+                placeholder="Search patterns…"
                 style={{ width: '100%', boxSizing: 'border-box', background: '#0d1117', color: '#e8eef5', border: '1px solid #2c3645', borderRadius: 6, padding: '4px 8px', fontSize: 11, marginBottom: 2 }}
               />
               {presetPads
@@ -881,7 +881,7 @@ export default function LiveConsole({
                     <div key={p.id} draggable
                       onDragStart={(e) => { e.dataTransfer.setData(DT_KEY, k); e.dataTransfer.effectAllowed = 'copy' }}
                       onClick={() => setArmed((cur) => (cur === k ? null : k))}
-                      title={`${label} — גרור ללֵיין או לחץ לחימוש`}
+                      title={`${label} — drag to a lane or click to arm`}
                       style={{ ...padV, height: 26, cursor: 'grab', outline: armed === k ? '2px solid #34d399' : '1px solid #2c3645', background: `linear-gradient(160deg, ${c}33, #1b2230)` }}>
                       <span style={{ width: 11, height: 11, borderRadius: 3, background: c, flexShrink: 0 }} />
                       <span style={{ fontSize: 12, fontWeight: 600, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{label}</span>
@@ -1256,10 +1256,10 @@ export default function LiveConsole({
         <>
           <div onClick={() => setLaneMenu(null)} onContextMenu={(e) => { e.preventDefault(); setLaneMenu(null) }} style={{ position: 'fixed', inset: 0, zIndex: 2200 }} />
           <div style={{ position: 'fixed', left: Math.min(laneMenu.x, window.innerWidth - 260), top: Math.min(laneMenu.y, window.innerHeight - 150), zIndex: 2201, background: '#1b2230', border: '1px solid #2c3645', borderRadius: 8, padding: 6, boxShadow: '0 10px 30px #000b', minWidth: 240 }}>
-            <div style={{ fontSize: 10, color: '#778', padding: '2px 8px 6px', fontWeight: 700 }}>{timeframes.length} בלוקים בטיימליין</div>
-            <button style={{ ...ctxItem, color: '#fca5a5' }} onClick={() => { deleteBlocksInSection(laneMenu.beat); setLaneMenu(null) }}>🗑 מחק את החלק הזה · {sectionAtBeat(laneMenu.beat).label}</button>
+            <div style={{ fontSize: 10, color: '#778', padding: '2px 8px 6px', fontWeight: 700 }}>{timeframes.length} blocks on the timeline</div>
+            <button style={{ ...ctxItem, color: '#fca5a5' }} onClick={() => { deleteBlocksInSection(laneMenu.beat); setLaneMenu(null) }}>🗑 Delete this section · {sectionAtBeat(laneMenu.beat).label}</button>
             <div style={{ height: 1, background: '#2c3645', margin: '4px 0' }} />
-            <button style={{ ...ctxItem, color: '#fecaca', background: '#7f1d1d' }} onClick={() => { clearAllBlocks(); setLaneMenu(null) }}>🗑 נקה את כל הטיימליין ({timeframes.length})</button>
+            <button style={{ ...ctxItem, color: '#fecaca', background: '#7f1d1d' }} onClick={() => { clearAllBlocks(); setLaneMenu(null) }}>🗑 Clear the whole timeline ({timeframes.length})</button>
           </div>
         </>
       )}

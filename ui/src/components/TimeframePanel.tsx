@@ -1,11 +1,9 @@
 import React, { useState, useMemo, useCallback, useEffect } from 'react'
 import { Timeframe, TimeframeCycleEntry, TimeframeCycleBeats, getTimeframeEffects, TimeframeEffectEntry } from '../App'
-import type { PresetMetadata } from '../presets'
 import { MOVEMENT_TYPES, MOVEMENT_DIRECTIONS, defaultBeatsPerRing } from '../movementGenerators'
 import type { MovementType, MovementDirection } from '../movementGenerators'
 import segmentsData from '../segments.json'
 import RingVisualization from './RingVisualization'
-import PresetBrowser from './PresetBrowser'
 import HsvColorPicker from './HsvColorPicker'
 import { WLED_PALETTES, DEFAULT_PALETTE, paletteById } from '../../../shared/wled-palettes'
 import './TimeframePanel.css'
@@ -304,12 +302,10 @@ interface TimeframePanelProps {
   timeframe: Timeframe | null
   onUpdate: (updates: Partial<Timeframe>) => void
   onClose: () => void
-  onApplyPreset?: (preset: PresetMetadata) => void
-  onLoadCategoryPreview?: (payload: { song: Record<string, unknown>; timeframes: unknown[] }) => void
   songLengthBeats?: number
 }
 
-const TimeframePanel = ({ timeframe, onUpdate, onClose, onApplyPreset, onLoadCategoryPreview, songLengthBeats }: TimeframePanelProps) => {
+const TimeframePanel = ({ timeframe, onUpdate, onClose, songLengthBeats }: TimeframePanelProps) => {
   const [editingField, setEditingField] = useState<'label' | 'startTime' | 'endTime' | null>(null)
   const [colorPickerOpen, setColorPickerOpen] = useState(false)
   const [panelPaletteId, setPanelPaletteId] = useState(DEFAULT_PALETTE.id)
@@ -355,13 +351,9 @@ const TimeframePanel = ({ timeframe, onUpdate, onClose, onApplyPreset, onLoadCat
   if (!timeframe) {
     return (
       <div className="timeframe-panel">
-        {onApplyPreset ? (
-          <PresetBrowser onApplyPreset={onApplyPreset} onLoadCategoryPreview={onLoadCategoryPreview} />
-        ) : (
-          <div className="timeframe-panel-empty">
-            <p>Select a timeframe to view and edit its properties</p>
-          </div>
-        )}
+        <div className="timeframe-panel-empty">
+          <p>Select a timeframe to view and edit its properties</p>
+        </div>
       </div>
     )
   }

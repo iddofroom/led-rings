@@ -380,7 +380,7 @@ function App() {
   const [mainView, setMainView] = useState<'patterns' | 'timeline'>('timeline')
   // Floating action dock starts collapsed (a single ☰ button) so it never covers the workspace.
   const [dockOpen, setDockOpen] = useState(false)
-  // The main page is the song settings + pattern library. The full-screen "עורך שירים"
+  // The main page is the song settings + pattern library. The full-screen "Song Editor"
   // (Live Console) is the primary timeline/editing workspace, opened from the top button.
   // Pattern-library curation. Per-song hides live on the song (song.hiddenPatterns);
   // global hides + imported patterns persist in localStorage across songs.
@@ -2339,7 +2339,7 @@ function App() {
           <button className="secondary-button" onClick={handleLoadTimeframes}>Load</button>
           <button className="secondary-button" onClick={handleImportTs} disabled={!apiBase} title={!apiBase ? 'Set a control server URL in Settings first' : 'Import a .ts song file'}>Import .ts</button>
           <button className="secondary-button" onClick={handleSaveTimeframes}>Save</button>
-          <button className="secondary-button" onClick={() => void saveCurrentAnimation()} title="שמור את ציר הזמן הנוכחי כאנימציה בספרייה">💾 Save animation</button>
+          <button className="secondary-button" onClick={() => void saveCurrentAnimation()} title="Save the current timeline as an animation in the library">💾 Save animation</button>
           <button
             type="button"
             className={`secondary-button app-settings-button${apiBase ? (controlServerAvailable ? ' is-connected' : ' is-disconnected') : ''}`}
@@ -2439,10 +2439,10 @@ function App() {
             border: '1px solid rgba(255,255,255,0.12)', boxShadow: '0 4px 14px rgba(0,0,0,0.35)',
           }}>
             {librarySaveState === 'saving'
-              ? '☁️ שומר…'
+              ? '☁️ Saving…'
               : librarySaveState === 'error'
-                ? '⚠️ שמירה נכשלה'
-                : `✓ נשמר · ${currentBranch}`}
+                ? '⚠️ Save failed'
+                : `✓ Saved · ${currentBranch}`}
           </div>
         )}
         {dockOpen && (
@@ -2450,32 +2450,32 @@ function App() {
             <button
               type="button"
               onClick={() => void saveVersion()}
-              title={`שמירת גרסה חדשה בבראנץ' "${currentBranch}"`}
+              title={`Save a new version on branch "${currentBranch}"`}
               style={{ ...fabBase, background: 'linear-gradient(135deg,#38bdf8 0%,#0284c7 100%)', boxShadow: '0 4px 14px rgba(2,132,199,0.45)' }}
             >
-              <span style={{ fontSize: 16, lineHeight: 1 }}>💾</span> שמור
+              <span style={{ fontSize: 16, lineHeight: 1 }}>💾</span> Save
             </button>
             <button
               type="button"
               onClick={() => setShowHistory(true)}
-              title="היסטוריית גרסאות ובראנצ'ים"
+              title="Version history and branches"
               style={{ ...fabBase, background: 'linear-gradient(135deg,#fbbf24 0%,#d97706 100%)', boxShadow: '0 4px 14px rgba(217,119,6,0.45)' }}
             >
-              <span style={{ fontSize: 16, lineHeight: 1 }}>🕘</span> היסטוריה
+              <span style={{ fontSize: 16, lineHeight: 1 }}>🕘</span> History
             </button>
             <button
               type="button"
               onClick={() => setShowLibrary(true)}
-              title="ספריית השירים: שירים, אנליזות ואנימציות שמורות"
+              title="Song library: saved songs, analyses, and animations"
               style={{ ...fabBase, background: 'linear-gradient(135deg,#818cf8 0%,#6366f1 100%)', boxShadow: '0 4px 14px rgba(99,102,241,0.45)' }}
             >
-              <span style={{ fontSize: 16, lineHeight: 1 }}>📚</span> ספרייה
+              <span style={{ fontSize: 16, lineHeight: 1 }}>📚</span> Library
             </button>
             <button
               type="button"
               onClick={() => setShowCompose(true)}
               disabled={!apiBase}
-              title={!apiBase ? 'הרץ את שרת השליטה (VITE_API_URL)' : 'הלחנה משיר: אנליזה + חוקי טעם ← ציר הזמן'}
+              title={!apiBase ? 'Run the control server (VITE_API_URL)' : 'Compose from a song: analysis + taste rules → timeline'}
               style={{
                 ...fabBase,
                 background: apiBase ? 'linear-gradient(135deg,#34d399 0%,#10b981 100%)' : '#6b7280',
@@ -2490,10 +2490,10 @@ function App() {
         <button
           type="button"
           onClick={() => setDockOpen((o) => !o)}
-          title={dockOpen ? 'סגור' : 'פעולות: שמירה / היסטוריה / ספרייה / Compose'}
+          title={dockOpen ? 'Close' : 'Actions: Save / History / Library / Compose'}
           style={{ ...fabBase, background: dockOpen ? 'rgba(15,23,42,0.92)' : 'linear-gradient(135deg,#475569 0%,#1e293b 100%)', boxShadow: '0 4px 14px rgba(0,0,0,0.4)' }}
         >
-          <span style={{ fontSize: 16, lineHeight: 1 }}>{dockOpen ? '✕' : '☰'}</span> {dockOpen ? 'סגור' : 'פעולות'}
+          <span style={{ fontSize: 16, lineHeight: 1 }}>{dockOpen ? '✕' : '☰'}</span> {dockOpen ? 'Close' : 'Actions'}
         </button>
       </div>
       <div
@@ -2744,7 +2744,7 @@ function App() {
                   background: mainView === 'patterns' ? 'linear-gradient(135deg,#667eea 0%,#764ba2 100%)' : 'transparent',
                   opacity: mainView === 'patterns' ? 1 : 0.6,
                 }}
-              >⚙ פאטרנים</button>
+              >⚙ Patterns</button>
               <button
                 onClick={() => setMainView('timeline')}
                 style={{
@@ -2753,22 +2753,22 @@ function App() {
                   background: mainView === 'timeline' ? 'linear-gradient(135deg,#0ea5e9 0%,#2563eb 100%)' : 'transparent',
                   opacity: mainView === 'timeline' ? 1 : 0.6,
                 }}
-              >📊 טיימליין</button>
+              >📊 Timeline</button>
             </div>
             <span style={{ flex: 1 }} />
             {(song.audioFilePath || song.librarySlug || timeframes.length > 0) ? (
               <button
                 onClick={() => setShowLiveConsole(true)}
-                title="פתח את עורך השירים במסך מלא — הטיימליין, הפאטרנים והשליטה החיה"
+                title="Open the fullscreen song editor — timeline, patterns, and live control"
                 style={{
                   padding: '9px 22px', borderRadius: 10, fontSize: 15, fontWeight: 800, cursor: 'pointer',
                   border: 'none', color: '#fff',
                   background: 'linear-gradient(135deg,#f59e0b 0%,#ef4444 100%)',
                   boxShadow: '0 2px 14px rgba(245,158,11,0.4)',
                 }}
-              >🎬 עורך שירים · מסך מלא</button>
+              >🎬 Song Editor · Fullscreen</button>
             ) : (
-              <span style={{ fontSize: 12, color: 'var(--text-faint)' }}>טען שיר מהספרייה כדי לפתוח את עורך השירים</span>
+              <span style={{ fontSize: 12, color: 'var(--text-faint)' }}>Load a song from the library to open the song editor</span>
             )}
           </div>
           {mainView === 'patterns' ? (
@@ -2789,6 +2789,7 @@ function App() {
                 onRestoreForSong={restorePatternForSong}
                 onRestoreGlobal={restorePatternGlobal}
                 onImport={importPatterns}
+                onLoadCategoryPreview={loadCategoryPreview}
               />
             </div>
           ) : (
@@ -2822,24 +2823,27 @@ function App() {
                   beatTimestampsMs={song.beatTimestampsMs}
                 />
               </div>
-              <div
-                className="app-resize-handle app-resize-handle-details"
-                onMouseDown={() => setResizing('details')}
-                title="Drag to resize Details panel"
-              />
-              <div
-                className="app-details-wrapper"
-                style={{ width: detailsPanelWidth, minWidth: detailsPanelWidth }}
-              >
-                <TimeframePanel
-                  timeframe={focusedTimeframe}
-                  onUpdate={handlePanelUpdate}
-                  onClose={() => setFocusedTimeframeId(null)}
-                  onApplyPreset={addTimeframesFromPreset}
-                  onLoadCategoryPreview={loadCategoryPreview}
-                  songLengthBeats={songLengthBeats}
-                />
-              </div>
+              {/* Details panel only when a timeframe is selected — otherwise the timeline gets the full width. */}
+              {focusedTimeframe && (
+                <>
+                  <div
+                    className="app-resize-handle app-resize-handle-details"
+                    onMouseDown={() => setResizing('details')}
+                    title="Drag to resize Details panel"
+                  />
+                  <div
+                    className="app-details-wrapper"
+                    style={{ width: detailsPanelWidth, minWidth: detailsPanelWidth }}
+                  >
+                    <TimeframePanel
+                      timeframe={focusedTimeframe}
+                      onUpdate={handlePanelUpdate}
+                      onClose={() => setFocusedTimeframeId(null)}
+                      songLengthBeats={songLengthBeats}
+                    />
+                  </div>
+                </>
+              )}
             </div>
           )}
         </div>
