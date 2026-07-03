@@ -4,6 +4,7 @@
   "main": "index.js",
   "repository": "git@github.com:KivSee/led-rings.git",
   "scripts": {
+    "build-bundle": "node cf-worker/build-bundle.cjs",
     "test": "ts-node-dev --respawn src/test.ts",
     "sync-segments": "ts-node src/ring-segments/index.ts",
     "lilum-segments": "ts-node src/lilum/segments.ts",

@@ -1,0 +1,14 @@
+name = "leds-frontdoor"
+main = "worker.js"
+compatibility_date = "2024-11-01"
+workers_dev = false
+
+[[routes]]
+pattern = "leds.iddofroom.co.il/*"
+zone_name = "iddofroom.co.il"
+
+# Song library storage (MP3s, analysis, AI compositions, saved animations).
+# Served by the Worker under /api/library/* (everything else proxies to the host).
+[[kv_namespaces]]
+binding = "LED_LIBRARY"
+id = "9acd91c3ffc54c20b0aa0136fd8a719e"

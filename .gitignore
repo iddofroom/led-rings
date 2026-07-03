@@ -161,12 +161,20 @@ dist
 .yarn/install-state.gz
 .pnp.*
 
-# ── Remote-access host bundle — carries the Cloudflare tunnel TOKEN (a secret) and is
-#    deployed manually (npx wrangler deploy), never via git. Keep these out of the repo.
-/remote-deploy/
-/cf-worker/
-/led-rings-host-bundle.zip
+# ── Remote-access: the CODE is committed; only real secrets + local/build artifacts stay out. ──
+# The Cloudflare tunnel token lives ONLY in remote-deploy/.led-rings-secrets (never committed).
+/remote-deploy/.led-rings-secrets
+/remote-deploy/.led-rings-source
+/remote-deploy/cloudflared
+/remote-deploy/led-rings/
+# root bridge.js is a runtime copy of remote-deploy/bridge.js (the canonical source)
 /bridge.js
+/led-rings-host-bundle.zip
+# Cloudflare Worker: build artifact (the host bundle, base64'd) + local dev state.
+# bundle.js is regenerated from remote-deploy/ by  node cf-worker/build-bundle.cjs  — never
+# commit it: today it would embed the tunnel token, and it's redundant with the committed source.
+/cf-worker/bundle.js
+/cf-worker/.wrangler/
 
 # Local audio test fixtures (large binaries; canonical copies live in the cloud KV library)
 /src/audio/

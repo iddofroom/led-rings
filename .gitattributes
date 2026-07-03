@@ -1,0 +1,5 @@
+# Shell scripts run on the Raspberry Pi (Linux). Keep them LF on every platform —
+# a CRLF checkout breaks the shebang and corrupts the generated host bundle.
+*.sh text eol=lf
+remote-deploy/.led-rings-secrets.example text eol=lf
+remote-deploy/FRIEND-SETUP.md text eol=lf
