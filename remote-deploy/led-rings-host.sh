@@ -155,13 +155,30 @@ ENV
   warn ".env created with 127.0.0.1 placeholders — edit if the LED services run on another device."
 fi
 
-# ---- Python deps for beat detection (OPTIONAL, non-fatal; piwheels makes this feasible on a Pi) ----
+# ---- Python deps for beat detection (OPTIONAL, non-fatal) ----
+# On 32-bit ARM (armv7l, e.g. Pi with Bullseye/py3.9) the modern librosa chain needs llvmlite,
+# which has NO prebuilt armv7 wheel anywhere (PyPI never builds them; every piwheels build failed)
+# and does not compile on the Pi. So on armv7 we take numba/llvmlite + the numeric stack from
+# Debian's apt packages and pin the last librosa/resampy pair compatible with apt's numba 0.52.
+# (resampy must stay <=0.2.x — 0.3+ demands numba>=0.53 and drags the whole tree back to llvmlite.)
 if have python3; then
   if ! python3 -c 'import librosa, paho.mqtt.client, requests' >/dev/null 2>&1; then
     info "Installing optional Python deps (beat detection). This can take several minutes — safe to Ctrl-C; everything else still works."
     dpkg -s python3-pip >/dev/null 2>&1 || sudo DEBIAN_FRONTEND=noninteractive apt-get install -y python3-pip || true
-    python3 -m pip install --user --break-system-packages -r scripts/requirements.txt paho-mqtt requests \
-      || warn "Python deps failed — beat detection unavailable; everything else works."
+    # pip must know --break-system-packages on PEP-668 systems, but old pips reject the flag entirely.
+    PIP_BSP=''
+    python3 -m pip install --help 2>/dev/null | grep -q 'break-system-packages' && PIP_BSP='--break-system-packages'
+    if [ "$(uname -m)" = "armv7l" ]; then
+      info "32-bit ARM detected — using apt for the compiled stack (no armv7 llvmlite wheel exists)."
+      sudo DEBIAN_FRONTEND=noninteractive apt-get install -y \
+        python3-numba python3-scipy python3-sklearn python3-soundfile \
+        && python3 -m pip install --user $PIP_BSP --prefer-binary \
+             'librosa==0.9.2' 'resampy==0.2.2' jsonschema pyyaml paho-mqtt requests \
+        || warn "Python deps failed — beat detection unavailable; everything else works."
+    else
+      python3 -m pip install --user $PIP_BSP -r scripts/requirements.txt paho-mqtt requests \
+        || warn "Python deps failed — beat detection unavailable; everything else works."
+    fi
   fi
 else
   warn "python3 not found — beat detection unavailable (everything else works)."
