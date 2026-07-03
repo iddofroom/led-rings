@@ -1,5 +1,7 @@
 import React, { useState, useRef, useEffect, useCallback, Component } from 'react'
 import PlaybackRingsPanel from './components/PlaybackRingsPanel'
+import Timeline from './components/Timeline'
+import TimeframePanel from './components/TimeframePanel'
 import Spectrogram from './components/Spectrogram'
 import ComposePanel from './components/ComposePanel'
 import LibraryPanel from './components/LibraryPanel'
@@ -279,6 +281,7 @@ function App() {
 
   const {
     value: timeframes, setValue: setTimeframes,
+    setValueSilent: setTimeframesSilent, checkpoint: checkpointTimeframes,
     undo: undoTimeframes, redo: redoTimeframes,
   } = useUndoHistory<Timeframe[]>([]) // Start empty: a true first open shows a clean timeline; the last-opened project is restored from localStorage on mount (see below).
 
@@ -372,6 +375,9 @@ function App() {
   const [showCompose, setShowCompose] = useState(false)
   const [showLibrary, setShowLibrary] = useState(false)
   const [showLiveConsole, setShowLiveConsole] = useState(false)
+  // Main-screen body: 'patterns' shows the pattern library + settings; 'timeline' shows the
+  // inline horizontal timeline editor (+ details panel). The fullscreen Live Console is separate.
+  const [mainView, setMainView] = useState<'patterns' | 'timeline'>('patterns')
   // Floating action dock starts collapsed (a single ☰ button) so it never covers the workspace.
   const [dockOpen, setDockOpen] = useState(false)
   // The main page is the song settings + pattern library. The full-screen "עורך שירים"
@@ -534,6 +540,83 @@ function App() {
       window.removeEventListener('mouseup', onUp)
     }
   }, [resizing])
+
+  const clampTimeframeUpdates = (updates: Partial<Timeframe>) => {
+    if (updates.endTime !== undefined) {
+      updates.endTime = Math.min(updates.endTime, songLengthBeats)
+    }
+    if (updates.startTime !== undefined) {
+      updates.startTime = Math.max(0, updates.startTime)
+    }
+    return updates
+  }
+
+  const updateTimeframe = (id: string, updates: Partial<Timeframe>) => {
+    const clamped = clampTimeframeUpdates(updates)
+    setTimeframes(timeframes.map(tf =>
+      tf.id === id ? { ...tf, ...clamped } : tf
+    ))
+  }
+
+  const updateTimeframeSilent = (id: string, updates: Partial<Timeframe>) => {
+    const clamped = clampTimeframeUpdates(updates)
+    setTimeframesSilent(prev => prev.map(tf =>
+      tf.id === id ? { ...tf, ...clamped } : tf
+    ))
+  }
+
+  const updateTimeframesSilentBatch = (batch: Map<string, Partial<Timeframe>>) => {
+    setTimeframesSilent(prev => prev.map(tf => {
+      const u = batch.get(tf.id)
+      return u ? { ...tf, ...clampTimeframeUpdates(u) } : tf
+    }))
+  }
+
+  const addTimeframeFromDrag = (startTime: number, endTime: number) => {
+    const clampedStart = Math.max(0, Math.min(startTime, endTime))
+    const clampedEnd = Math.min(songLengthBeats, Math.max(startTime, endTime))
+    if (clampedEnd <= clampedStart) return
+    const newTimeframe: Timeframe = {
+      id: Date.now().toString(),
+      startTime: clampedStart,
+      endTime: clampedEnd,
+      label: `Timeframe ${timeframes.length + 1}`,
+      color: `#${Math.floor(Math.random()*16777215).toString(16)}`,
+      rings: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
+      mapping: 'all'
+    }
+    setTimeframes([...timeframes, newTimeframe])
+  }
+
+  const handleCurrentTimeChange = (time: number) => {
+    setCurrentTime(time)
+    setNextRunFromStart(false)
+    const audio = audioRef.current
+    const isSongWithAudio = song.animationType === 'song' && song.audioFilePath && audio
+    if (isSongWithAudio && isPlaying) {
+      audio.currentTime = Math.max(0, beatsToAudioSec(time, song))
+    }
+  }
+
+  const handlePanelUpdate = (updates: Partial<Timeframe>) => {
+    if (focusedTimeframeId) {
+      updateTimeframe(focusedTimeframeId, updates)
+    }
+  }
+
+  const focusedTimeframe = timeframes.find(tf => tf.id === focusedTimeframeId) || null
+
+  const deleteTimeframe = (id: string) => {
+    setTimeframes(timeframes.filter(tf => tf.id !== id))
+    setSelectedTimeframeIds(prev => {
+      const next = new Set(prev)
+      next.delete(id)
+      return next
+    })
+    if (focusedTimeframeId === id) {
+      setFocusedTimeframeId(null)
+    }
+  }
 
   const addTimeframe = () => {
     const start = snapToBeat(currentTime)
@@ -2651,7 +2734,27 @@ function App() {
         />
         <div className="app-main" style={{ flexDirection: 'column' }}>
           <div className="app-main-view-toggle" style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', borderBottom: '1px solid var(--border)', flexShrink: 0 }}>
-            <span style={{ padding: '6px 14px', borderRadius: 8, fontSize: 13, fontWeight: 700, color: '#fff', background: 'linear-gradient(135deg,#667eea 0%,#764ba2 100%)' }}>⚙ הגדרות ופאטרנים</span>
+            {/* Main-view switch: patterns/settings (Iddo) ↔ inline horizontal timeline (Oren). */}
+            <div style={{ display: 'inline-flex', gap: 4, background: 'var(--surface-2, rgba(0,0,0,0.15))', padding: 3, borderRadius: 10 }}>
+              <button
+                onClick={() => setMainView('patterns')}
+                style={{
+                  padding: '6px 14px', borderRadius: 8, fontSize: 13, fontWeight: 700, cursor: 'pointer', border: 'none',
+                  color: '#fff',
+                  background: mainView === 'patterns' ? 'linear-gradient(135deg,#667eea 0%,#764ba2 100%)' : 'transparent',
+                  opacity: mainView === 'patterns' ? 1 : 0.6,
+                }}
+              >⚙ פאטרנים</button>
+              <button
+                onClick={() => setMainView('timeline')}
+                style={{
+                  padding: '6px 14px', borderRadius: 8, fontSize: 13, fontWeight: 700, cursor: 'pointer', border: 'none',
+                  color: '#fff',
+                  background: mainView === 'timeline' ? 'linear-gradient(135deg,#0ea5e9 0%,#2563eb 100%)' : 'transparent',
+                  opacity: mainView === 'timeline' ? 1 : 0.6,
+                }}
+              >📊 טיימליין</button>
+            </div>
             <span style={{ flex: 1 }} />
             {(song.audioFilePath || song.librarySlug || timeframes.length > 0) ? (
               <button
@@ -2668,25 +2771,77 @@ function App() {
               <span style={{ fontSize: 12, color: 'var(--text-faint)' }}>טען שיר מהספרייה כדי לפתוח את עורך השירים</span>
             )}
           </div>
-          <div className="app-main-timeline-wrap">
-            <PatternLibrary
-              imported={importedPatterns}
-              globalHidden={globalHiddenPatterns}
-              songHidden={song.hiddenPatterns ?? []}
-              songName={song.name}
-              bpm={song.bpm}
-              onApplyPreset={addTimeframesFromPreset}
-              onApplyEdited={(tfs, name) => upsertSongAnimation(name, tfs)}
-              onSavePattern={(name, tfs) => upsertSongAnimation(name, tfs)}
-              patternEdits={patternEdits}
-              onSavePatternEdit={savePatternEdit}
-              onHideForSong={hidePatternForSong}
-              onHideGlobal={hidePatternGlobal}
-              onRestoreForSong={restorePatternForSong}
-              onRestoreGlobal={restorePatternGlobal}
-              onImport={importPatterns}
-            />
-          </div>
+          {mainView === 'patterns' ? (
+            <div className="app-main-timeline-wrap">
+              <PatternLibrary
+                imported={importedPatterns}
+                globalHidden={globalHiddenPatterns}
+                songHidden={song.hiddenPatterns ?? []}
+                songName={song.name}
+                bpm={song.bpm}
+                onApplyPreset={addTimeframesFromPreset}
+                onApplyEdited={(tfs, name) => upsertSongAnimation(name, tfs)}
+                onSavePattern={(name, tfs) => upsertSongAnimation(name, tfs)}
+                patternEdits={patternEdits}
+                onSavePatternEdit={savePatternEdit}
+                onHideForSong={hidePatternForSong}
+                onHideGlobal={hidePatternGlobal}
+                onRestoreForSong={restorePatternForSong}
+                onRestoreGlobal={restorePatternGlobal}
+                onImport={importPatterns}
+              />
+            </div>
+          ) : (
+            <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'row' }}>
+              <div className="app-main-timeline-wrap" style={{ flex: 1, minWidth: 0 }}>
+                <Timeline
+                  timeframes={timeframes}
+                  songLengthBeats={songLengthBeats}
+                  bpm={song.bpm}
+                  onUpdate={updateTimeframe}
+                  onUpdateSilent={updateTimeframeSilent}
+                  onUpdateSilentBatch={updateTimeframesSilentBatch}
+                  onCheckpoint={checkpointTimeframes}
+                  onDelete={deleteTimeframe}
+                  onAdd={addTimeframeFromDrag}
+                  onCopy={copyTimeframe}
+                  onPaste={pasteTimeframe}
+                  hasClipboard={clipboardTimeframe !== null}
+                  focusedTimeframeId={focusedTimeframeId}
+                  onFocusedTimeframeChange={setFocusedTimeframeId}
+                  selectedTimeframeIds={selectedTimeframeIds}
+                  onSelectedTimeframeIdsChange={setSelectedTimeframeIds}
+                  currentTime={currentTime}
+                  onCurrentTimeChange={handleCurrentTimeChange}
+                  viewStartBeat={viewStartBeat}
+                  beatsPerScreen={beatsPerScreen}
+                  onScrollTo={viewActions.scrollTo}
+                  onZoomAt={viewActions.zoomAt}
+                  onPanBy={viewActions.panBy}
+                  onSeekToBeat={handleSeekToBeat}
+                  beatTimestampsMs={song.beatTimestampsMs}
+                />
+              </div>
+              <div
+                className="app-resize-handle app-resize-handle-details"
+                onMouseDown={() => setResizing('details')}
+                title="Drag to resize Details panel"
+              />
+              <div
+                className="app-details-wrapper"
+                style={{ width: detailsPanelWidth, minWidth: detailsPanelWidth }}
+              >
+                <TimeframePanel
+                  timeframe={focusedTimeframe}
+                  onUpdate={handlePanelUpdate}
+                  onClose={() => setFocusedTimeframeId(null)}
+                  onApplyPreset={addTimeframesFromPreset}
+                  onLoadCategoryPreview={loadCategoryPreview}
+                  songLengthBeats={songLengthBeats}
+                />
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>
