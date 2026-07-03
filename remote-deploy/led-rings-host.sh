@@ -151,8 +151,11 @@ if [ ! -f .env ]; then
 LEDS_OBJECT_SERVICE_IP=127.0.0.1
 SEQUENCE_SERVICE_IP=127.0.0.1
 TRIGGER_SERVICE_IP=127.0.0.1
+# MQTT broker (mosquitto) — REQUIRED for the brightness slider and MQTT triggers;
+# without it the control server disables both (UI slider stays greyed out).
+MQTT_BROKER=127.0.0.1
 ENV
-  warn ".env created with 127.0.0.1 placeholders — edit if the LED services run on another device."
+  warn ".env created with 127.0.0.1 placeholders — edit if the LED services / MQTT broker run on another device."
 fi
 
 # ---- Python deps for beat detection (OPTIONAL, non-fatal) ----
