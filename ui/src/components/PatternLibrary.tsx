@@ -46,11 +46,21 @@ interface PatternLibraryProps {
   onRestoreForSong: (id: string) => void
   onRestoreGlobal: (id: string) => void
   onImport: (patterns: ImportedPattern[]) => void
+  /** Load a pre-generated "all patterns of a category" timeline (the old Preset Browser's Preview All). */
+  onLoadCategoryPreview?: (payload: CategoryPreviewPayload) => void
 }
 
 const CATEGORY_LABELS: Record<string, string> = {
   background: 'Background', chill: 'Chill', mystery: 'Mystery',
   party: 'Party', psychedelic: 'Psychedelic', imported: 'Imported',
+}
+
+/** Fixed display order for known categories; anything else lands after these, alphabetically. */
+const CATEGORY_ORDER = ['background', 'chill', 'mystery', 'party', 'psychedelic', 'imported']
+
+interface CategoryPreviewPayload {
+  song: Record<string, unknown>
+  timeframes: unknown[]
 }
 
 const isPresetData = (v: unknown): v is PresetData =>
@@ -127,10 +137,10 @@ const PatternPreview = ({
       <div className="pattern-preview-modal" onClick={(e) => e.stopPropagation()}>
         <div className="pattern-preview-head">
           <input className="pattern-preview-name-input" value={name} onChange={(e) => setName(e.target.value)}
-            title="שם הפאטרן" style={{ background: '#0d1117', color: '#e8eef5', border: '1px solid #2c3645', borderRadius: 6, padding: '4px 8px', fontSize: 15, fontWeight: 700, minWidth: 0, flex: '0 1 240px' }} />
+            title="Pattern name" style={{ background: '#0d1117', color: '#e8eef5', border: '1px solid #2c3645', borderRadius: 6, padding: '4px 8px', fontSize: 15, fontWeight: 700, minWidth: 0, flex: '0 1 240px' }} />
           <span className="pattern-preview-cat">{CATEGORY_LABELS[preset.category] || preset.category}</span>
           <span style={{ flex: 1 }} />
-          <button className="pattern-preview-close" onClick={onClose} title="סגור (Esc)">✕</button>
+          <button className="pattern-preview-close" onClick={onClose} title="Close (Esc)">✕</button>
         </div>
         <div className="pattern-preview-stage">
           <RingVisualization mapping="all" timeframes={tfs} currentTime={t} globalBrightness={1} darkOff />
@@ -138,7 +148,7 @@ const PatternPreview = ({
         {/* Edit: speed + colors */}
         <div style={{ position: 'relative', zIndex: 2, flexShrink: 0, background: 'var(--surface)', display: 'flex', alignItems: 'center', gap: 12, padding: '8px 14px', flexWrap: 'wrap', borderTop: '1px solid #2c3645' }}>
           <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: '#9ab' }}>
-            מהירות
+            Speed
             <input type="range" min={0.1} max={8} step={0.05} value={speed} onChange={(e) => setSpeed(parseFloat(e.target.value))} style={{ width: 130, accentColor: '#f59e0b' }} />
             <input type="number" min={0.1} max={16} step={0.05} value={speed}
               onChange={(e) => { const n = parseFloat(e.target.value); if (!isNaN(n) && n > 0) setSpeed(Math.min(16, Math.max(0.1, n))) }}
@@ -150,10 +160,10 @@ const PatternPreview = ({
             ))}
           </label>
           <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: '#9ab' }}>
-            צבעים
+            Colors
             <select value={paletteSel} onChange={(e) => setPaletteSel(e.target.value)}
               style={{ background: '#0d1117', color: '#e8eef5', border: '1px solid #2c3645', borderRadius: 6, padding: '4px 6px', fontSize: 12, maxWidth: 160 }}>
-              <option value="original">מקורי</option>
+              <option value="original">Original</option>
               {WLED_PALETTES.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
             </select>
           </label>
@@ -162,11 +172,11 @@ const PatternPreview = ({
           <span className="pattern-preview-summary">{summarizePresetEffects(preset.data) || '—'}</span>
           <span style={{ flex: 1 }} />
           {onSave && (
-            <button onClick={() => { persistEdit(); onSave(name, tfs); onClose() }} title="שמור שם + מהירות + צבעים על הפאטרן, וגם לשיר"
-              style={{ border: '1px solid #34d399', background: 'transparent', color: '#34d399', borderRadius: 8, padding: '8px 14px', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>💾 שמור</button>
+            <button onClick={() => { persistEdit(); onSave(name, tfs); onClose() }} title="Save name + speed + colors on the pattern, and to the song"
+              style={{ border: '1px solid #34d399', background: 'transparent', color: '#34d399', borderRadius: 8, padding: '8px 14px', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>💾 Save</button>
           )}
           <button className="pattern-preview-add"
-            onClick={() => { persistEdit(); if (onApplyEdited) onApplyEdited(tfs, name); else onApply(preset); onClose() }}>＋ הוסף לשיר</button>
+            onClick={() => { persistEdit(); if (onApplyEdited) onApplyEdited(tfs, name); else onApply(preset); onClose() }}>＋ Add to song</button>
         </div>
       </div>
     </div>
@@ -191,7 +201,7 @@ const PatternCard = ({
 
   return (
     <div className="pattern-card-wrap">
-      <div className="preset-card pattern-card" onClick={() => onOpen(preset)} title="לחץ לתצוגה מקדימה">
+      <div className="preset-card pattern-card" onClick={() => onOpen(preset)} title="Click to preview">
         <div className="preset-card-colors">
           {colors.slice(0, 3).map((c, i) => (
             <div key={i} className="preset-card-color-swatch" style={{ background: c }} />
@@ -203,26 +213,26 @@ const PatternCard = ({
         </div>
         <button
           className={`pattern-card-add${added ? ' added' : ''}`}
-          title="הוסף לפאטרני המסך המלא (Live Console)"
+          title="Add to the fullscreen patterns (Live Console)"
           onClick={(e) => { e.stopPropagation(); onApply(preset); setAdded(true); window.setTimeout(() => setAdded(false), 900) }}
         >{added ? '✓' : '＋'}</button>
         <button
           className="pattern-card-delete"
-          title="הסר פאטרן זה"
+          title="Remove this pattern"
           onClick={(e) => { e.stopPropagation(); setConfirming(true) }}
         >🗑</button>
       </div>
 
       {confirming && (
         <div className="pattern-card-confirm" onClick={(e) => e.stopPropagation()}>
-          <span className="pattern-card-confirm-q">למחוק את “{preset.displayName}”?</span>
+          <span className="pattern-card-confirm-q">Remove “{preset.displayName}”?</span>
           <button className="pattern-confirm-btn this-song" onClick={() => { setConfirming(false); onHideForSong(preset.id) }}>
-            רק לשיר הזה
+            This song only
           </button>
           <button className="pattern-confirm-btn all-songs" onClick={() => { setConfirming(false); onHideGlobal(preset.id) }}>
-            לכל השירים
+            All songs
           </button>
-          <button className="pattern-confirm-btn cancel" onClick={() => setConfirming(false)}>ביטול</button>
+          <button className="pattern-confirm-btn cancel" onClick={() => setConfirming(false)}>Cancel</button>
         </div>
       )}
     </div>
@@ -232,11 +242,14 @@ const PatternCard = ({
 const PatternLibrary = ({
   imported, globalHidden, songHidden, songName, bpm,
   onApplyPreset, onApplyEdited, onSavePattern, patternEdits = {}, onSavePatternEdit,
-  onHideForSong, onHideGlobal, onRestoreForSong, onRestoreGlobal, onImport,
+  onHideForSong, onHideGlobal, onRestoreForSong, onRestoreGlobal, onImport, onLoadCategoryPreview,
 }: PatternLibraryProps) => {
   const [searchTerm, setSearchTerm] = useState('')
   const [showHidden, setShowHidden] = useState(false)
   const [preview, setPreview] = useState<PresetMetadata | null>(null)
+  // Expanded categories. Default: all folded. Searching force-expands.
+  const [expanded, setExpanded] = useState<Set<string>>(new Set())
+  const [loadingCategory, setLoadingCategory] = useState<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const allPatterns = useMemo<PresetMetadata[]>(
@@ -252,7 +265,7 @@ const PatternLibrary = ({
     [allPatterns, globalSet, songSet],
   )
 
-  // All patterns in a single flat list (no category groups), filtered by search.
+  // Patterns filtered by search, then grouped by category in a fixed, friendly order.
   const filtered = useMemo(() => {
     const q = searchTerm.trim().toLowerCase()
     if (!q) return visible
@@ -260,6 +273,45 @@ const PatternLibrary = ({
       (p) => p.displayName.toLowerCase().includes(q) || p.category.toLowerCase().includes(q),
     )
   }, [visible, searchTerm])
+
+  const grouped = useMemo(() => {
+    const groups = new Map<string, PresetMetadata[]>()
+    for (const p of filtered) {
+      const list = groups.get(p.category)
+      if (list) list.push(p)
+      else groups.set(p.category, [p])
+    }
+    const known = CATEGORY_ORDER.filter((c) => groups.has(c))
+    const rest = [...groups.keys()].filter((c) => !CATEGORY_ORDER.includes(c)).sort()
+    return [...known, ...rest].map((cat) => ({ cat, presets: groups.get(cat)! }))
+  }, [filtered])
+
+  const toggleCategory = (cat: string) => {
+    setExpanded((prev) => {
+      const next = new Set(prev)
+      if (next.has(cat)) next.delete(cat)
+      else next.add(cat)
+      return next
+    })
+  }
+
+  // "Preview All": load the pre-generated all-of-category timeline (from the old Preset Browser).
+  const handlePreviewAll = async (cat: string, e: { stopPropagation: () => void }) => {
+    e.stopPropagation()
+    if (!onLoadCategoryPreview) return
+    const catTitle = cat.charAt(0).toUpperCase() + cat.slice(1)
+    setLoadingCategory(cat)
+    try {
+      const res = await fetch(`/category-previews/All${catTitle}.json`)
+      if (!res.ok) throw new Error(`Not found: /category-previews/All${catTitle}.json`)
+      const payload = await res.json() as CategoryPreviewPayload
+      onLoadCategoryPreview(payload)
+    } catch {
+      alert(`Category preview not generated yet.\nRun: yarn gen-ui-song ${cat}`)
+    } finally {
+      setLoadingCategory(null)
+    }
+  }
 
   const hiddenEntries = useMemo(() => {
     const out: { preset: PresetMetadata; scope: 'song' | 'global' }[] = []
@@ -297,7 +349,7 @@ const PatternLibrary = ({
       }
     }
     if (out.length) onImport(out)
-    if (skipped.length) alert(`דולגו ${skipped.length} קבצים שאינם פאטרן תקין (נדרש JSON עם מפתחות ring1..ring12):\n${skipped.join(', ')}`)
+    if (skipped.length) alert(`Skipped ${skipped.length} files that are not valid patterns (JSON with ring1..ring12 keys required):\n${skipped.join(', ')}`)
     if (fileInputRef.current) fileInputRef.current.value = ''
   }
 
@@ -305,13 +357,13 @@ const PatternLibrary = ({
     <div className="pattern-library">
       <div className="pattern-library-bar">
         <div className="pattern-library-title">
-          <span className="pattern-library-title-main">פאטרנים</span>
-          <span className="pattern-library-title-sub">{visible.length} זמינים · {songName || 'שיר'}</span>
+          <span className="pattern-library-title-main">Patterns</span>
+          <span className="pattern-library-title-sub">{visible.length} available · {songName || 'Song'}</span>
         </div>
         <input
           type="text"
           className="preset-browser-search-input pattern-library-search"
-          placeholder="חיפוש פאטרן…"
+          placeholder="Search patterns…"
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
         />
@@ -323,29 +375,55 @@ const PatternLibrary = ({
           style={{ display: 'none' }}
           onChange={(e) => handleFiles(e.target.files)}
         />
-        <button className="pattern-library-import" onClick={() => fileInputRef.current?.click()} title="ייבא קובצי פאטרן (JSON)">
-          ⬆ ייבוא
+        <button className="pattern-library-import" onClick={() => fileInputRef.current?.click()} title="Import pattern files (JSON)">
+          ⬆ Import
         </button>
       </div>
 
       <div className="pattern-library-scroll">
         {filtered.length === 0 ? (
-          <div className="pattern-library-empty">אין פאטרנים להצגה. נסה לייבא, או לשחזר מוסתרים למטה.</div>
+          <div className="pattern-library-empty">No patterns to show. Try importing, or restore hidden ones below.</div>
         ) : (
-          <div className="pattern-library-grid">
-            {filtered.map((preset) => (
-              <PatternCard
-                key={preset.id}
-                preset={preset}
-                name={patternEdits[preset.id]?.name ?? preset.displayName}
-                colorsOverride={patternEdits[preset.id]?.paletteId && patternEdits[preset.id]!.paletteId !== 'original' ? paletteById(patternEdits[preset.id]!.paletteId!).colors : undefined}
-                onOpen={setPreview}
-                onApply={addToSong}
-                onHideForSong={onHideForSong}
-                onHideGlobal={onHideGlobal}
-              />
-            ))}
-          </div>
+          grouped.map(({ cat, presets }) => {
+            const isExpanded = expanded.has(cat) || !!searchTerm.trim()
+            return (
+              <div key={cat} className="preset-browser-category">
+                <button
+                  className={`preset-browser-category-header ${isExpanded ? 'expanded' : ''}`}
+                  onClick={() => toggleCategory(cat)}
+                >
+                  <span className="preset-browser-category-arrow">{isExpanded ? '▼' : '▶'}</span>
+                  <span className="preset-browser-category-name">{CATEGORY_LABELS[cat] || cat}</span>
+                  <span className="preset-browser-category-count">{presets.length}</span>
+                  {onLoadCategoryPreview && cat !== 'imported' && (
+                    <span
+                      className="preset-browser-category-preview-all"
+                      title={`Load all ${CATEGORY_LABELS[cat] || cat} patterns as a timeline`}
+                      onClick={(e) => handlePreviewAll(cat, e)}
+                    >
+                      {loadingCategory === cat ? '...' : 'Preview All'}
+                    </span>
+                  )}
+                </button>
+                {isExpanded && (
+                  <div className="pattern-library-grid">
+                    {presets.map((preset) => (
+                      <PatternCard
+                        key={preset.id}
+                        preset={preset}
+                        name={patternEdits[preset.id]?.name ?? preset.displayName}
+                        colorsOverride={patternEdits[preset.id]?.paletteId && patternEdits[preset.id]!.paletteId !== 'original' ? paletteById(patternEdits[preset.id]!.paletteId!).colors : undefined}
+                        onOpen={setPreview}
+                        onApply={addToSong}
+                        onHideForSong={onHideForSong}
+                        onHideGlobal={onHideGlobal}
+                      />
+                    ))}
+                  </div>
+                )}
+              </div>
+            )
+          })
         )}
       </div>
 
@@ -353,18 +431,18 @@ const PatternLibrary = ({
         <div className="pattern-library-hidden">
           <button className="pattern-library-hidden-header" onClick={() => setShowHidden((s) => !s)}>
             <span className="preset-browser-category-arrow">{showHidden ? '▼' : '▶'}</span>
-            מוסתרים <span className="preset-browser-category-count">{hiddenEntries.length}</span>
+            Hidden <span className="preset-browser-category-count">{hiddenEntries.length}</span>
           </button>
           {showHidden && (
             <div className="pattern-library-hidden-list">
               {hiddenEntries.map(({ preset, scope }) => (
                 <div key={`${scope}:${preset.id}`} className="pattern-hidden-row">
                   <span className="pattern-hidden-name">{preset.displayName}</span>
-                  <span className={`pattern-hidden-scope ${scope}`}>{scope === 'global' ? 'כל השירים' : 'השיר הזה'}</span>
+                  <span className={`pattern-hidden-scope ${scope}`}>{scope === 'global' ? 'All songs' : 'This song'}</span>
                   <button
                     className="pattern-hidden-restore"
                     onClick={() => (scope === 'global' ? onRestoreGlobal(preset.id) : onRestoreForSong(preset.id))}
-                  >שחזר</button>
+                  >Restore</button>
                 </div>
               ))}
             </div>
