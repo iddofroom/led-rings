@@ -4,6 +4,7 @@
 // The Worker reaches the host via an internal hostname (ORIGIN) that the tunnel serves.
 import { BUNDLE_B64 } from './bundle.js';
 import { handleLibrary } from './library.js';
+import { handleAuth, requireAuth, hasLibraryKey } from './auth.js';
 
 const ORIGIN = 'https://o.iddofroom.co.il'; // internal tunnel hostname (not user-facing)
 const BUNDLE_NAME = 'led-rings-host-bundle.zip';
@@ -20,6 +21,26 @@ function isDown(resp) {
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
+
+    // OAuth endpoints are the ONLY routes served before the auth gate.
+    if (url.pathname.startsWith('/auth/')) {
+      return handleAuth(request, env, url);
+    }
+
+    // Auth gate — the whole leds.iddofroom.co.il subdomain requires a signed Google session
+    // cookie. Exceptions: a CORS preflight (carries no cookie/header by spec), and machine
+    // callers (local dev) presenting the shared library key on /api/library/* only.
+    const isLibraryPath = url.pathname.startsWith('/api/library');
+    const isPreflight = request.method === 'OPTIONS' && isLibraryPath;
+    const session = isPreflight ? true : await requireAuth(request, env);
+    const libKeyOk = isLibraryPath && hasLibraryKey(request, env);
+    if (!session && !libKeyOk) {
+      const accept = request.headers.get('Accept') || '';
+      if (request.method === 'GET' && (url.pathname === '/' || accept.includes('text/html'))) {
+        return new Response(null, { status: 302, headers: { Location: '/auth/login', 'Cache-Control': 'no-store' } });
+      }
+      return new Response('Unauthorized', { status: 401, headers: { 'Cache-Control': 'no-store' } });
+    }
 
     // Song library (KV-backed): list/upload/save MP3s, analysis, AI output and saved
     // animations. Handled at the edge — never proxied to the host PC. Returns null for

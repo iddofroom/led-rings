@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react'
-import { library, fileToBase64, type LibrarySongSummary } from '../lib/library'
+import { library, fileToBase64, DEFAULT_PROJECT, type LibrarySongSummary } from '../lib/library'
 
 /**
  * Song library: every uploaded MP3 with its analysis, the AI output, the live working
@@ -10,6 +10,7 @@ import { library, fileToBase64, type LibrarySongSummary } from '../lib/library'
 
 interface Props {
   onClose: () => void
+  projectId?: string
   activeSlug?: string
   /** Load a saved composition (comp='working' for the live timeline, or an animation slug). */
   onLoadComposition: (slug: string, comp: string) => void | Promise<void>
@@ -29,7 +30,7 @@ const methodBadge: Record<string, { label: string; bg: string }> = {
   manual: { label: 'manual', bg: '#4b5563' },
 }
 
-export default function LibraryPanel({ onClose, activeSlug, onLoadComposition }: Props) {
+export default function LibraryPanel({ onClose, projectId = DEFAULT_PROJECT, activeSlug, onLoadComposition }: Props) {
   const [songs, setSongs] = useState<LibrarySongSummary[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -40,7 +41,7 @@ export default function LibraryPanel({ onClose, activeSlug, onLoadComposition }:
   const refresh = useCallback(async () => {
     setError(null)
     try {
-      const list = await library.listSongs()
+      const list = await library.listSongs(projectId)
       setSongs(list)
       // auto-expand the active song
       if (activeSlug) setExpanded((e) => ({ ...e, [activeSlug]: true }))
@@ -49,7 +50,7 @@ export default function LibraryPanel({ onClose, activeSlug, onLoadComposition }:
     } finally {
       setLoading(false)
     }
-  }, [activeSlug])
+  }, [activeSlug, projectId])
 
   // KV key-enumeration (`list`) is eventually consistent — a just-saved/deleted song can
   // take a couple of seconds to show up. Refresh now, then again shortly after.
@@ -82,7 +83,7 @@ export default function LibraryPanel({ onClose, activeSlug, onLoadComposition }:
         })
       } catch {}
       const audioBase64 = await fileToBase64(file)
-      await library.saveSong({ name, audioFilename: file.name, audioBase64, lengthSeconds })
+      await library.saveSong({ name, audioFilename: file.name, audioBase64, lengthSeconds }, projectId)
       setBusy(null)
       refreshSoon()
     } catch (err) {
@@ -106,7 +107,7 @@ export default function LibraryPanel({ onClose, activeSlug, onLoadComposition }:
     if (!window.confirm(comp ? `Delete animation "${label}"?` : `Delete the whole song "${label}" and all its data?`)) return
     setBusy('Deleting…')
     try {
-      await library.remove(slug, comp)
+      await library.remove(slug, comp, projectId)
       refreshSoon()
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e))

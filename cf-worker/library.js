@@ -18,7 +18,7 @@ const MAX_JSON_BYTES = 8 * 1024 * 1024; // 8 MB cap for analysis / composition p
 const CORS = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+  'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Library-Key',
 };
 
 function json(obj, status = 200) {
@@ -47,16 +47,36 @@ function slugify(s) {
   );
 }
 
-const metaKey = (slug) => `song:${slug}:meta`;
-const analysisKey = (slug) => `song:${slug}:analysis`;
-const audioKey = (slug) => `song:${slug}:audio`;
-const workingKey = (slug) => `song:${slug}:working`;
-const compKey = (slug, comp) => `song:${slug}:comp:${comp}`;
-const compPrefix = (slug) => `song:${slug}:comp:`;
+// Per-project namespacing: the built-in "rings" project keeps the legacy `song:` prefix (no
+// migration); any other project id lives under `proj:<id>:song:`. So every key builder is
+// scoped by a project id (pid).
+const projectPrefix = (pid) => (pid && pid !== 'rings' ? `proj:${pid}:` : '');
+const songListPrefix = (pid) => `${projectPrefix(pid)}song:`;
+const metaKey = (pid, slug) => `${songListPrefix(pid)}${slug}:meta`;
+const analysisKey = (pid, slug) => `${songListPrefix(pid)}${slug}:analysis`;
+const audioKey = (pid, slug) => `${songListPrefix(pid)}${slug}:audio`;
+const workingKey = (pid, slug) => `${songListPrefix(pid)}${slug}:working`;
+const compKey = (pid, slug, comp) => `${songListPrefix(pid)}${slug}:comp:${comp}`;
+const compPrefix = (pid, slug) => `${songListPrefix(pid)}${slug}:comp:`;
 // Version history (git-like): each manual Save is an immutable snapshot with a parent +
 // branch, so the timeline can be rolled back and branched.
-const verKey = (slug, id) => `song:${slug}:ver:${id}`;
-const verPrefix = (slug) => `song:${slug}:ver:`;
+const verKey = (pid, slug, id) => `${songListPrefix(pid)}${slug}:ver:${id}`;
+const verPrefix = (pid, slug) => `${songListPrefix(pid)}${slug}:ver:`;
+
+// Registry of non-default projects. "rings" is implicit/built-in and always listed first.
+const PROJECTS_INDEX = 'projects:index';
+
+/** Normalize a project id from a request. Empty/unsluggable input defaults to built-in "rings"
+ *  (must NOT fall through to slugify's "untitled" fallback, or a blank project would orphan data). */
+function normProject(p) {
+  const s = String(p || '')
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9֐-׿]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 80);
+  return s || 'rings';
+}
 
 async function readJson(request) {
   try {
@@ -96,34 +116,41 @@ export async function handleLibrary(request, env, url) {
   const KV = env && env.LED_LIBRARY;
   if (!KV) return err('Library storage not configured (KV binding missing)', 500);
 
+  // Which installation/project this request targets (defaults to the built-in "rings").
+  const pid = normProject(url.searchParams.get('project'));
+
   try {
-    if (request.method === 'GET' && p === '/api/library/songs') return await listSongs(KV);
-    if (request.method === 'GET' && p === '/api/library/song') return await getSong(KV, url.searchParams.get('slug'));
+    // Project registry (installations). List always includes the built-in "rings" first.
+    if (request.method === 'GET' && p === '/api/library/projects') return await listProjects(KV);
+    if (request.method === 'POST' && p === '/api/library/project') return await createProject(KV, request);
+
+    if (request.method === 'GET' && p === '/api/library/songs') return await listSongs(KV, pid);
+    if (request.method === 'GET' && p === '/api/library/song') return await getSong(KV, pid, url.searchParams.get('slug'));
     if ((request.method === 'GET' || request.method === 'HEAD') && p === '/api/library/audio')
-      return await getAudio(KV, url.searchParams.get('slug'), request.method === 'HEAD');
+      return await getAudio(KV, pid, url.searchParams.get('slug'), request.method === 'HEAD');
     if (request.method === 'GET' && p === '/api/library/analysis') {
       const slug = slugSafe(url.searchParams.get('slug'));
       if (!slug) return err('Missing slug');
-      const a = await KV.get(analysisKey(slug));
+      const a = await KV.get(analysisKey(pid, slug));
       return a == null ? err('No analysis', 404) : rawJson(a);
     }
     if (request.method === 'GET' && p === '/api/library/composition') {
       const slug = slugSafe(url.searchParams.get('slug'));
       const comp = url.searchParams.get('comp') || 'working';
       if (!slug) return err('Missing slug');
-      const key = comp === 'working' ? workingKey(slug) : compKey(slug, slugify(comp));
+      const key = comp === 'working' ? workingKey(pid, slug) : compKey(pid, slug, slugify(comp));
       const v = await KV.get(key);
       return v == null ? err('Composition not found', 404) : rawJson(v);
     }
 
-    if (request.method === 'GET' && p === '/api/library/versions') return await listVersions(KV, url.searchParams.get('slug'));
+    if (request.method === 'GET' && p === '/api/library/versions') return await listVersions(KV, pid, url.searchParams.get('slug'));
     if (request.method === 'GET' && p === '/api/library/version')
-      return await getVersion(KV, url.searchParams.get('slug'), url.searchParams.get('id'));
+      return await getVersion(KV, pid, url.searchParams.get('slug'), url.searchParams.get('id'));
 
-    if (request.method === 'POST' && p === '/api/library/song') return await upsertSong(KV, request);
-    if (request.method === 'POST' && p === '/api/library/composition') return await upsertComposition(KV, request);
-    if (request.method === 'POST' && p === '/api/library/version') return await createVersion(KV, request);
-    if (request.method === 'POST' && p === '/api/library/delete') return await deleteEntry(KV, request);
+    if (request.method === 'POST' && p === '/api/library/song') return await upsertSong(KV, pid, request);
+    if (request.method === 'POST' && p === '/api/library/composition') return await upsertComposition(KV, pid, request);
+    if (request.method === 'POST' && p === '/api/library/version') return await createVersion(KV, pid, request);
+    if (request.method === 'POST' && p === '/api/library/delete') return await deleteEntry(KV, pid, request);
 
     return err('Unknown library route: ' + p, 404);
   } catch (e) {
@@ -135,13 +162,14 @@ function slugSafe(s) {
   return s ? slugify(s) : '';
 }
 
-async function listSongs(KV) {
+async function listSongs(KV, pid) {
+  const listPrefix = songListPrefix(pid);
   const songs = new Map();
   let cursor;
   do {
-    const res = await KV.list({ prefix: 'song:', cursor, limit: 1000 });
+    const res = await KV.list({ prefix: listPrefix, cursor, limit: 1000 });
     for (const k of res.keys) {
-      const rest = k.name.slice('song:'.length);
+      const rest = k.name.slice(listPrefix.length);
       const i = rest.indexOf(':');
       if (i < 0) continue;
       const slug = rest.slice(0, i);
@@ -165,10 +193,10 @@ async function listSongs(KV) {
   return json({ songs: arr });
 }
 
-async function getSong(KV, slugRaw) {
+async function getSong(KV, pid, slugRaw) {
   const slug = slugSafe(slugRaw);
   if (!slug) return err('Missing slug');
-  const prefix = `song:${slug}:`;
+  const prefix = `${songListPrefix(pid)}${slug}:`;
   const flags = { hasAnalysis: false, hasAudio: false, hasWorking: false };
   const comps = [];
   let cursor;
@@ -183,19 +211,19 @@ async function getSong(KV, slugRaw) {
     }
     cursor = res.list_complete ? undefined : res.cursor;
   } while (cursor);
-  const meta = await KV.get(metaKey(slug), 'json');
+  const meta = await KV.get(metaKey(pid, slug), 'json');
   if (!meta && !flags.hasAudio && comps.length === 0) return err('Song not found', 404);
   comps.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
   return json({ slug, meta, ...flags, compositions: comps });
 }
 
-async function getAudio(KV, slugRaw, headOnly) {
+async function getAudio(KV, pid, slugRaw, headOnly) {
   const slug = slugSafe(slugRaw);
   if (!slug) return err('Missing slug');
   if (headOnly) {
     // Cheap existence check — list the exact key for its metadata, never read the 5 MB value.
-    const res = await KV.list({ prefix: audioKey(slug), limit: 1 });
-    const k = res.keys.find((x) => x.name === audioKey(slug));
+    const res = await KV.list({ prefix: audioKey(pid, slug), limit: 1 });
+    const k = res.keys.find((x) => x.name === audioKey(pid, slug));
     if (!k) return new Response(null, { status: 404, headers: CORS });
     const md = k.metadata || {};
     return new Response(null, {
@@ -203,7 +231,7 @@ async function getAudio(KV, slugRaw, headOnly) {
       headers: { 'Content-Type': md.contentType || 'audio/mpeg', 'Content-Length': String(md.size || 0), 'Accept-Ranges': 'bytes', ...CORS },
     });
   }
-  const { value, metadata } = await KV.getWithMetadata(audioKey(slug), { type: 'arrayBuffer' });
+  const { value, metadata } = await KV.getWithMetadata(audioKey(pid, slug), { type: 'arrayBuffer' });
   if (value == null) return err('Audio not found', 404);
   const ct = (metadata && metadata.contentType) || 'audio/mpeg';
   return new Response(value, {
@@ -217,13 +245,13 @@ async function getAudio(KV, slugRaw, headOnly) {
   });
 }
 
-async function upsertSong(KV, request) {
+async function upsertSong(KV, pid, request) {
   const body = await readJson(request);
   if (!body) return err('Invalid JSON');
   const slug = body.slug ? slugify(body.slug) : slugify(body.name || body.audioFilename || '');
   if (!slug) return err('Missing name/slug');
 
-  const existing = (await KV.get(metaKey(slug), 'json')) || {};
+  const existing = (await KV.get(metaKey(pid, slug), 'json')) || {};
   const now = Date.now();
   const meta = {
     slug,
@@ -247,7 +275,7 @@ async function upsertSong(KV, request) {
     const ct = body.audioContentType || guessAudioType(meta.audioFilename) || 'audio/mpeg';
     meta.audioContentType = ct;
     writes.push(
-      KV.put(audioKey(slug), bytes, {
+      KV.put(audioKey(pid, slug), bytes, {
         metadata: { contentType: ct, filename: meta.audioFilename || '', size: bytes.byteLength },
       }),
     );
@@ -256,7 +284,7 @@ async function upsertSong(KV, request) {
   if (body.analysis && typeof body.analysis === 'object') {
     const aStr = JSON.stringify(body.analysis);
     if (aStr.length > MAX_JSON_BYTES) return err('Analysis too large', 413);
-    writes.push(KV.put(analysisKey(slug), aStr));
+    writes.push(KV.put(analysisKey(pid, slug), aStr));
   }
 
   const summary = {
@@ -266,13 +294,13 @@ async function upsertSong(KV, request) {
     audioFilename: meta.audioFilename || '',
     updatedAt: meta.updatedAt,
   };
-  writes.push(KV.put(metaKey(slug), JSON.stringify(meta), { metadata: summary }));
+  writes.push(KV.put(metaKey(pid, slug), JSON.stringify(meta), { metadata: summary }));
 
   await Promise.all(writes);
   return json({ ok: true, slug, meta });
 }
 
-async function upsertComposition(KV, request) {
+async function upsertComposition(KV, pid, request) {
   const body = await readJson(request);
   if (!body) return err('Invalid JSON');
   const slug = body.slug ? slugify(body.slug) : '';
@@ -286,7 +314,7 @@ async function upsertComposition(KV, request) {
   // working = the live auto-saved timeline; named = an explicit snapshot ("animation")
   const isWorking = body.working === true || (body.name == null && body.compSlug == null);
   if (isWorking) {
-    await KV.put(workingKey(slug), payloadStr, { metadata: { updatedAt: now, timeframeCount: body.timeframes.length } });
+    await KV.put(workingKey(pid, slug), payloadStr, { metadata: { updatedAt: now, timeframeCount: body.timeframes.length } });
     return json({ ok: true, slug, comp: 'working' });
   }
 
@@ -299,7 +327,7 @@ async function upsertComposition(KV, request) {
   };
   const full = JSON.stringify({ ...metaSummary, slug: compSlug, song: body.song, timeframes: body.timeframes });
   if (full.length > MAX_JSON_BYTES) return err('Composition too large', 413);
-  await KV.put(compKey(slug, compSlug), full, { metadata: metaSummary });
+  await KV.put(compKey(pid, slug, compSlug), full, { metadata: metaSummary });
   return json({ ok: true, slug, comp: compSlug, meta: metaSummary });
 }
 
@@ -308,7 +336,7 @@ const VER_ID_RE = /^[a-z0-9]+$/;
 
 // Create an immutable version snapshot on a branch, and advance the live working buffer
 // to it (so a reload restores the latest state + its branch/HEAD).
-async function createVersion(KV, request) {
+async function createVersion(KV, pid, request) {
   const body = await readJson(request);
   if (!body) return err('Invalid JSON');
   const slug = body.slug ? slugify(body.slug) : '';
@@ -327,36 +355,37 @@ async function createVersion(KV, request) {
   const workingStr = JSON.stringify({ song: body.song, timeframes: body.timeframes, branch, headVerId: id, updatedAt: now });
 
   await Promise.all([
-    KV.put(verKey(slug, id), full, { metadata: md }),
-    KV.put(workingKey(slug), workingStr, { metadata: { updatedAt: now, timeframeCount: body.timeframes.length, branch, headVerId: id } }),
+    KV.put(verKey(pid, slug, id), full, { metadata: md }),
+    KV.put(workingKey(pid, slug), workingStr, { metadata: { updatedAt: now, timeframeCount: body.timeframes.length, branch, headVerId: id } }),
   ]);
   return json({ ok: true, slug, id, ts: now, branch, parentId });
 }
 
-async function listVersions(KV, slugRaw) {
+async function listVersions(KV, pid, slugRaw) {
   const slug = slugSafe(slugRaw);
   if (!slug) return err('Missing slug');
   const versions = [];
+  const prefix = verPrefix(pid, slug);
   let cursor;
   do {
-    const res = await KV.list({ prefix: verPrefix(slug), cursor, limit: 1000 });
-    for (const k of res.keys) versions.push({ id: k.name.slice(verPrefix(slug).length), ...(k.metadata || {}) });
+    const res = await KV.list({ prefix, cursor, limit: 1000 });
+    for (const k of res.keys) versions.push({ id: k.name.slice(prefix.length), ...(k.metadata || {}) });
     cursor = res.list_complete ? undefined : res.cursor;
   } while (cursor);
   versions.sort((a, b) => (a.ts || 0) - (b.ts || 0)); // oldest → newest (lets the client build the tree)
   return json({ slug, versions });
 }
 
-async function getVersion(KV, slugRaw, idRaw) {
+async function getVersion(KV, pid, slugRaw, idRaw) {
   const slug = slugSafe(slugRaw);
   const id = String(idRaw || '');
   if (!slug || !id) return err('Missing slug/id');
   if (!VER_ID_RE.test(id)) return err('Bad version id');
-  const v = await KV.get(verKey(slug, id));
+  const v = await KV.get(verKey(pid, slug, id));
   return v == null ? err('Version not found', 404) : rawJson(v);
 }
 
-async function deleteEntry(KV, request) {
+async function deleteEntry(KV, pid, request) {
   const body = await readJson(request);
   if (!body) return err('Invalid JSON');
   const slug = slugSafe(body.slug);
@@ -365,20 +394,20 @@ async function deleteEntry(KV, request) {
   if (body.version) {
     const id = String(body.version);
     if (!VER_ID_RE.test(id)) return err('Bad version id');
-    await KV.delete(verKey(slug, id));
+    await KV.delete(verKey(pid, slug, id));
     return json({ ok: true, deleted: { slug, version: id } });
   }
 
   if (body.comp) {
     const comp = slugify(body.comp);
-    await KV.delete(comp === 'working' ? workingKey(slug) : compKey(slug, comp));
+    await KV.delete(comp === 'working' ? workingKey(pid, slug) : compKey(pid, slug, comp));
     return json({ ok: true, deleted: { slug, comp } });
   }
 
   // Delete the fixed keys unconditionally (KV `list` is eventually consistent and can miss
   // freshly-written keys, which would orphan them); enumerate the dynamic comp + ver keys.
-  const dels = [metaKey(slug), analysisKey(slug), audioKey(slug), workingKey(slug)].map((k) => KV.delete(k));
-  for (const prefix of [compPrefix(slug), verPrefix(slug)]) {
+  const dels = [metaKey(pid, slug), analysisKey(pid, slug), audioKey(pid, slug), workingKey(pid, slug)].map((k) => KV.delete(k));
+  for (const prefix of [compPrefix(pid, slug), verPrefix(pid, slug)]) {
     let cursor;
     do {
       const res = await KV.list({ prefix, cursor, limit: 1000 });
@@ -388,4 +417,37 @@ async function deleteEntry(KV, request) {
   }
   await Promise.all(dels);
   return json({ ok: true, deleted: { slug }, keys: dels.length });
+}
+
+// ── Projects (installations) ─────────────────────────────────────────────────
+// The built-in "rings" project is implicit (legacy `song:` keys) and always listed first;
+// user-created projects live in a single `projects:index` JSON array.
+
+const BUILTIN_RINGS = { id: 'rings', name: 'Rings', builtin: true };
+
+async function readProjectsIndex(KV) {
+  const raw = await KV.get(PROJECTS_INDEX, 'json');
+  return Array.isArray(raw) ? raw : [];
+}
+
+async function listProjects(KV) {
+  const extra = (await readProjectsIndex(KV)).filter((p) => p && p.id && p.id !== 'rings');
+  extra.sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
+  return json({ projects: [BUILTIN_RINGS, ...extra] });
+}
+
+async function createProject(KV, request) {
+  const body = await readJson(request);
+  if (!body) return err('Invalid JSON');
+  const name = String(body.name || '').trim();
+  if (!name) return err('Missing project name');
+  const id = normProject(body.id || name);
+  if (id === 'rings') return err('“rings” is reserved', 409);
+
+  const list = await readProjectsIndex(KV);
+  if (list.some((p) => p && p.id === id)) return err('A project with that id already exists', 409);
+  const project = { id, name, createdAt: Date.now() };
+  list.push(project);
+  await KV.put(PROJECTS_INDEX, JSON.stringify(list));
+  return json({ ok: true, project });
 }

@@ -214,7 +214,17 @@ function stableWorkingJson(song: Song, timeframes: Timeframe[]): string {
   }
 }
 
-function App() {
+export interface AppProps {
+  /** Which installation/project this editor session belongs to (scopes all library calls). */
+  projectId?: string
+  /** What to open on mount: a specific library composition, 'new' for a blank song, or
+   *  undefined/null to restore the last local session (standalone use, no shell). */
+  initialLoad?: { slug: string; comp: string } | 'new' | null
+  /** Back to the song picker (rendered as "← Songs" in the header when provided). */
+  onExitToSongs?: () => void
+}
+
+function App({ projectId = 'rings', initialLoad, onExitToSongs }: AppProps = {}) {
   const snapToBeat = (beat: number): number => {
     return Math.round(beat / 4) * 4
   }
@@ -1451,7 +1461,7 @@ function App() {
         audioContentType: audio?.contentType,
         beatTimestampsMs: s.beatTimestampsMs,
         analysis: opts?.analysis,
-      })
+      }, projectId)
       const slug = res.slug
       if (slug !== existingSlug) setSong((prev) => ({ ...prev, librarySlug: slug }))
       lastSavedMetaRef.current = metaSnapshot({ ...s, librarySlug: slug })
@@ -1560,7 +1570,7 @@ function App() {
     if (!apiBase) { window.alert('Control server is not running.'); return }
     let analysis = lastAnalysisRef.current
     if (!analysis && song.librarySlug) {
-      try { analysis = await library.getAnalysis(song.librarySlug) } catch {}
+      try { analysis = await library.getAnalysis(song.librarySlug, projectId) } catch {}
     }
     if (!analysis) { window.alert('No analysis yet — open 🎵 Compose and Analyze the song first.'); return }
     const lines = song.sectionLines
@@ -1583,7 +1593,7 @@ function App() {
     let cancelled = false
     ;(async () => {
       let a: any = lastAnalysisRef.current
-      if (!a && song.librarySlug) { try { a = await library.getAnalysis(song.librarySlug) } catch {} }
+      if (!a && song.librarySlug) { try { a = await library.getAnalysis(song.librarySlug, projectId) } catch {} }
       const c = a?.curves
       if (!c?.timeMs?.length || !c.energy?.length) { if (!cancelled) setLiveStrip(null); return }
       const n = c.timeMs.length
@@ -1619,7 +1629,7 @@ function App() {
         method: 'manual',
         song: cleanSongForLibrary(song),
         timeframes,
-      })
+      }, projectId)
       setLibrarySaveState('saved')
     } catch (e) {
       setLibrarySaveState('error')
@@ -1632,7 +1642,7 @@ function App() {
     // "fresh" — open a song that has no saved working timeline yet: load its meta
     // (name/bpm/length/audio) into an empty timeline so it can be worked on from scratch.
     if (comp === 'fresh') {
-      const m = (await library.getSong(slug)).meta
+      const m = (await library.getSong(slug, projectId)).meta
       loadCategoryPreview({
         song: {
           name: m?.name, bpm: m?.bpm, lengthSeconds: m?.lengthSeconds,
@@ -1646,7 +1656,7 @@ function App() {
       setHeadVerId(null)
       return
     }
-    const payload = await library.getComposition(slug, comp)
+    const payload = await library.getComposition(slug, comp, projectId)
     loadCategoryPreview(payload as { song: Record<string, unknown>; timeframes: unknown[] }, {
       librarySlug: slug,
       suppressAutosave: comp === 'working',
@@ -1672,7 +1682,7 @@ function App() {
         slug, name: song.name, bpm: song.bpm, lengthSeconds: song.lengthSeconds,
         startOffsetMs: song.startOffsetMs, animationType: song.animationType,
         audioFilename: song.audioFilePath, beatTimestampsMs: song.beatTimestampsMs,
-      })
+      }, projectId)
       lastSavedMetaRef.current = metaSnap
     } catch (e) {
       console.warn('meta save failed', e)
@@ -1689,7 +1699,7 @@ function App() {
       const res = await library.saveVersion({
         slug, song: cleanSongForLibrary(song), timeframes,
         parentId: headVerId, branch: currentBranch, label: label?.trim() || undefined,
-      })
+      }, projectId)
       await persistSongMeta(slug)
       setHeadVerId(res.id)
       setCurrentBranch(res.branch || currentBranch)
@@ -1708,7 +1718,7 @@ function App() {
   const loadVersion = async (id: string) => {
     const slug = song.librarySlug
     if (!slug) return
-    const v = await library.getVersion(slug, id)
+    const v = await library.getVersion(slug, id, projectId)
     loadCategoryPreview(v as { song: Record<string, unknown>; timeframes: unknown[] }, { librarySlug: slug, suppressAutosave: true })
     setHeadVerId(v.id)
     setCurrentBranch(v.branch || 'main')
@@ -1721,7 +1731,7 @@ function App() {
     if (!slug) return
     const branch = name.trim()
     if (!branch) return
-    const v = await library.getVersion(slug, id)
+    const v = await library.getVersion(slug, id, projectId)
     loadCategoryPreview(v as { song: Record<string, unknown>; timeframes: unknown[] }, { librarySlug: slug, suppressAutosave: true })
     setHeadVerId(id)
     setCurrentBranch(branch)
@@ -1789,22 +1799,27 @@ function App() {
         spectrogramOpen?: boolean
         view?: { startBeat?: number; beatsPerScreen?: number }
       }
-      let restoredSong: Song | null = null
-      if (parsed.song && typeof parsed.song === 'object') {
-        restoredSong = normalizeLoadedSong(parsed.song)
-        setSong(restoredSong)
-        setCurrentTime(audioSecToBeats(Math.max(0, restoredSong.runStartTimeSeconds ?? 0), restoredSong))
-      }
-      if (parsed.timeframes && Array.isArray(parsed.timeframes) && parsed.timeframes.length > 0) {
-        setTimeframes(parsed.timeframes)
-      }
-      if (typeof parsed.currentBranch === 'string') setCurrentBranch(parsed.currentBranch)
-      if (typeof parsed.headVerId === 'string') setHeadVerId(parsed.headVerId)
-      // If the restored song is a library song, prime the autosave baseline so we don't
-      // immediately re-write the (unchanged) working timeline to the cloud on every load.
-      if (restoredSong?.librarySlug) {
-        lastSavedWorkingRef.current = stableWorkingJson(restoredSong, (parsed.timeframes as Timeframe[]) || [])
-        lastSavedMetaRef.current = metaSnapshot(restoredSong)
+      // When the project/song shell drives what to open (initialLoad), skip restoring the
+      // last local song here — the initial-load effect below opens the chosen song instead.
+      // Window sizes / view / spectrogram prefs are still restored unconditionally.
+      if (!initialLoad) {
+        let restoredSong: Song | null = null
+        if (parsed.song && typeof parsed.song === 'object') {
+          restoredSong = normalizeLoadedSong(parsed.song)
+          setSong(restoredSong)
+          setCurrentTime(audioSecToBeats(Math.max(0, restoredSong.runStartTimeSeconds ?? 0), restoredSong))
+        }
+        if (parsed.timeframes && Array.isArray(parsed.timeframes) && parsed.timeframes.length > 0) {
+          setTimeframes(parsed.timeframes)
+        }
+        if (typeof parsed.currentBranch === 'string') setCurrentBranch(parsed.currentBranch)
+        if (typeof parsed.headVerId === 'string') setHeadVerId(parsed.headVerId)
+        // If the restored song is a library song, prime the autosave baseline so we don't
+        // immediately re-write the (unchanged) working timeline to the cloud on every load.
+        if (restoredSong?.librarySlug) {
+          lastSavedWorkingRef.current = stableWorkingJson(restoredSong, (parsed.timeframes as Timeframe[]) || [])
+          lastSavedMetaRef.current = metaSnapshot(restoredSong)
+        }
       }
       const minPlayback = 240, maxPlayback = 900, minDetails = 240, maxDetails = 600, minSpectrogram = 80, maxSpectrogram = 500
       const ws = parsed.windowSizes
@@ -1831,9 +1846,72 @@ function App() {
     } catch {
       // Ignore corrupted data
     } finally {
-      hasLoadedInitialStateRef.current = true
+      // When the shell drives the open (initialLoad), the initial-load effect below flips this
+      // once it has actually applied the chosen song — so a failed load can't let the persist
+      // effect overwrite the local working mirror with a blank timeline.
+      if (!initialLoad) hasLoadedInitialStateRef.current = true
     }
   }, [])
+
+  // Shell-driven initial open: when the project/song picker chose a song (or "new"), open it
+  // on mount, overriding the local last-session restore above. App is remounted (keyed) per
+  // open, so this runs once for each chosen song.
+  useEffect(() => {
+    if (initialLoad === undefined || initialLoad === null) return
+    const markLoaded = () => { hasLoadedInitialStateRef.current = true }
+    if (initialLoad === 'new') {
+      setSong({ name: 'New Song', lengthSeconds: 32, bpm: 120, startOffsetMs: 0, animationType: 'song' })
+      setTimeframes([])
+      setCurrentBranch('main')
+      setHeadVerId(null)
+      setCurrentTime(0)
+      markLoaded()
+      return
+    }
+    const { slug, comp } = initialLoad
+    // Prefer the local working mirror when it's for this exact song: the cloud working buffer
+    // only updates on Save, so the mirror (written on every edit by the persist effect below)
+    // is what makes uncommitted edits survive a reload or a Songs→reopen round-trip. A named
+    // composition is always an explicit choice, so it always loads from the cloud.
+    if (comp === 'working' || comp === 'fresh') {
+      try {
+        const raw = window.localStorage.getItem(LAST_SONG_STORAGE_KEY)
+        if (raw) {
+          const parsed = JSON.parse(raw) as { song?: Record<string, unknown>; timeframes?: Timeframe[]; currentBranch?: string; headVerId?: string | null }
+          if (parsed?.song && (parsed.song as { librarySlug?: string }).librarySlug === slug && Array.isArray(parsed.timeframes) && parsed.timeframes.length > 0) {
+            const restored = normalizeLoadedSong(parsed.song)
+            setSong(restored)
+            setTimeframes(parsed.timeframes)
+            if (typeof parsed.currentBranch === 'string') setCurrentBranch(parsed.currentBranch)
+            if (typeof parsed.headVerId === 'string') setHeadVerId(parsed.headVerId)
+            lastSavedWorkingRef.current = stableWorkingJson(restored, parsed.timeframes)
+            setCurrentTime(audioSecToBeats(Math.max(0, restored.runStartTimeSeconds ?? 0), restored))
+            markLoaded()
+            return
+          }
+        }
+      } catch {}
+    }
+    // Otherwise load from the cloud. On failure, warn and bounce back to the song list — leaving
+    // hasLoaded false so the persist effect can't overwrite the local mirror with a blank.
+    loadCompositionFromLibrary(slug, comp)
+      .then(markLoaded)
+      .catch((e) => {
+        window.alert('Failed to open song: ' + (e instanceof Error ? e.message : String(e)))
+        onExitToSongs?.()
+      })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  /** Back to the song list. The working timeline no longer auto-saves to the cloud, and opening
+   *  a *different* song overwrites the local mirror — so warn before leaving with uncommitted
+   *  edits. Reopening the SAME song still restores them (mirror-prefer above). */
+  const exitToSongs = () => {
+    if (!onExitToSongs) return
+    const dirty = timeframes.length > 0 && stableWorkingJson(song, timeframes) !== lastSavedWorkingRef.current
+    if (dirty && !window.confirm('You have unsaved timeline changes. Opening a different song will discard them — use 💾 Save / 🕘 History to keep them. Leave anyway?')) return
+    onExitToSongs()
+  }
 
   // Persist last worked-on song, timeframes, and window sizes;
   // only after we've attempted to load any existing data.
@@ -1947,8 +2025,8 @@ function App() {
       // 2. The cloud library copy when this song lives there (works local + remote).
       if (slug) {
         try {
-          const r = await fetch(library.audioUrl(slug), { method: 'HEAD' })
-          if (!cancelled && r.ok) { setEffectiveAudioSrc(library.audioUrl(slug)); void ensureAudioCached(audioPath || slug, library.audioUrl(slug)); return }
+          const r = await fetch(library.audioUrl(slug, projectId), { method: 'HEAD' })
+          if (!cancelled && r.ok) { setEffectiveAudioSrc(library.audioUrl(slug, projectId)); void ensureAudioCached(audioPath || slug, library.audioUrl(slug, projectId)); return }
         } catch {}
       }
       // 3. ui/public, control server, or prompt.
@@ -2208,6 +2286,9 @@ function App() {
   return (
     <div className={`app${resizing ? ' app-resizing' : ''}${resizing === 'spectrogram' ? ' app-resizing-spectrogram' : ''}${resizing === 'header' ? ' app-resizing-header' : ''}${lightTheme ? ' theme-light' : ''}`}>
       <div className="app-header" ref={headerRef} style={{ height: headerHeight }}>
+        {onExitToSongs && (
+          <button type="button" className="secondary-button" onClick={exitToSongs} title="Back to the song list" style={{ marginRight: 8, whiteSpace: 'nowrap' }}>← Songs</button>
+        )}
         <h1 className="app-header-title">KivSee Time Simulator</h1>
         <input
           type="text"
@@ -2373,7 +2454,7 @@ function App() {
             return ok
           }}
           onLoadSavedAnalysis={async () =>
-            lastAnalysisRef.current ?? (song.librarySlug ? await library.getAnalysis(song.librarySlug).catch(() => null) : null)
+            lastAnalysisRef.current ?? (song.librarySlug ? await library.getAnalysis(song.librarySlug, projectId).catch(() => null) : null)
           }
           alreadyComposed={timeframes.some((tf) => typeof tf._section === 'number')}
           onClose={() => setShowCompose(false)}
@@ -2381,6 +2462,7 @@ function App() {
       )}
       {showLibrary && (
         <LibraryPanel
+          projectId={projectId}
           activeSlug={song.librarySlug}
           onLoadComposition={loadCompositionFromLibrary}
           onClose={() => setShowLibrary(false)}
@@ -2388,6 +2470,7 @@ function App() {
       )}
       {showHistory && (
         <HistoryPanel
+          projectId={projectId}
           slug={song.librarySlug}
           songName={song.name}
           currentBranch={currentBranch}

@@ -1,12 +1,13 @@
 import React from 'react'
 import ReactDOM from 'react-dom/client'
-import App, { AppErrorBoundary } from './App'
+import { AppErrorBoundary } from './App'
+import RootShell from './shell/RootShell'
 import './index.css'
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <AppErrorBoundary>
-      <App />
+      <RootShell />
     </AppErrorBoundary>
   </React.StrictMode>,
 )

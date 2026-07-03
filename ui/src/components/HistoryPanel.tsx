@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react'
-import { library, type VersionSummary } from '../lib/library'
+import { library, DEFAULT_PROJECT, type VersionSummary } from '../lib/library'
 
 /**
  * Version history (git-like) for the active song. Each Save is an immutable snapshot with a
@@ -8,6 +8,7 @@ import { library, type VersionSummary } from '../lib/library'
  */
 
 interface Props {
+  projectId?: string
   slug?: string
   songName?: string
   currentBranch: string
@@ -26,7 +27,7 @@ const fmtDate = (ms?: number) => {
 }
 const shortId = (id?: string | null) => (id ? id.slice(0, 7) : '')
 
-export default function HistoryPanel({ slug, songName, currentBranch, headVerId, onSave, onLoadVersion, onBranch, onClose }: Props) {
+export default function HistoryPanel({ projectId = DEFAULT_PROJECT, slug, songName, currentBranch, headVerId, onSave, onLoadVersion, onBranch, onClose }: Props) {
   const [versions, setVersions] = useState<VersionSummary[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -37,13 +38,13 @@ export default function HistoryPanel({ slug, songName, currentBranch, headVerId,
     if (!slug) { setVersions([]); setLoading(false); return }
     setError(null)
     try {
-      setVersions(await library.listVersions(slug))
+      setVersions(await library.listVersions(slug, projectId))
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e))
     } finally {
       setLoading(false)
     }
-  }, [slug])
+  }, [slug, projectId])
 
   useEffect(() => { void refresh() }, [refresh])
 
@@ -77,7 +78,7 @@ export default function HistoryPanel({ slug, songName, currentBranch, headVerId,
   async function doDelete(id: string) {
     if (!slug || !window.confirm('Delete this version?')) return
     setBusy('Deleting…')
-    try { await library.removeVersion(slug, id); refreshSoon() }
+    try { await library.removeVersion(slug, id, projectId); refreshSoon() }
     catch (e) { setError(e instanceof Error ? e.message : String(e)) }
     finally { setBusy(null) }
   }
