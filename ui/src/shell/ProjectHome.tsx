@@ -82,7 +82,12 @@ export default function ProjectHome({ projectId, projectName, projectRole, onCom
       }),
       state: pi,
       status: pi === 'ok' ? t({ en: 'Online', he: 'מחובר' }) : pi === 'checking' ? t({ en: 'Checking…', he: 'בודק…' }) : t({ en: 'Offline', he: 'מנותק' }),
-      action: <button style={S.ghost} onClick={refresh}>{t({ en: 'Test connection', he: 'בדוק חיבור' })}</button>,
+      action: (
+        <>
+          <button style={S.ghost} onClick={refresh}>{t({ en: 'Test connection', he: 'בדוק חיבור' })}</button>
+          <a href="/setup" target="_blank" rel="noreferrer" style={{ ...S.ghost, textDecoration: 'none' }}>{t({ en: 'Download host bundle →', he: 'הורד את חבילת המארח →' })}</a>
+        </>
+      ),
     },
     {
       key: 'esp',

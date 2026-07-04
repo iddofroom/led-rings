@@ -154,38 +154,49 @@ export default {
       return new Response('Firmware binary not published yet', { status: 404, headers: { 'Cache-Control': 'no-store' } });
     }
 
-    // Try the live host (tunnel origin).
-    let resp = null;
-    try {
-      const headers = new Headers(request.headers);
-      headers.delete('host');
-      // Authenticate to the Access-protected origin with a service token, so o.iddofroom.co.il can
-      // deny ALL direct public traffic (the Worker is its only legitimate client). No-op until the
-      // service-token secrets are set + the Access app is enabled.
-      if (env && env.CF_ACCESS_CLIENT_ID && env.CF_ACCESS_CLIENT_SECRET) {
-        headers.set('CF-Access-Client-Id', env.CF_ACCESS_CLIENT_ID);
-        headers.set('CF-Access-Client-Secret', env.CF_ACCESS_CLIENT_SECRET);
-      }
-      const init = { method: request.method, headers, redirect: 'manual' };
-      if (request.method !== 'GET' && request.method !== 'HEAD') init.body = request.body;
-      resp = await fetch(ORIGIN + url.pathname + url.search, init);
-    } catch (e) {
-      resp = null;
-    }
-
-    if (!isDown(resp)) {
-      // Host is up: pass its response straight through.
-      return new Response(resp.body, { status: resp.status, statusText: resp.statusText, headers: resp.headers });
-    }
-
-    // Host is down: HTML navigations get the landing page; everything else gets 503.
-    const accept = request.headers.get('Accept') || '';
-    if (request.method === 'GET' && (url.pathname === '/' || accept.includes('text/html'))) {
+    // Public host-setup page: password-gated download of the host bundle + install steps. Served
+    // from the edge (no login, works even when the Pi is down) so whoever wires up the Pi can grab
+    // the bundle. Lives at /setup now that the app shell owns "/" (see the asset fallback below).
+    if (request.method === 'GET' && (url.pathname === '/setup' || url.pathname === '/setup/')) {
       return new Response(LANDING_HTML, {
         headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' },
       });
     }
-    return new Response('Host offline', { status: 503 });
+
+    // Hardware-control API (/api/* that isn't the KV library, handled above) → proxy to the on-site
+    // host (Pi) through the tunnel. This is the ONLY surface that still depends on the friend's
+    // machine being up; the app shell itself is edge-served, so UI changes deploy without the Pi.
+    if (isApi) {
+      let resp = null;
+      try {
+        const headers = new Headers(request.headers);
+        headers.delete('host');
+        // Authenticate to the Access-protected origin with a service token, so o.iddofroom.co.il can
+        // deny ALL direct public traffic (the Worker is its only legitimate client). No-op until the
+        // service-token secrets are set + the Access app is enabled.
+        if (env && env.CF_ACCESS_CLIENT_ID && env.CF_ACCESS_CLIENT_SECRET) {
+          headers.set('CF-Access-Client-Id', env.CF_ACCESS_CLIENT_ID);
+          headers.set('CF-Access-Client-Secret', env.CF_ACCESS_CLIENT_SECRET);
+        }
+        const init = { method: request.method, headers, redirect: 'manual' };
+        if (request.method !== 'GET' && request.method !== 'HEAD') init.body = request.body;
+        resp = await fetch(ORIGIN + url.pathname + url.search, init);
+      } catch (e) {
+        resp = null;
+      }
+      if (!isDown(resp)) {
+        // Host is up: pass its response straight through.
+        return new Response(resp.body, { status: resp.status, statusText: resp.statusText, headers: resp.headers });
+      }
+      // Host offline: the app detects this via the /api/brightness liveness probe and shows its
+      // in-app setup/onboarding (ProjectHome step 1). No HTML landing page needed here anymore.
+      return new Response('Host offline', { status: 503, headers: noStore });
+    }
+
+    // Everything else = the React app shell + its hashed static assets, served from the edge via
+    // Workers Static Assets (ui/dist). No dependency on the host PC. not_found_handling =
+    // single-page-application returns index.html for client-side routes.
+    return env.ASSETS.fetch(request);
   },
 };
 
@@ -258,7 +269,7 @@ const LANDING_HTML = `<!doctype html>
     setInterval(async () => {
       try {
         const r = await fetch('/api/brightness', { cache: 'no-store' });
-        if (r.ok) location.reload();
+        if (r.ok) location.href = '/';
       } catch (e) {}
     }, 5000);
   </script>

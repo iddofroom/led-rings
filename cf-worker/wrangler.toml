@@ -3,6 +3,17 @@ main = "worker.js"
 compatibility_date = "2024-11-01"
 workers_dev = false
 
+# The React app (ui/dist) is served from the edge as Workers Static Assets — NOT proxied from the
+# friend's Pi anymore. So a UI change is just a Worker redeploy (`yarn cf:deploy`); the Pi only has
+# to keep running the tunnel + control-server for the LED-control /api/* calls. Build ui/dist before
+# deploying. run_worker_first = true keeps worker.js authoritative (it routes /api/*, /guide, etc.,
+# and falls through to env.ASSETS for the app shell); SPA fallback serves index.html for app routes.
+[assets]
+directory = "../ui/dist"
+binding = "ASSETS"
+not_found_handling = "single-page-application"
+run_worker_first = true
+
 # Auth = Clerk (auth.js verifies the Clerk session JWT via the instance JWKS). Set these as
 # SECRETS, never here (this repo is PUBLIC):
 #   wrangler secret put CLERK_ISSUER      # instance Frontend API URL = the JWT `iss`, e.g.

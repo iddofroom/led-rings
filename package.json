@@ -29,8 +29,10 @@
     "roundtrip": "ts-node --transpile-only scripts/roundtrip-check.ts",
     "compose": "ts-node --transpile-only scripts/compose.ts",
     "package:win": "node packaging/build.js",
-    "deploy": "wrangler deploy",
-    "preview": "wrangler dev"
+    "cf:build-ui": "yarn --cwd ui build",
+    "cf:deploy": "yarn cf:build-ui && wrangler deploy --config cf-worker/wrangler.toml",
+    "cf:preview": "yarn cf:build-ui && wrangler dev --config cf-worker/wrangler.toml",
+    "deploy": "wrangler deploy --config cf-worker/wrangler.toml"
   },
   "dependencies": {
     "@types/node": "^22.10.10",
