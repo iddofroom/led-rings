@@ -248,6 +248,37 @@
   .chip.d { color: #04222b; background: var(--w-data); }
   :root[data-theme="light"] .chip.g, .chip.g { color:#fff; }
 
+  /* comparison table */
+  .tbl { overflow-x: auto; margin: 6px 0 26px; border: 1px solid var(--border); border-radius: 12px; }
+  table { border-collapse: collapse; width: 100%; min-width: 540px; font-size: 15px; }
+  thead th { background: var(--panel); text-align: start; font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: var(--ink-faint); font-weight: 700; padding: 11px 14px; border-bottom: 1px solid var(--border-2); }
+  tbody td, tbody th { padding: 11px 14px; border-bottom: 1px solid var(--border); text-align: start; vertical-align: top; }
+  tbody tr:last-child td, tbody tr:last-child th { border-bottom: 0; }
+  tbody th { font-weight: 700; color: var(--ink); background: var(--panel-2); white-space: nowrap; }
+  tbody td { color: var(--ink-soft); }
+  table .good { color: var(--ok); font-weight: 600; }
+  table .bad { color: var(--danger); font-weight: 600; }
+
+  /* pill tags */
+  .pill { display: inline-block; font: 700 11.5px/1.5 ui-monospace, monospace; padding: 1px 8px; border-radius: 999px; border: 1px solid var(--border-2); color: var(--ink-soft); background: var(--panel); }
+  .pill.v5 { color: var(--w-v); border-color: color-mix(in oklab, var(--w-v) 40%, var(--border-2)); }
+  .pill.v12 { color: var(--w-data); border-color: color-mix(in oklab, var(--w-data) 40%, var(--border-2)); }
+
+  /* pros / cons split */
+  .proscons { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 6px 0 22px; max-width: 66ch; }
+  @media (max-width: 560px) { .proscons { grid-template-columns: 1fr; } }
+  .pc { border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px; background: var(--panel); }
+  .pc h4 { margin: 0 0 8px; font-size: 13px; text-transform: uppercase; letter-spacing: .05em; }
+  .pc.pro h4 { color: var(--ok); }
+  .pc.con h4 { color: var(--danger); }
+  .pc ul { margin: 0; padding-inline-start: 1.1em; max-width: none; }
+  .pc li { margin: 0 0 5px; color: var(--ink-soft); font-size: 14.5px; }
+
+  /* buy card */
+  .buycard { border: 1px solid var(--border-2); border-radius: var(--radius); padding: 18px 20px; max-width: 66ch;
+             background: linear-gradient(180deg, color-mix(in oklab, var(--brand) 6%, var(--panel)), var(--panel)); margin: 6px 0 22px; }
+  .buycard a.store { display: inline-flex; align-items: center; gap: 8px; font-weight: 700; }
+
   /* coming-soon stub */
   .stub {
     border: 1px dashed var(--border-2); border-radius: var(--radius);
@@ -290,7 +321,7 @@
       <p class="toc-label" data-l="en">Chapters</p>
       <ol>
         <li><a href="#overview" class="toclink"><span class="n">01</span><span data-l="he">סקירה כללית</span><span data-l="en">Overview</span></a></li>
-        <li><a href="#leds" class="toclink soon" data-soon="בקרוב"><span class="n">02</span><span data-l="he">בחירת לדים</span><span data-l="en">Choosing LEDs</span></a></li>
+        <li><a href="#leds" class="toclink"><span class="n">02</span><span data-l="he">בחירת לדים</span><span data-l="en">Choosing LEDs</span></a></li>
         <li><a href="#power" class="toclink"><span class="n">03</span><span data-l="he">אלקטרוניקה וחשמל</span><span data-l="en">Electronics &amp; Power</span></a></li>
         <li><a href="#diffusers" class="toclink soon" data-soon="בקרוב"><span class="n">04</span><span data-l="he">דיפיוזרים</span><span data-l="en">Diffusers</span></a></li>
         <li><a href="#story" class="toclink soon" data-soon="בקרוב"><span class="n">05</span><span data-l="he">סיפוריות</span><span data-l="en">Storytelling</span></a></li>
@@ -341,15 +372,164 @@
         </div>
       </section>
 
-      <!-- ============ 02 · CHOOSING LEDS (stub) ============ -->
+      <!-- ============ 02 · CHOOSING LEDS ============ -->
       <section id="leds">
-        <div class="stub">
-          <span class="soon-badge">· בקרוב · coming soon ·</span>
-          <span class="chapter-tag" style="display:block;margin-top:6px">02</span>
-          <h2 data-l="he">בחירת לדים</h2>
-          <h2 data-l="en">Choosing LEDs</h2>
-          <p data-l="he">איזה סוג פיקסלים מתאים למיצב שלך: WS2812B (5V, פיקסל־לנורה, רזולוציה גבוהה) מול WS2815 (12V, קו דאטה גיבוי, מעולה למיצבים גדולים), צפיפות נורות למטר, דירוג עמידות למים (IP), ורצועה מול מחרוזת פיקסלים. עד שהפרק מוכן — טעימה מהיר: <strong>WS2812B</strong> לחתיכות קטנות ומפורטות, <strong>WS2815 / 12V</strong> לריצות ארוכות. ההשלכות של הבחירה מוסברות בפרק הבא.</p>
-          <p data-l="en">Which pixel type fits your build: WS2812B (5V, one pixel per LED, high resolution) vs WS2815 (12V, backup data line, great for large pieces), LED density per metre, water rating (IP), and strip vs pixel-string. Until it's ready — the short version: <strong>WS2812B</strong> for small, detailed pieces, <strong>WS2815 / 12V</strong> for long runs. What that choice implies is covered next.</p>
+        <span class="chapter-tag">02</span>
+        <h2 data-l="he">בחירת לדים</h2>
+        <h2 data-l="en">Choosing LEDs</h2>
+        <p class="dek" data-l="he">הבחירה הזו קובעת את כל השאר — מתח, חשמל, חיווט ותקציב. הנה איך בוחרים, בפשטות.</p>
+        <p class="dek" data-l="en">This one choice decides everything else — voltage, power, wiring and budget. Here's how to pick, simply.</p>
+
+        <div class="call tip">
+          <div class="ct" data-l="he">⚡ התשובה הקצרה</div>
+          <div class="ct" data-l="en">⚡ The short answer</div>
+          <p data-l="he">למיצב ברן ראשון: רצועות <strong>WS2812B</strong>, <strong>5V</strong>, צפיפות <strong>60 לד/מ׳</strong>, ודירוג IP לפי איפה זה גר. זה הקיט מהפרק הקודם, וזה עובד כמעט לכל דבר. השאר כאן הוא ״למה״ ומתי לסטות.</p>
+          <p data-l="en">For a first Burn piece: <strong>WS2812B</strong> strips, <strong>5V</strong>, <strong>60 LEDs/m</strong>, and an IP rating to match where it lives. That's the kit from the last chapter, and it works for almost anything. The rest here is the "why" and when to deviate.</p>
+        </div>
+
+        <!-- density -->
+        <h3><span class="h3n">A</span><span data-l="he">צפיפות — כמה לדים למטר</span><span data-l="en">Density — LEDs per metre</span></h3>
+        <p data-l="he">רצועות מגיעות בצפיפויות שונות: 30, 60, 144 לד/מ׳ ועוד. יותר לדים = רזולוציה גבוהה יותר, אבל גם יותר חשמל, יותר חום, ויותר נקודות שיכולות להתקלקל.</p>
+        <p data-l="en">Strips come in different densities: 30, 60, 144 LEDs/m and more. More LEDs = higher resolution, but also more power, more heat, and more points that can fail.</p>
+        <div class="tbl" data-l="he">
+          <table>
+            <thead><tr><th>צפיפות</th><th>איך זה נראה</th><th>מתי לבחור</th></tr></thead>
+            <tbody>
+              <tr><th>30 / מ׳</th><td>נקודות בולטות, גס</td><td>ריצות ארוכות, צפייה מרחוק, חיסכון בחשמל</td></tr>
+              <tr><th>60 / מ׳</th><td>מאוזן — ברירת המחדל</td><td class="good">רוב המיצבים</td></tr>
+              <tr><th>144 / מ׳</th><td>כמעט רציף, רזולוציה גבוהה</td><td>פרטים קרובים, טקסט, אפקטים עדינים (הרבה חשמל וחום)</td></tr>
+              <tr><th>COB</th><td>בלי נקודות בכלל — קו אור רציף</td><td>מראה חלק, צפייה מקרוב, דיפיוזר מובנה</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="tbl" data-l="en">
+          <table>
+            <thead><tr><th>Density</th><th>How it looks</th><th>When to pick</th></tr></thead>
+            <tbody>
+              <tr><th>30 / m</th><td>Obvious dots, coarse</td><td>Long runs, viewed from afar, saving power</td></tr>
+              <tr><th>60 / m</th><td>Balanced — the default</td><td class="good">Most installations</td></tr>
+              <tr><th>144 / m</th><td>Near-continuous, high-res</td><td>Close-up detail, text, fine effects (lots of power &amp; heat)</td></tr>
+              <tr><th>COB</th><td>No dots at all — a solid line of light</td><td>Smooth look, close viewing, built-in diffuser</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p class="lead-in" data-l="he">הכלל: בחר את הצפיפות <strong>הנמוכה ביותר</strong> שעדיין משרתת את האפקט שאתה רוצה.</p>
+        <p class="lead-in" data-l="en">The rule: pick the <strong>lowest</strong> density that still serves the effect you want.</p>
+
+        <!-- voltage -->
+        <h3><span class="h3n">B</span><span data-l="he">מתח — 5V מול 12V</span><span data-l="en">Voltage — 5V vs 12V</span></h3>
+        <p data-l="he">לדים עובדים ב־5V או ב־12V. שניהם טובים; ההבדל הוא בעיקר בחיים שלך כשמחברים.</p>
+        <p data-l="en">LEDs run at 5V or 12V. Both are fine; the difference is mostly in how easy your life is when wiring.</p>
+        <div class="proscons">
+          <div class="pc pro">
+            <h4><span class="pill v5">5V</span> <span data-l="he">— הקיט הזה</span><span data-l="en">— this kit</span></h4>
+            <ul>
+              <li data-l="he">הכי פשוט מול ESP32 + WLED</li>
+              <li data-l="en">Simplest with ESP32 + WLED</li>
+              <li data-l="he">זול ונפוץ, כל לד נשלט בנפרד</li>
+              <li data-l="en">Cheap, common, every LED controllable</li>
+              <li data-l="he">חיסרון: נפילת מתח → הזרקה תכופה, ריצות קצרות</li>
+              <li data-l="en">Downside: voltage drop → inject often, shorter runs</li>
+            </ul>
+          </div>
+          <div class="pc con">
+            <h4><span class="pill v12">12V</span> <span data-l="he">— למתקדמים</span><span data-l="en">— advanced</span></h4>
+            <ul>
+              <li data-l="he">פחות מחצי מהזרם → נפילת מתח קטנה בהרבה</li>
+              <li data-l="en">Less than half the current → far less voltage drop</li>
+              <li data-l="he">ריצות ארוכות, פחות הזרקות — מצוין למיצב גדול</li>
+              <li data-l="en">Long runs, fewer injections — great for a big piece</li>
+              <li data-l="he">חיסרון: מסבך את הצד של הבקר (לכן לא במדריך הזה)</li>
+              <li data-l="en">Downside: complicates the controller side (so not in this guide)</li>
+            </ul>
+          </div>
+        </div>
+        <p data-l="he">למדריך הזה נשארים ב־<strong>5V</strong>. אם המיצב שלך גדול מאוד או דורש ריצות ארוכות — שווה ללמוד 12V (למשל WS2815, בהמשך).</p>
+        <p data-l="en">For this guide we stay on <strong>5V</strong>. If your piece is very large or needs long runs — 12V is worth learning (e.g. WS2815, next).</p>
+
+        <!-- the chip -->
+        <h3><span class="h3n">C</span><span data-l="he">הצ׳יפ — WS2812B מול WS2815</span><span data-l="en">The chip — WS2812B vs WS2815</span></h3>
+        <p data-l="he">אלה שני הסוגים העיקריים. שניהם ״כתובתיים״ (כל נורה נשלטת בנפרד); ההבדל הגדול הוא מתח ואמינות.</p>
+        <p data-l="en">These are the two main types. Both are "addressable" (every LED controlled individually); the big difference is voltage and reliability.</p>
+        <div class="tbl" data-l="he">
+          <table>
+            <thead><tr><th></th><th>WS2812B</th><th>WS2815</th></tr></thead>
+            <tbody>
+              <tr><th>מתח</th><td>5V</td><td>12V</td></tr>
+              <tr><th>שליטה</th><td>כל נורה בנפרד</td><td>כל נורה בנפרד</td></tr>
+              <tr><th>נורה מתה בשרשרת</th><td class="bad">מכבה את כל מה שאחריה</td><td class="good">יש קו גיבוי — ממשיך!</td></tr>
+              <tr><th>נפילת מתח</th><td>גבוהה (הזרקה תכופה)</td><td>נמוכה (ריצות ארוכות)</td></tr>
+              <tr><th>מחיר</th><td>הזול והנפוץ</td><td>קצת יותר יקר</td></tr>
+              <tr><th>הכי טוב ל</th><td>הקיט הזה, חתיכות מפורטות</td><td>מיצבים גדולים, אמינות</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="tbl" data-l="en">
+          <table>
+            <thead><tr><th></th><th>WS2812B</th><th>WS2815</th></tr></thead>
+            <tbody>
+              <tr><th>Voltage</th><td>5V</td><td>12V</td></tr>
+              <tr><th>Control</th><td>Every LED individually</td><td>Every LED individually</td></tr>
+              <tr><th>A dead LED in the chain</th><td class="bad">Blacks out everything after it</td><td class="good">Has a backup line — keeps going!</td></tr>
+              <tr><th>Voltage drop</th><td>High (inject often)</td><td>Low (long runs)</td></tr>
+              <tr><th>Price</th><td>Cheapest &amp; most common</td><td>A bit pricier</td></tr>
+              <tr><th>Best for</th><td>This kit, detailed pieces</td><td>Large installs, reliability</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p style="font-size:14px;color:var(--ink-faint);max-width:64ch" data-l="he">שני קרובי משפחה: <strong>WS2813</strong> — כמו WS2812B (5V) אבל עם קו דאטה גיבוי. <strong>SK6812</strong> — תואם ל־WS2812B, ובגרסת RGBW יש נורת לבן ייעודית (לבן חמים ונקי).</p>
+        <p style="font-size:14px;color:var(--ink-faint);max-width:64ch" data-l="en">Two cousins: <strong>WS2813</strong> — like WS2812B (5V) but with a backup data line. <strong>SK6812</strong> — WS2812B-compatible, and its RGBW version adds a dedicated white LED (clean, warm white).</p>
+
+        <!-- IP -->
+        <h3><span class="h3n">D</span><span data-l="he">דירוג IP — כמה עמיד למים ואבק</span><span data-l="en">IP rating — how weatherproof</span></h3>
+        <p data-l="he">ה־IP אומר כמה הרצועה מוגנת מאבק ומים. יותר הגנה = יותר עמידות, אבל גם יותר קושי לתקן ומעט פחות אור.</p>
+        <p data-l="en">The IP rating says how protected the strip is from dust and water. More protection = more durable, but also harder to repair and slightly less light.</p>
+        <div class="tbl" data-l="he">
+          <table>
+            <thead><tr><th>דירוג</th><th>מה זה</th><th>מתי</th></tr></thead>
+            <tbody>
+              <tr><th>IP30</th><td>רצועה חשופה</td><td>בפנים, או בתוך מארז/דיפיוזר משלך. הכי בהיר, קל לתקן, זול</td></tr>
+              <tr><th>IP65</th><td>ציפוי סיליקון מלפנים</td><td class="good">אבק והתזה — בחירת חוץ טובה</td></tr>
+              <tr><th>IP67</th><td>בתוך שרוול סיליקון מלא</td><td>גשם/טל/טיפול קשוח. עמיד — אבל קשה לתקן ומתחמם יותר</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="tbl" data-l="en">
+          <table>
+            <thead><tr><th>Rating</th><th>What it is</th><th>When</th></tr></thead>
+            <tbody>
+              <tr><th>IP30</th><td>Bare strip</td><td>Indoors, or inside your own enclosure/diffuser. Brightest, easiest to repair, cheapest</td></tr>
+              <tr><th>IP65</th><td>Silicone coating on the front</td><td class="good">Dust &amp; splashes — a good outdoor choice</td></tr>
+              <tr><th>IP67</th><td>Inside a filled silicone tube</td><td>Rain/dew/rough handling. Tough — but hard to repair and runs hotter</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p class="lead-in" data-l="he">לברן/חוץ: IP65 ומעלה — או, טריק נפוץ, רצועת IP30 זולה בתוך קופסה/דיפיוזר אטום משלך (זול, ניתן לתיקון, ואתה שולט במראה). עוד על זה בפרק <a href="#diffusers">דיפיוזרים</a>.</p>
+        <p class="lead-in" data-l="en">For Burn/outdoor: IP65 or higher — or, a common trick, a cheap IP30 strip inside your own sealed box/diffuser (cheap, repairable, and you control the look). More in <a href="#diffusers">Diffusers</a>.</p>
+
+        <!-- where to buy -->
+        <h3><span class="h3n">E</span><span data-l="he">איפה קונים</span><span data-l="en">Where to buy</span></h3>
+        <div class="buycard">
+          <p data-l="he"><strong>אליאקספרס</strong> הוא המקור העיקרי ללדים ומחברים. מומלץ (אך יקר יותר): <a class="store" href="https://www.aliexpress.com/store/701799" target="_blank" rel="noopener">🏪 החנות של Ray Wu ↗</a> — אמינה מאוד, משלוחים מהירים, בשימוש נרחב של ברנרים בארץ ובברנינגמן. הדברים מגיעים תקינים ועובדים.</p>
+          <p data-l="en"><strong>AliExpress</strong> is the main source for LEDs and connectors. Recommended (but pricier): <a class="store" href="https://www.aliexpress.com/store/701799" target="_blank" rel="noopener">🏪 Ray Wu's store ↗</a> — very reliable, fast shipping, widely used by Burners in Israel and at Burning Man. Things arrive correct and working.</p>
+          <p style="margin-bottom:0" data-l="he">האמת? כמעט כל מוכר באליאקספרס עם דירוג טוב זה בסדר גמור לחתיכת אמנות. רק ודא: <strong>5V, WS2812B, הצפיפות וה־IP שרצית</strong>. סימני אזהרה: צפיפות מזויפת, מתח לא נכון, נחושת דקה (נפילת מתח), או IC מזויף. בארץ אני משלים ציוד ובקרים מ־<a href="https://www.4project.co.il/" target="_blank" rel="noopener">4project</a> ו־<a href="https://hackstore.co.il/" target="_blank" rel="noopener">hackstore</a>.</p>
+          <p style="margin-bottom:0" data-l="en">Honestly? Almost any well-rated AliExpress seller is fine for an art build. Just confirm: <strong>5V, WS2812B, the density and IP you wanted</strong>. Red flags: fake density, wrong voltage, thin copper (voltage drop), or clone ICs. In Israel I top up gear and controllers from <a href="https://www.4project.co.il/" target="_blank" rel="noopener">4project</a> and <a href="https://hackstore.co.il/" target="_blank" rel="noopener">hackstore</a>.</p>
+        </div>
+        <div class="call warn">
+          <div class="ct" data-l="he">📦 מכס בישראל — שים לב לפני שמזמינים</div>
+          <div class="ct" data-l="en">📦 Israeli customs — read before you order</div>
+          <p data-l="he">כדי שהמשלוח לא ייתקע (ואולי תפסיד אותו):</p>
+          <p data-l="en">So your shipment doesn't get stuck (and you don't lose it):</p>
+          <ul style="margin-bottom:0">
+            <li data-l="he">מתחת ל־<strong>$75</strong> — בלי מכס ובלי מע״מ. בין $75 ל־$500 — מע״מ בלבד.</li>
+            <li data-l="en">Under <strong>$75</strong> — no duty, no VAT. Between $75 and $500 — VAT only.</li>
+            <li data-l="he"><strong>אל תזמין יותר מ־30 יחידות</strong> של אותו פריט בהזמנה אחת — זה נחשב אוטומטית ליבוא מסחרי. (100 מטר כ״חבילה אחת״ זה בסדר; 100 פריטים נפרדים — לא.)</li>
+            <li data-l="en"><strong>Don't order more than 30 units</strong> of one item in a single order — it's automatically treated as commercial import. (100m as "one package" is fine; 100 separate items — not.)</li>
+            <li data-l="he">אלקטרוניקה מעל <strong>9V</strong> דורשת תו תקן — עדיף לקנות ציוד כזה בארץ.</li>
+            <li data-l="en">Electronics above <strong>9V</strong> need a standards mark — better to buy such gear locally.</li>
+            <li data-l="he">פצל משלוחים כדי לא לעבור את המכסות.</li>
+            <li data-l="en">Split shipments so you don't cross the thresholds.</li>
+          </ul>
         </div>
       </section>
 
@@ -358,23 +538,46 @@
         <span class="chapter-tag">03</span>
         <h2 data-l="he">אלקטרוניקה וחשמל</h2>
         <h2 data-l="en">Electronics &amp; Power</h2>
-        <p class="dek" data-l="he">איך מחברים לדים, בקרים וספקי כוח — נכון ובבטחה. תעשה את זה כמו שצריך והמיצב ידלוק כל הלילה; תפספס, ותקבל קצוות כהים, סטיית צבע, הבהובים או פיקסלים שרופים.</p>
-        <p class="dek" data-l="en">How to connect LEDs, controllers and power supplies — correctly and safely. Get it right and the piece runs all night; get it wrong and you get dark ends, color shift, flicker, or fried pixels.</p>
+        <p class="dek" data-l="he">אתה לא צריך להיות אלקטרונאי. עם הקיט הנכון מחברים כמעט הכל עם מחברי־תקע (בלי הלחמות), ויש רק <strong>הלחמה אחת</strong> בכל הפרק. הנה כל הצד החשמלי — פשוט.</p>
+        <p class="dek" data-l="en">You don't need to be an electronics wizard. With the right kit you connect almost everything with plug-in connectors (no soldering), and there's just <strong>one solder joint</strong> in the whole chapter. Here's the electrical side — kept simple.</p>
+        <p style="font-size:14px;color:var(--ink-faint);margin:-14px 0 26px" data-l="he">מבוסס על <a href="https://www.facebook.com/yossi.naar" target="_blank" rel="noopener">״מדריך הלדים האולטימטיבי לברנרים״ מאת יוסי נער</a> — הגישה, הקיט ורוב כללי האצבע כאן הם שלו.</p>
+        <p style="font-size:14px;color:var(--ink-faint);margin:-14px 0 26px" data-l="en">Based on <a href="https://www.facebook.com/yossi.naar" target="_blank" rel="noopener">Yossi Naar's "Ultimate LED Guide for Burners"</a> — the approach, the kit and most rules of thumb here are his.</p>
+
+        <!-- the kit -->
+        <h3><span class="h3n">A</span><span data-l="he">הקיט — מה קונים</span><span data-l="en">The kit — what to buy</span></h3>
+        <p data-l="he">כמעט כל מיצב אפשר לבנות מחמשת אלה. הרעיון: הכל מתחבר במחברים, כמעט בלי הלחמות.</p>
+        <p data-l="en">Almost any piece can be built from these five things. The idea: everything plugs together, almost no soldering.</p>
+        <ul>
+          <li data-l="he"><strong>לדים</strong> — רצועות <span class="mono">WS2812B</span> ב־5V. כמה שיותר.</li>
+          <li data-l="en"><strong>LEDs</strong> — <span class="mono">WS2812B</span> strips at 5V. As many as you like.</li>
+          <li data-l="he"><strong>בקר (״המוח״)</strong> — <span class="mono">ESP32</span> קטן שמריץ את התוכנה החינמית <a href="https://kno.wled.ge/" target="_blank" rel="noopener">WLED</a>: עשרות אפקטים, שליטה מהטלפון דרך וויי־פיי, בלי לכתוב שורת קוד.</li>
+          <li data-l="en"><strong>Controller (the "brain")</strong> — a small <span class="mono">ESP32</span> running the free <a href="https://kno.wled.ge/" target="_blank" rel="noopener">WLED</a> software: dozens of effects, phone control over Wi‑Fi, no coding at all.</li>
+          <li data-l="he"><strong>ספק כוח</strong> — <span class="mono">MEAN WELL 5V 60A</span>. מחזיק בערך 20–60 רצועות של 5 מטר (תלוי בבהירות).</li>
+          <li data-l="en"><strong>Power supply</strong> — a <span class="mono">MEAN WELL 5V 60A</span>. Runs roughly 20–60 strips of 5m (depends on brightness).</li>
+          <li data-l="he"><strong>מחברים</strong> — <span class="mono">JST‑3</span> (דאטה: בקר↔רצועה ורצועה↔רצועה), <span class="mono">JST‑2</span> (הזרקת מתח), ומתאמי הזרקה בלי הלחמה. אלה שהופכים את הכל ל״תקע והפעל״.</li>
+          <li data-l="en"><strong>Connectors</strong> — <span class="mono">JST‑3</span> (data: controller↔strip and strip↔strip), <span class="mono">JST‑2</span> (power injection), and solderless injection adapters. These are what make it plug‑and‑play.</li>
+        </ul>
+        <p data-l="he">בנוסף: מטען טלפון פשוט (5V, micro‑USB) שמזין את ה־ESP32 עצמו. איפה קונים את הכל — בפרק <a href="#leds">בחירת לדים</a>.</p>
+        <p data-l="en">Plus: a plain phone charger (5V, micro‑USB) to power the ESP32 itself. Where to buy it all — in <a href="#leds">Choosing LEDs</a>.</p>
 
         <!-- mental model -->
-        <h3><span class="h3n">A</span><span data-l="he">מודל מנטלי: שלושה חוטים</span><span data-l="en">The mental model: three wires</span></h3>
-        <p data-l="he">כל מיצב לדים כתובתי, בלי קשר לגודל, הוא בסוף שלושה מוליכים בין הבקר לרצועה:</p>
-        <p data-l="en">Every addressable LED build, whatever its size, comes down to three conductors between the controller and the strip:</p>
+        <h3><span class="h3n">B</span><span data-l="he">שלושה חוטים (ומחברים רק שניים)</span><span data-l="en">Three wires (you connect only two)</span></h3>
+        <p data-l="he">כל רצועה היא בסוף שלושה חוטים. הכר אותם וידעת הכל:</p>
+        <p data-l="en">Every strip comes down to three wires. Know them and you know everything:</p>
         <ul>
-          <li data-l="he"><span class="chip v">+V</span> &nbsp;<strong>מתח</strong> — האנרגיה (למשל +5V), מגיע מספק הכוח.</li>
-          <li data-l="en"><span class="chip v">+V</span> &nbsp;<strong>Power</strong> — the energy (e.g. +5V), from the power supply.</li>
-          <li data-l="he"><span class="chip g">GND</span> &nbsp;<strong>הארקה / אפס משותף</strong> — חוט החזרה. גם הבקר, גם הספק וגם כל הרצועה חייבים לחלוק אותו.</li>
-          <li data-l="en"><span class="chip g">GND</span> &nbsp;<strong>Ground / common</strong> — the return wire. Controller, supply and the whole strip must all share it.</li>
-          <li data-l="he"><span class="chip d">DIN</span> &nbsp;<strong>דאטה</strong> — האות שאומר לכל פיקסל איזה צבע להיות. יוצא מהבקר, נכנס לרצועה בקצה ה־DIN.</li>
-          <li data-l="en"><span class="chip d">DIN</span> &nbsp;<strong>Data</strong> — the signal telling each pixel what color to be. Leaves the controller, enters the strip at DIN.</li>
+          <li data-l="he"><span class="chip g">GND</span> &nbsp;<strong>אפס / אדמה (מינוס)</strong> — חוט החזרה. שחור או לבן (לפעמים כחול). הכי חשוב בפרק.</li>
+          <li data-l="en"><span class="chip g">GND</span> &nbsp;<strong>Ground (minus)</strong> — the return wire. Black or white (sometimes blue). The most important one here.</li>
+          <li data-l="he"><span class="chip d">DATA</span> &nbsp;<strong>דאטה</strong> — האות שאומר לכל פיקסל איזה צבע. ירוק, באמצע המחבר. יוצא מהבקר, נכנס בקצה ה־DIN (יש חצים).</li>
+          <li data-l="en"><span class="chip d">DATA</span> &nbsp;<strong>Data</strong> — tells each pixel its color. Green, in the middle. Leaves the controller, enters the DIN end (follow the arrows).</li>
+          <li data-l="he"><span class="chip v">+5V</span> &nbsp;<strong>מתח</strong> — אדום. בא <em>מהספק</em>, לא מהבקר.</li>
+          <li data-l="en"><span class="chip v">+5V</span> &nbsp;<strong>Power</strong> — red. Comes <em>from the power supply</em>, not the controller.</li>
         </ul>
-        <p data-l="he">כל הפרק הזה הוא בעצם ״איך לחבר את שלושת החוטים האלה נכון״.</p>
-        <p data-l="en">This entire chapter is really just "how to get those three wires right."</p>
+        <div class="call rule">
+          <div class="ct" data-l="he">👉 הכלל הגדול והפשוט</div>
+          <div class="ct" data-l="en">👉 The one big, simple rule</div>
+          <p data-l="he">מהבקר אל הרצועה מחברים רק <strong>שניים מהשלושה — GND ודאטה</strong>. את ה־<span class="chip v">+5V</span> <strong>לא</strong> מביאים מהבקר; החשמל מגיע ישירות מהספק (״הזרקת מתח״, בהמשך). ככה הבקר לא נתקע ולא נשרף.</p>
+          <p data-l="en">From the controller to the strip you connect only <strong>two of the three — GND and Data</strong>. Do <strong>not</strong> bring <span class="chip v">+5V</span> from the controller; power comes straight from the supply ("power injection", below). This keeps the controller from crashing or frying.</p>
+        </div>
 
         <figure>
           <div class="plate">
@@ -406,86 +609,55 @@
           <figcaption data-l="en"><b>The three wires.</b> Power and ground feed; data flows one way — from the controller into the first pixel's DIN.</figcaption>
         </figure>
 
-        <!-- voltage first -->
-        <h3><span class="h3n">B</span><span data-l="he">קודם כול — מתח</span><span data-l="en">Voltage first</span></h3>
-        <p data-l="he">אחרי שבחרת את סוג הלדים, <strong>הנתון החשוב ביותר הוא המתח שלהם</strong>. לפי המתח בוחרים את ספק הכוח — והוא חייב להתאים בדיוק.</p>
-        <p data-l="en">Once you've chosen the LED type, <strong>the most important spec is their operating voltage</strong>. Voltage picks the power supply — and it must match exactly.</p>
+        <!-- connect it up -->
+        <h3><span class="h3n">C</span><span data-l="he">מחברים הכל — ההלחמה היחידה</span><span data-l="en">Wiring it up — the one solder joint</span></h3>
+        <p data-l="he">כל המדריך הזה עובד ב־<strong>5V בלבד</strong>. מתח אחר ישרוף לך את הרצועה (ולרוב גם את הבקר). אם קנית את הקיט למעלה — אתה מסודר.</p>
+        <p data-l="en">This whole guide runs on <strong>5V only</strong>. Any other voltage burns the strip (and usually the controller too). If you bought the kit above — you're set.</p>
+        <p data-l="he">יש רק דבר אחד להלחים: מחבר <span class="mono">JST‑3</span> <strong>נקבה</strong> אל ה־ESP32. שני חוטים בלבד:</p>
+        <p data-l="en">There's only one thing to solder: a <span class="mono">JST‑3</span> <strong>female</strong> connector onto the ESP32. Just two wires:</p>
         <ul>
-          <li data-l="he"><strong>WS2812B → 5V.</strong> WS2815 והרבה רצועות WS2811 → <strong>12V</strong>. חלק → 24V.</li>
-          <li data-l="en"><strong>WS2812B → 5V.</strong> WS2815 and many WS2811 strips → <strong>12V</strong>. Some → 24V.</li>
-          <li data-l="he">מתח הספק חייב להיות זהה למתח הלדים. <strong>5V לדים ← ספק 5V.</strong> מתח שגוי = רצועה מתה או שרופה.</li>
-          <li data-l="en">The supply voltage must equal the LED voltage. <strong>5V LEDs ← 5V supply.</strong> Wrong voltage = dead or burnt strip.</li>
-          <li data-l="he"><strong>5V מול 12V:</strong> באותה עוצמת אור, רצועת 12V מושכת פחות זרם → פחות נפילת מתח → פחות נקודות הזרקה, חוט דק יותר, ריצות ארוכות יותר. החיסרון: רצועות 12V ותיקות (WS2811) שולטות ב־3 נורות כפיקסל אחד (רזולוציה נמוכה). <strong>WS2815</strong> הוא 12V אבל פיקסל־לנורה עם קו דאטה גיבוי — בחירה מצוינת למיצבים גדולים.</li>
-          <li data-l="en"><strong>5V vs 12V:</strong> at the same brightness a 12V strip pulls less current → less voltage drop → fewer injection points, thinner wire, longer runs. Downside: older 12V strips (WS2811) control 3 LEDs as one pixel (lower resolution). <strong>WS2815</strong> is 12V but per-pixel with a backup data line — an excellent choice for large installs.</li>
+          <li data-l="he"><span class="chip g">GND</span> → פין <span class="mono">GND</span> כלשהו בבקר.</li>
+          <li data-l="en"><span class="chip g">GND</span> → any <span class="mono">GND</span> pin on the board.</li>
+          <li data-l="he"><span class="chip d">DATA</span> → פין <span class="mono">GPIO&nbsp;16</span> (אפשר גם פינים אחרים; נרחיב בהמשך).</li>
+          <li data-l="en"><span class="chip d">DATA</span> → pin <span class="mono">GPIO&nbsp;16</span> (other pins work too; more below).</li>
         </ul>
+        <p data-l="he">זהו — כבה את המלחם, לא צריך אותו יותר. מכאן הכל בתקעים: כבל <span class="mono">JST‑3</span> מהבקר לרצועה, ועוד כבלי <span class="mono">JST‑3</span> בין רצועה לרצועה. את ה־ESP32 עצמו מזינים ממטען טלפון 5V.</p>
+        <p data-l="en">That's it — switch off the iron, you're done with it. From here it all plugs in: a <span class="mono">JST‑3</span> cable from controller to strip, and more <span class="mono">JST‑3</span> cables strip‑to‑strip. Power the ESP32 itself from a 5V phone charger.</p>
 
-        <!-- the math -->
-        <h3><span class="h3n">C</span><span data-l="he">כמה חשמל? החשבון של WS2812</span><span data-l="en">How much power? The WS2812 math</span></h3>
-        <p data-l="he">כל פיקסל WS2812B הוא בעצם <strong>שלוש נורות זעירות</strong> (אדום, ירוק, כחול). בעוצמה מלאה, לבן מלא, כל פיקסל מושך עד <strong>~60mA ב־5V ≈ 0.3W</strong> (הגזרה: 3 × ~20mA × 5V).</p>
-        <p data-l="en">Each WS2812B pixel is really <strong>three tiny LEDs</strong> (red, green, blue). At full brightness, full white, each pixel draws up to <strong>~60mA at 5V ≈ 0.3W</strong> (derivation: 3 × ~20mA × 5V).</p>
-
+        <!-- how much power -->
+        <h3><span class="h3n">D</span><span data-l="he">כמה חשמל? כמה רצועות?</span><span data-l="en">How much power? How many strips?</span></h3>
+        <p data-l="he">בתיאוריה כל לד מושך עד <strong>0.3W</strong>. אבל הנה ההפתעה הנעימה: בפועל <strong>רצועה של 5 מטר מושכת רק בערך 1–3 אמפר</strong> — כמעט בלי קשר לצפיפות. הסיבה: ב־5V המתח יורד לאורך הנחושת ומגביל את הזרם מעצמו, אז אי אפשר באמת להגיע למקסימום התיאורטי.</p>
+        <p data-l="en">In theory each LED draws up to <strong>0.3W</strong>. But here's the happy surprise: in practice <strong>a 5‑metre strip only pulls about 1–3 amps</strong> — almost regardless of density. Why: at 5V the voltage sags along the copper and limits the current by itself, so you can't really reach the theoretical max.</p>
         <div class="specs">
           <div class="spec"><p class="k" data-l="he">מתח</p><p class="k" data-l="en">Voltage</p><p class="v">5<small>V</small></p></div>
-          <div class="spec"><p class="k" data-l="he">לפיקסל (לבן מלא)</p><p class="k" data-l="en">Per pixel (full white)</p><p class="v">60<small>mA</small></p></div>
-          <div class="spec"><p class="k" data-l="he">הספק לפיקסל</p><p class="k" data-l="en">Power / pixel</p><p class="v">0.3<small>W</small></p></div>
-          <div class="spec"><p class="k" data-l="he">1000 פיקסלים = מקסימום</p><p class="k" data-l="en">1000 pixels = max</p><p class="v">300<small>W · 60A</small></p></div>
+          <div class="spec"><p class="k" data-l="he">רצועת 5 מ׳ (בפועל)</p><p class="k" data-l="en">5m strip (real)</p><p class="v">1–3<small>A</small></p></div>
+          <div class="spec"><p class="k" data-l="he">לתכנון — לרצועה</p><p class="k" data-l="en">Plan per strip</p><p class="v">15<small>W</small></p></div>
+          <div class="spec"><p class="k" data-l="he">ספק 60A מחזיק</p><p class="k" data-l="en">A 60A supply runs</p><p class="v">20–60<small> str</small></p></div>
         </div>
+        <p data-l="he">כלל לתכנון: <strong>~15W לכל רצועת 5 מטר</strong> (ואפקטים מושכים אפילו פחות — עד עשירית מזה). כלומר <strong>100 מטר לדים ≈ 300W</strong>. ספק אחד של 5V/60A מזין 20–60 רצועות; צריך יותר — מוסיפים ספק.</p>
+        <p data-l="en">Planning rule: <strong>~15W per 5‑metre strip</strong> (and animations pull even less — down to a tenth of that). So <strong>100m of LEDs ≈ 300W</strong>. One 5V/60A supply runs 20–60 strips; need more — add another supply.</p>
 
-        <p data-l="he">כלומר במקרה הגרוע ביותר — כל פיקסל בלבן מלא — <strong>1000 פיקסלים = 60A = 300W</strong>. אבל אנימציה אמיתית כמעט אף פעם לא מדליקה את הכל בלבן מלא בבת אחת; סצנה מוזיקלית טיפוסית ממצעת 20%–50% מזה. לכן ספק <strong>300W (5V/60A)</strong> מזין בנוחות ~1000 פיקסלים של אנימציה — ואם תגביל בהירות גלובלית (נניח 60%), אפילו יותר.</p>
-        <p data-l="en">So worst case — every pixel full white — <strong>1000 pixels = 60A = 300W</strong>. But real animation almost never lights everything full white at once; a typical music scene averages 20%–50% of that. So a <strong>300W (5V/60A)</strong> supply comfortably feeds ~1000 pixels of animation — and if you cap global brightness (say 60%), even more.</p>
-
-        <div class="call rule">
-          <div class="ct" data-l="he">🔢 כלל אצבע לגודל הספק</div>
-          <div class="ct" data-l="en">🔢 PSU sizing rule</div>
-          <p data-l="he">מקסימום תיאורטי = <code>מספר פיקסלים × 0.3W</code> (60mA). לתכנון תוכן אנימציה טיפוסי אפשר להעריך <strong>~0.1W (20mA) לפיקסל</strong> — בערך שליש מהמקסימום. הכלל: תכנן כך שהשיא האמיתי יישאר מתחת ל־<strong>80%</strong> מהדירוג של הספק (מרווח של ~25%). ל־1000 פיקסלים: לבן מלא מובטח → מחלקת <strong>~375W (80A)</strong> ב־5V; תוכן אנימציה רגיל → ספק <strong>200W (40A)</strong> בשפע. לעולם אל תריץ ספק ברציפות על 100%.</p>
-          <p data-l="en">Theoretical max = <code>pixels × 0.3W</code> (60mA). For planning typical animated content, reckon <strong>~0.1W (20mA) per pixel</strong> — about a third of max. The rule: size so your real peak stays under <strong>80%</strong> of the supply's rating (~25% headroom). For 1000 pixels: guaranteed full white → a <strong>~375W (80A)</strong> class at 5V; ordinary animated content → a <strong>200W (40A)</strong> supply with room to spare. Never run a supply continuously at 100%.</p>
-        </div>
-        <div class="call">
-          <div class="ct" data-l="he">ℹ️ למה לפעמים כתוב מספר כפול</div>
-          <div class="ct" data-l="en">ℹ️ Why you'll sometimes see double</div>
-          <p data-l="he">ברשת מסתובב לפעמים ״0.6W לנורה / 600W ל־1000״. זה מספר שמרני־מדי או ספירה כפולה; המדידה בפועל ללבן מלא היא <strong>60mA / 0.3W לפיקסל</strong>. עדיף לתכנן לפי 0.3W ולהוסיף מרווח בכוונה, מאשר לשלם על ספק כפול בגודלו.</p>
-          <p data-l="en">You'll sometimes see "0.6W/LED / 600W per 1000". That's an over-conservative or double-counted figure; the measured full-white draw is <strong>60mA / 0.3W per pixel</strong>. Better to plan at 0.3W and add margin on purpose than to pay for a supply twice the size.</p>
-        </div>
-
-        <!-- the PSU -->
-        <h3><span class="h3n">D</span><span data-l="he">ספק הכוח (״השנאי״)</span><span data-l="en">The power supply</span></h3>
-        <p data-l="he">מה שמכנים בדיבור ״שנאי״ הוא בעצם <strong>ספק כוח מיתוג</strong> שממיר חשמל הרשת (230V AC) למתח DC נמוך ומיוצב. בחר אותו לפי מתח הלדים ולפי הזרם הכולל שחישבת.</p>
-        <p data-l="en">What people loosely call a "transformer" is really a <strong>switching power supply</strong> that converts mains (230V AC) into low, regulated DC. Choose it by your LED voltage and by the total current you computed.</p>
-        <ul>
-          <li data-l="he"><strong>סוס העבודה המומלץ: <span class="mono">MEAN WELL LRS-350-5</span></strong> — 5V, 60A (300W). פענוח השם: <span class="mono">LRS</span> = הסדרה הסגורה, <span class="mono">350</span> = מחלקת הוואט, <span class="mono">-5</span> = מוצא 5V (ב־5V הספק מוגבל ל־60A ≈ 300W). אמין, זול, נמצא בכל חנות.</li>
-          <li data-l="en"><strong>Recommended workhorse: <span class="mono">MEAN WELL LRS-350-5</span></strong> — 5V, 60A (300W). Decoding the name: <span class="mono">LRS</span> = the enclosed series, <span class="mono">350</span> = watt class, <span class="mono">-5</span> = 5V output (at 5V it's current-limited to 60A ≈ 300W). Reliable, cheap, everywhere.</li>
-          <li data-l="he">לחתיכות קטנות: <span class="mono">LRS-150-5</span> (5V/30A) או <span class="mono">LRS-100-5</span>. אותה משפחה, פחות זרם.</li>
-          <li data-l="en">For smaller pieces: <span class="mono">LRS-150-5</span> (5V/30A) or <span class="mono">LRS-100-5</span>. Same family, less current.</li>
-          <li data-l="he">בצד ה־DC יש כמה זוגות מהדקי <span class="mono">+V</span> / <span class="mono">−V</span> — נצל אותם כדי לפצל את העומס. בצד ה־AC יש <span class="mono">L</span> (פאזה), <span class="mono">N</span> (אפס) ו־<span class="mono">⏚</span> (הארקה).</li>
-          <li data-l="en">The DC side has several <span class="mono">+V</span> / <span class="mono">−V</span> terminal pairs — use them to split the load. The AC side has <span class="mono">L</span> (live), <span class="mono">N</span> (neutral) and <span class="mono">⏚</span> (earth).</li>
-        </ul>
+        <!-- the power supply -->
+        <h3><span class="h3n">E</span><span data-l="he">ספק הכוח</span><span data-l="en">The power supply</span></h3>
+        <p data-l="he">הספק ממיר את חשמל הקיר ל־5V שהלדים אוהבים. בצד ה־DC יש שלושה זוגות מהדקי <span class="mono">V+</span> / <span class="mono">V−</span>. חבר מחבר <span class="mono">JST‑2</span> נקבה: החוט השחור ל־<span class="mono">V−</span>, האדום ל־<span class="mono">V+</span>. זהו.</p>
+        <p data-l="en">The supply turns wall power into the 5V the LEDs want. Its DC side has three pairs of <span class="mono">V+</span> / <span class="mono">V−</span> terminals. Wire a <span class="mono">JST‑2</span> female: black to <span class="mono">V−</span>, red to <span class="mono">V+</span>. Done.</p>
         <div class="call danger">
-          <div class="ct" data-l="he">⚡ בטיחות רשת החשמל</div>
-          <div class="ct" data-l="en">⚡ Mains safety</div>
-          <p data-l="he">230V הורגים. חבר תמיד את מהדק ה־<strong>הארקה (⏚)</strong> למארז המתכת של הספק. הוסף נתיך בכניסת ה־AC, שחרור מאמץ (strain relief) לכבל, ובמיצב ציבורי — מפסק פחת (RCD) על קו ההזנה. אם אתה לא בטוח בחיווט רשת — תן למישהו מוסמך לעשות את הצד הזה.</p>
-          <p data-l="he">שתי מלכודות ספציפיות ל־LRS: (1) יש בו לרוב <strong>מתג בורר 115V/230V</strong> — במצב הלא נכון הספק נשרף מיד. ודא שהוא על 230V. (2) ה־LRS הוא <strong>IP20</strong> (פתוח, עם מהדקי רשת חשופים — לא אטום למים); בחוץ הוא חייב קופסה אטומה ומורם מהקרקע.</p>
-          <p data-l="en">Mains kills. Always connect the <strong>earth (⏚)</strong> terminal to the supply's metal case. Add a fuse on the AC input, strain-relief the cable, and for a public piece — an RCD/GFCI on the feed. Not confident with mains wiring? Have someone qualified do that side.</p>
-          <p data-l="en">Two LRS-specific traps: (1) it usually has a <strong>115V/230V selector switch</strong> — set wrong, the supply dies instantly. Confirm it's on 230V. (2) The LRS is <strong>IP20</strong> (open-frame, exposed mains terminals — not waterproof); outdoors it must live in a sealed box, raised off the ground.</p>
+          <div class="ct" data-l="he">⚡ הצד של 220V — מסוכן</div>
+          <div class="ct" data-l="en">⚡ The 220V side — dangerous</div>
+          <p data-l="he">לספק צריך לחבר כבל 220V. זה החלק המסוכן היחיד, וזה הדבר היחיד שהמדריך <strong>לא</strong> מלמד. אם אתה לא בטוח עם חשמל רשת — <strong>בקש עזרה ממישהו שכן</strong>. הרחק את ה־220 מהקהל, וחבר הארקה (⏚) למארז המתכת של הספק.</p>
+          <p data-l="en">The supply needs a 220V cable. This is the one dangerous part, and the one thing this guide does <strong>not</strong> teach. If you're not confident with mains — <strong>get help from someone who is</strong>. Keep the 220V away from the crowd, and connect earth (⏚) to the supply's metal case.</p>
         </div>
+        <p data-l="he">חלופה קלה למיצב קטן: ספק 5V עם תקע קיר מובנה (למשל 5V/10A) — פחות חזק, מחזיק 10–30 רצועות, אבל אין מה לחבר בצד ה־220.</p>
+        <p data-l="en">Easy alternative for a small piece: a 5V brick with a built‑in wall plug (say 5V/10A) — less powerful, runs 10–30 strips, but nothing to wire on the 220V side.</p>
 
         <!-- power injection -->
-        <h3><span class="h3n">E</span><span data-l="he">הזרקת מתח (Power Injection)</span><span data-l="en">Power injection</span></h3>
-        <p data-l="he"><span class="lead-in">הבעיה:</span> הנחושת ברצועה דקה. זרם שזורם לאורכה מפיל מתח (<code>V = I·R</code>). ב־5V אפילו נפילה של ~1V היא אחוז גדול — הקצה הרחוק מתעמעם וגם <strong>סוטה בצבע</strong>: לבן הופך כתום/אדמדם, כי הנורות הכחולה והירוקה (שצריכות מתח גבוה יותר) דועכות ראשונות.</p>
-        <p data-l="en"><span class="lead-in">The problem:</span> strip copper is thin. Current flowing down it drops voltage (<code>V = I·R</code>). At 5V even a ~1V drop is a big percentage — the far end dims and <strong>shifts color</strong>: white turns orange/red, because the blue and green LEDs (which need more voltage) fade first.</p>
-        <p data-l="he"><span class="lead-in">מתי זה קורה:</span> ברצועת 5V בבהירות גבוהה זה נראה לעין כבר אחרי בערך <strong>1–1.5 מטר</strong> (~60–100 פיקסלים בצפיפות 60/מ׳).</p>
-        <p data-l="en"><span class="lead-in">When it bites:</span> on a 5V strip at high brightness it's visible after roughly <strong>1–1.5&nbsp;m</strong> (~60–100 pixels at 60/m).</p>
-        <p data-l="he"><span class="lead-in">הפתרון — הזרקת מתח:</span> להזין <span class="chip v">+V</span> ו־<span class="chip g">GND</span> מהספק בכמה נקודות לאורך הרצועה, לא רק בהתחלה. קו ה־<span class="chip d">DATA</span> נשאר שרשרת טורית אחת; רק המתח מוזרק במקביל בנקודות (״טאפים״).</p>
-        <p data-l="en"><span class="lead-in">The fix — power injection:</span> feed <span class="chip v">+V</span> and <span class="chip g">GND</span> from the supply at several points along the strip, not just the start. The <span class="chip d">DATA</span> line stays one serial chain; only power is fed in parallel at taps.</p>
-        <ul>
-          <li data-l="he">תמיד להזין את <strong>שני הקצוות</strong>.</li>
-          <li data-l="en">Always feed <strong>both ends</strong>.</li>
-          <li data-l="he">ב־5V בבהירות מלאה — טאפ בערך כל <strong>1–1.5 מטר (~100 פיקסלים)</strong>; בבהירות בינונית מספיק כל 2–5 מטר.</li>
-          <li data-l="en">5V at full brightness — a tap roughly every <strong>1–1.5&nbsp;m (~100 pixels)</strong>; at moderate brightness every 2–5&nbsp;m is fine.</li>
-          <li data-l="he">הרץ את חוטי ההזרקה מפס מתח משותף בחוט <strong>עבה</strong> (בערך <span class="mono">18 AWG</span> לטאפים קצרים, <span class="mono">16–14 AWG</span> לריצות ראשיות). התאם את עובי החוט לזרם שהוא נושא.</li>
-          <li data-l="en">Run injection power from a common bus in <strong>thick</strong> wire (about <span class="mono">18 AWG</span> for short taps, <span class="mono">16–14 AWG</span> for main runs). Match wire gauge to the current it carries.</li>
-          <li data-l="he">כל ה־<span class="chip v">+V</span> המוזרק מגיע מאותו פס של הספק; כל ה־<span class="chip g">GND</span> משותף.</li>
-          <li data-l="en">All injected <span class="chip v">+V</span> comes from the same supply rail; all <span class="chip g">GND</span> is common.</li>
-        </ul>
+        <h3><span class="h3n">F</span><span data-l="he">הזרקת מתח — איך החשמל מגיע ללדים</span><span data-l="en">Power injection — getting power to the strips</span></h3>
+        <p data-l="he">זוכר שאמרנו שהחשמל בא מהספק ולא מהבקר? ככה זה עובד: מהספק יוצא כבל <span class="mono">JST‑2</span> אל <strong>מתאם הזרקה</strong> קטן שנכנס בין רצועה לרצועה — בלי הלחמות. הוא ״מזריק״ 5V ו־GND ישר לרצועה.</p>
+        <p data-l="en">Remember we said power comes from the supply, not the controller? Here's how: a <span class="mono">JST‑2</span> cable runs from the supply to a little <strong>injection adapter</strong> that clips in between strips — no soldering. It "injects" 5V and GND straight into the strip.</p>
+        <p data-l="he">למה בכלל צריך? כי ב־5V הקצה הרחוק של רצועה ארוכה מתעמעם ו<strong>נהיה כתמתם</strong> (הלבן מאבד קודם את הכחול). הפתרון: להזין חשמל בכמה נקודות, לא רק בהתחלה.</p>
+        <p data-l="en">Why bother? Because at 5V the far end of a long run gets dim and <strong>turns orange</strong> (white loses its blue first). The fix: feed power at several points, not just the start.</p>
+        <p class="lead-in" data-l="he">הכלל הפשוט: הזרק בכל רצועה, או כל שתי רצועות. הרבה לדים או בהירות גבוהה — כל רצועה. הדאטה, לעומת זאת, ממשיך בשרשרת אחת דרך הכל.</p>
+        <p class="lead-in" data-l="en">Simple rule: inject on every strip, or every two strips. Lots of LEDs or high brightness — every strip. Data, on the other hand, keeps flowing in one chain through everything.</p>
 
         <figure>
           <div class="plate">
@@ -531,45 +703,29 @@
           <figcaption data-l="en"><b>Power injection.</b> +V and GND are fed at both ends and the middle from thick buses; data enters DIN once and flows serially through every pixel.</figcaption>
         </figure>
 
-        <div class="call tip">
-          <div class="ct" data-l="he">💡 למה 12V חוסך כאב ראש</div>
-          <div class="ct" data-l="en">💡 Why 12V saves headaches</div>
-          <p data-l="he">באותה בהירות, רצועת 12V מושכת בערך פי 2.4 פחות זרם → נפילת מתח קטנה פי 2.4 → מזריקים כל כמה מטרים במקום כל מטר. זו הסיבה שמיצבי ברן גדולים נוטים ל־12V (WS2815).</p>
-          <p data-l="en">At the same brightness a 12V strip pulls ~2.4× less current → ~2.4× less voltage drop → inject every few metres instead of every metre. That's why big Burn pieces lean 12V (WS2815).</p>
+        <div class="call warn">
+          <div class="ct" data-l="he">🔥 נתיך = בטיחות</div>
+          <div class="ct" data-l="en">🔥 A fuse = safety</div>
+          <p data-l="he">שים נתיך פשוט על חוט ה־+ שיוצא מהספק, בגודל שמתאים לחוט. ספק של 60A ידחוף המון זרם לתוך קצר — הנתיך קוטע את זה לפני שהחוט מתחמם ומתחיל שריפה. זול, קטן, ומציל.</p>
+          <p data-l="en">Put a simple fuse on the + wire coming out of the supply, sized to the wire. A 60A supply will shove huge current into a short — the fuse cuts it before a wire overheats and starts a fire. Cheap, small, life‑saving.</p>
         </div>
 
-        <div class="call danger">
-          <div class="ct" data-l="he">🔥 נתיכים — הסכנה מס׳ 1 לשריפה</div>
-          <div class="ct" data-l="en">🔥 Fuses — the #1 fire hazard</div>
-          <p data-l="he">כל מוצא של ספק וכל נקודת הזרקה צריכים <strong>נתיך בטור</strong>, בצמוד לספק, בגודל שמתאים ל<strong>עובי החוט</strong> — לא לספק. ה־LRS-350-5 ישמח לדחוף 60A לתוך רצועה שנקמטה או שנוצר בה קצר; בלי נתיך, <strong>החוט עצמו הופך לנתיך</strong> ונשרף לפני שההגנה של הספק בכלל מתעוררת.</p>
-          <p data-l="en">Every supply output and every injection tap needs an <strong>inline fuse</strong>, right at the supply, sized to the <strong>wire</strong> — not the supply. An LRS-350-5 will happily push 60A into a pinched or shorted strip; with no fuse, <strong>the wire itself becomes the fuse</strong> and burns before the supply's protection ever trips.</p>
-        </div>
-        <div class="call tip">
-          <div class="ct" data-l="he">🧵 עובי חוט (AWG)</div>
-          <div class="ct" data-l="en">🧵 Wire gauge (AWG)</div>
-          <p data-l="he">אמפרים בלי עובי חוט זה חצי שיעור מסוכן. ב־5V תקציב נפילת המתח זעיר (רק 0.5V ל־10%), אז צריך נחושת עבה: בערך <span class="mono">14 AWG</span> לריצת 5 מטר ב־5V, ופס של 60A דורש גייג׳ כבד עוד יותר. התאם תמיד את עובי החוט לזרם שהוא נושא ולנתיך שמגן עליו.</p>
-          <p data-l="en">Amps without wire gauge is a dangerous half-lesson. At 5V the voltage-drop budget is tiny (just 0.5V for 10%), so you need thick copper: about <span class="mono">14 AWG</span> for a 5m 5V run, and a 60A bus needs heavier still. Always match wire gauge to the current it carries and to the fuse protecting it.</p>
-        </div>
-
-        <!-- multiple PSUs -->
-        <h3><span class="h3n">F</span><span data-l="he">חיבור כמה ספקי כוח יחד</span><span data-l="en">Combining multiple supplies</span></h3>
-        <p data-l="he">כשספק אחד לא מספק את כל הזרם (למשל 2000+ פיקסלים), משתמשים בכמה — <strong>כל ספק מזין מקטע (סגמנט) משלו</strong> ברצועה. שני כללים, ואסור לפספס אף אחד:</p>
-        <p data-l="en">When one supply can't provide the total current (say 2000+ pixels), use several — <strong>each supply powers its own segment</strong> of the strip. Two rules, and you can't miss either:</p>
-
+        <!-- multiple supplies -->
+        <h3><span class="h3n">G</span><span data-l="he">יותר מספק אחד</span><span data-l="en">More than one supply</span></h3>
+        <p data-l="he">מיצב גדול צריך כמה ספקים — כל ספק מזין חלק אחר של הלדים. שני כללים, ואסור לפספס אף אחד:</p>
+        <p data-l="en">A big piece needs several supplies — each one feeds a different part of the LEDs. Two rules, and you can't miss either:</p>
         <div class="call rule">
-          <div class="ct" data-l="he">כלל 1 · GND משותף — תמיד</div>
-          <div class="ct" data-l="en">Rule 1 · Common ground — always</div>
-          <p data-l="he">חבר את כל מהדקי ה־<span class="chip g">GND</span> (−V) של כל הספקים יחד, וגם ל־GND של הבקר ולכל סגמנט. אות הדאטה נמדד ביחס ל־GND; בלי אפס משותף הפיקסלים לא יכולים לקרוא את הדאטה — תקבל ג׳יבריש או כלום.</p>
-          <p data-l="en">Tie every supply's <span class="chip g">GND</span> (−V) terminal together, plus the controller's GND and every segment's GND. The data signal is measured relative to GND; without a shared ground the pixels can't read data — you'll get garbage or nothing.</p>
+          <div class="ct" data-l="he">כלל 1 · חבר את כל האדמות (GND) יחד — תמיד</div>
+          <div class="ct" data-l="en">Rule 1 · Join all grounds (GND) — always</div>
+          <p data-l="he">כל ה־<span class="chip g">GND</span> — של כל הספקים, של הבקר ושל כל הרצועות — מחוברים יחד. גם אם הספקים שונים. בלי אדמה משותפת הדאטה מתבלבל: ריצוד, לדים קופצים, רעש.</p>
+          <p data-l="en">Every <span class="chip g">GND</span> — of all supplies, the controller and all strips — tied together. Even if the supplies are different. Without a shared ground the data garbles: flicker, jumping LEDs, noise.</p>
         </div>
         <div class="call danger">
-          <div class="ct" data-l="he">כלל 2 · לעולם לא לחבר +V של שני ספקים</div>
-          <div class="ct" data-l="en">Rule 2 · Never join two supplies' +V</div>
-          <p data-l="he">שני ספקים אף פעם לא בדיוק באותו מתח. אם תחבר <span class="chip v">+V</span> ל־<span class="chip v">+V</span>, הגבוה יזרים אחורה לתוך הנמוך — זרם ״נשפך״ בין הספקים, הם מתחממים, הרגולציה מתערערת ואחד עלול להישרף. במקום זה: <strong>נתק (חתוך) את פס ה־+V ברצועה בין שני סגמנטים</strong> שמוזנים מספקים שונים, כך שה־+V של כל ספק מזין רק את הסגמנט שלו.</p>
-          <p data-l="en">Two supplies are never at exactly the same voltage. Wire <span class="chip v">+V</span> to <span class="chip v">+V</span> and the higher one back-feeds the lower — current dumps between supplies, they overheat, regulation goes unstable and one can fail. Instead: <strong>cut the +V trace on the strip between two segments</strong> fed by different supplies, so each supply's +V feeds only its own segment.</p>
+          <div class="ct" data-l="he">כלל 2 · לעולם אל תחבר את ה־+ של שני ספקים</div>
+          <div class="ct" data-l="en">Rule 2 · Never join two supplies' +</div>
+          <p data-l="he">שני ספקים אף פעם לא בדיוק באותו מתח, אז חיבור <span class="chip v">+</span> ל־<span class="chip v">+</span> גורם להם ״להילחם״ ולהישרף. הפתרון פשוט: כל ספק מזין את הרצועות שלו בלבד, וה־+ שלו לא נפגש עם ה־+ של ספק אחר. הדאטה וה־GND כן ממשיכים דרך הכל.</p>
+          <p data-l="en">Two supplies are never at exactly the same voltage, so joining <span class="chip v">+</span> to <span class="chip v">+</span> makes them "fight" and burn out. The fix is simple: each supply feeds only its own strips, and its + never meets another supply's +. Data and GND do carry on through everything.</p>
         </div>
-        <p data-l="he">קו ה־<span class="chip d">DATA</span> כן ממשיך ברציפות מעבר לחתך — הוא רק צריך את ה־GND המשותף כדי לחצות את הגבול. אז בגבול בין סגמנטים: <strong>GND מחובר, DATA ממשיך, +V מנותק.</strong> תוספות בטיחות: נתיך על ה־+V של כל ספק, הזנת רשת מוארקת נפרדת לכל ספק, וסגמנטים מאוזנים בערך במספר הפיקסלים.</p>
-        <p data-l="en">The <span class="chip d">DATA</span> line does continue across the cut — it only needs the common ground to cross the boundary. So at a segment boundary: <strong>GND joined, DATA continues, +V separated.</strong> Extras: fuse each supply's +V feed, give each supply its own earthed mains input, and keep segments roughly equal in pixel count.</p>
 
         <figure>
           <div class="plate">
@@ -618,33 +774,14 @@
           <figcaption data-l="en"><b>Two supplies, one strip.</b> At the segment boundary: +V is cut so the supplies never meet, GND is shared by all, and data crosses continuously.</figcaption>
         </figure>
 
-        <!-- controller wiring -->
-        <h3><span class="h3n">G</span><span data-l="he">חיווט הבקר (״המוח״)</span><span data-l="en">Wiring the controller</span></h3>
-        <p data-l="he">הבקר (מארח KivSee / Raspberry Pi / ESP32 / בקר פיקסלים ייעודי) מוציא את אות ה־<span class="chip d">DATA</span> מפין GPIO אחד, והוא מתחבר ל־<strong>DIN</strong> (כניסת הדאטה) של הרצועה. רצועות הן כיווניות — לך לפי החצים המודפסים: <span class="mono">DIN → DOUT</span>.</p>
-        <p data-l="en">The controller (KivSee host / Raspberry Pi / ESP32 / dedicated pixel controller) outputs the <span class="chip d">DATA</span> signal on one GPIO pin, connecting to the strip's <strong>DIN</strong> (data-in). Strips are directional — follow the printed arrows: <span class="mono">DIN → DOUT</span>.</p>
-
-        <div class="call danger">
-          <div class="ct" data-l="he">🔗 שוב: GND משותף</div>
-          <div class="ct" data-l="en">🔗 Again: common ground</div>
-          <p data-l="he">ה־GND של הבקר חייב להתחבר ל־GND של הספק ושל הרצועה. זו <strong>טעות מס׳ 1 של מתחילים</strong>. הבקר בדרך כלל <em>לא</em> מספק את מתח הלדים (זה בא מהספק) — אבל האפסים שלהם חייבים להתחבר.</p>
-          <p data-l="en">The controller's GND must connect to the supply's GND and the strip's GND. This is the <strong>#1 beginner mistake</strong>. The controller usually does <em>not</em> supply the LED power (that comes from the PSU) — but their grounds must be joined.</p>
-        </div>
-
-        <p data-l="he" class="lead-in">שני רכיבים שמגנים על הפיקסל הראשון:</p>
-        <p data-l="en" class="lead-in">Two parts that protect the first pixel:</p>
-        <ul>
-          <li data-l="he"><strong>נגד ~330–470Ω בטור</strong> על קו הדאטה ממש בכניסה לפיקסל הראשון — מרגיע ״ריצוד״ (ringing) והחזרים באות.</li>
-          <li data-l="en"><strong>A ~330–470Ω series resistor</strong> on the data line right at the first pixel — tames signal ringing and reflections.</li>
-          <li data-l="he"><strong>קבל ~1000µF</strong> (מתח נקוב ≥6.3V, עדיף 16V; שים לב לקוטביות) בין +V ל־GND בכניסת הרצועה — בולע את קפיצת הזרם (inrush) ברגע ההדלקה ומגן על הפיקסלים הראשונים.</li>
-          <li data-l="en"><strong>A ~1000µF capacitor</strong> (rated ≥6.3V, prefer 16V; mind polarity) across +V/GND at the strip input — absorbs the inrush spike at power-on and protects the first pixels.</li>
-        </ul>
-
-        <div class="call warn">
-          <div class="ct" data-l="he">⚠️ מתח אות: 3.3V מול 5V</div>
-          <div class="ct" data-l="en">⚠️ Signal level: 3.3V vs 5V</div>
-          <p data-l="he">WS2812B רוצה ״1״ בדאטה ב־<strong>3.5V ומעלה</strong> (0.7 מהמתח), אבל GPIO של Pi/ESP32 מוציא רק ~3.3V — כלומר טכנית <strong>מחוץ למפרט</strong>. בריצות קצרות זה לפעמים ״עובד״, אבל למיצב קבוע הוסף <strong>מתאם רמות (level shifter)</strong> כמו <span class="mono">74AHCT125</span> או <span class="mono">74HCT245</span> שמרים את הדאטה ל־5V. הימנע ממתאמים דו־כיווניים אוטומטיים (<span class="mono">TXB0108</span>/<span class="mono">TXS0102</span>/BSS138) — הם איטיים מדי לאות המהיר הזה. שמור על כבל הדאטה לפיקסל הראשון קצר, או זוג שזור עם GND.</p>
-          <p data-l="en">WS2812B wants a data "1" at <strong>≥3.5V</strong> (0.7×VDD), but a Pi/ESP32 GPIO only puts out ~3.3V — technically <strong>out of spec</strong>. Short runs sometimes "work", but for a permanent piece add a <strong>level shifter</strong> such as a <span class="mono">74AHCT125</span> or <span class="mono">74HCT245</span> to lift data to 5V. Avoid auto-direction bidirectional shifters (<span class="mono">TXB0108</span>/<span class="mono">TXS0102</span>/BSS138) — too slow for this fast signal. Keep the first-pixel data lead short, or use twisted pair with GND.</p>
-        </div>
+        <!-- common ground -->
+        <h3><span class="h3n">H</span><span data-l="he">אדמה משותפת — הטעות שכולם עושים</span><span data-l="en">Common ground — the mistake everyone makes</span></h3>
+        <p data-l="he">אם יש רק דבר אחד לזכור מהפרק הזה — זה זה. הבקר ״מדבר״ עם הלדים בכך שהוא שולח 0V או 5V, וה־0 הזה נמדד ביחס ל<strong>אדמה משותפת</strong>. אם האדמה של הבקר לא מחוברת לאדמה של הלדים ושל הספק — ההודעה מתבלבלת: ריצוד, לדים שקופצים או לא נדלקים, רעש כללי.</p>
+        <p data-l="en">If there's one thing to remember from this chapter — it's this. The controller "talks" to the LEDs by sending 0V or 5V, and that 0 is measured against a <strong>shared ground</strong>. If the controller's ground isn't tied to the LEDs' and the supply's ground — the message garbles: flicker, LEDs jumping or not lighting, general noise.</p>
+        <p class="lead-in" data-l="he">אז: בקר, ספק וכל הרצועות — כולם חולקים <span class="chip g">GND</span> אחד. יש בעיות שמרגישות כמו ״רעש״? הדבר הראשון לבדוק — האדמות.</p>
+        <p class="lead-in" data-l="en">So: controller, supply and every strip — all share one <span class="chip g">GND</span>. Got problems that feel like "noise"? First thing to check — the grounds.</p>
+        <p style="font-size:14px;color:var(--ink-faint);max-width:65ch" data-l="he">לא חובה, אבל נחמד: נגד קטן (~330Ω) על קו הדאטה בכניסה לרצועה, וקבל (~1000µF) על ה־5V בכניסה — מגנים על הלד הראשון. הרבה בקרים מוכנים כבר כוללים אותם.</p>
+        <p style="font-size:14px;color:var(--ink-faint);max-width:65ch" data-l="en">Optional but nice: a small resistor (~330Ω) on the data line at the strip input, and a capacitor (~1000µF) across the 5V input — they protect the first LED. Many ready‑made controller boards already include them.</p>
 
         <figure>
           <div class="plate">
@@ -699,30 +836,31 @@
           <figcaption data-l="en"><b>The full basic wiring.</b> The supply feeds power, the controller feeds data through a 330Ω resistor, a 1000µF cap sits at the input — and above all, everyone shares one GND.</figcaption>
         </figure>
 
+        <!-- scaling -->
+        <h3><span class="h3n">I</span><span data-l="he">יותר מ־500 לדים? עוד קו דאטה</span><span data-l="en">More than 500 LEDs? Add a data line</span></h3>
+        <p data-l="he">הפרוטוקול של הלדים איטי, אז בקר יחיד מרענן בנוחות עד בערך <strong>500–600 לדים</strong> על קו דאטה אחד (בקצב של ~60 תמונות בשנייה — חלק). רוצה יותר — עד ~<strong>3000 לדים</strong> מבקר אחד — פשוט מוסיפים קווי דאטה: מלחימים חוט לעוד פין (כל פין עם סימן <span class="mono">PWM</span> מתאים), מחברים לאותה אדמה, ומגדירים ב־WLED. זהו.</p>
+        <p data-l="en">The LED protocol is slow, so a single controller comfortably refreshes up to about <strong>500–600 LEDs</strong> on one data line (~60 frames per second — smooth). Want more — up to ~<strong>3000 LEDs</strong> from one controller — just add data lines: solder a wire to another pin (any pin marked <span class="mono">PWM</span> works), tie it to the same ground, and set it up in WLED. Done.</p>
+
         <!-- first power-on -->
-        <h3><span class="h3n">H</span><span data-l="he">צ׳ק־ליסט לפני הדלקה ראשונה</span><span data-l="en">First power-on checklist</span></h3>
-        <p data-l="he">לפני שאתה מכניס את הרשת — עבור על הרשימה. דקה כאן חוסכת רצועה שרופה.</p>
-        <p data-l="en">Before you plug in mains — run the list. A minute here saves a fried strip.</p>
+        <h3><span class="h3n">J</span><span data-l="he">לפני ההדלקה הראשונה</span><span data-l="en">Before you switch on</span></h3>
+        <p data-l="he">חצי דקה כאן חוסכת רצועה שרופה:</p>
+        <p data-l="en">Half a minute here saves a fried strip:</p>
         <ul>
-          <li data-l="he">בדוק קוטביות בכל מקום (<span class="mono">+V↔+V</span>, <span class="mono">GND↔GND</span>). קוטביות הפוכה יכולה להרוג רצועה שלמה מיד — השתמש במחברים מקוטבים (keyed) ובקוד צבעים עקבי כדי שלא תתבלבל.</li>
-          <li data-l="en">Check polarity everywhere (<span class="mono">+V↔+V</span>, <span class="mono">GND↔GND</span>). Reverse polarity can kill a whole strip instantly — use keyed connectors and a consistent color convention so you can't mix them up.</li>
-          <li data-l="he">ודא שכל ה־GND משותפים — ספק(ים), בקר, כל הסגמנטים.</li>
-          <li data-l="en">Confirm every GND is common — supply(ies), controller, all segments.</li>
-          <li data-l="he">ודא שלא חיברת +V של שני ספקים שונים.</li>
-          <li data-l="en">Confirm you did not bridge two different supplies' +V.</li>
-          <li data-l="he">נתיכים במקום; הארקת רשת מחוברת; מדוד עם מולטימטר שהספק באמת על 5V <em>לפני</em> שאתה מחבר לדים.</li>
-          <li data-l="en">Fuses in place; mains earth connected; measure with a multimeter that the supply is actually at 5V <em>before</em> connecting LEDs.</li>
-          <li data-l="he">כשמחברים ״חם״ — חבר בסדר: <strong>GND קודם</strong>, אחר כך +5V, ולבסוף דאטה.</li>
-          <li data-l="en">When hot-plugging, connect in this order: <strong>GND first</strong>, then +5V, then data.</li>
-          <li data-l="he">העלה קודם בבהירות נמוכה. חפש נקודות חמות, קצוות כהים (צריך עוד הזרקה) וסטיית צבע.</li>
-          <li data-l="en">Bring it up at low brightness first. Watch for hot spots, dark ends (need more injection) and color shift.</li>
+          <li data-l="he">מדוד שהספק באמת על <strong>5V</strong> (עם וולטמטר) <em>לפני</em> שאתה מחבר לדים.</li>
+          <li data-l="en">Measure that the supply really is at <strong>5V</strong> (with a voltmeter) <em>before</em> connecting LEDs.</li>
+          <li data-l="he">בדוק שלא התבלבלת בקוטביות — אדום ל־+, שחור ל־−. הפוך = רצועה מתה.</li>
+          <li data-l="en">Check you didn't swap polarity — red to +, black to −. Reversed = dead strip.</li>
+          <li data-l="he">ודא שכל האדמות מחוברות (בקר, ספק, כל הרצועות).</li>
+          <li data-l="en">Confirm all grounds are joined (controller, supply, every strip).</li>
+          <li data-l="he">העלה קודם בבהירות נמוכה. קצה כהה או כתמתם = צריך עוד הזרקת מתח שם.</li>
+          <li data-l="en">Bring it up at low brightness first. A dim or orange end = it needs more power injection there.</li>
         </ul>
 
         <div class="call warn">
-          <div class="ct" data-l="he">🏜️ מציאות הפלייה (טעימה)</div>
-          <div class="ct" data-l="en">🏜️ Playa realities (a taste)</div>
-          <p data-l="he">אבק ולחות אוהבים לקצר חשמל. סגור ספקים וחיבורים בקופסאות אטומות, השתמש ברצועה בדירוג IP או בדיפיוזר/מארז משלך, שים RCD על ההזנה, אוורר את הספק (הוא מתחמם), ושחרר מאמץ לכל חוט — הלחמה + שרוול מתכווץ עדיפים על מהדק ברגים שמשתחרר מרעידות. הרחבה מלאה בפרק <a href="#burn">מיצבי ברן</a>.</p>
-          <p data-l="en">Dust and moisture love to short things. Enclose supplies and joints in sealed boxes, use IP-rated strip or your own diffuser/enclosure, put an RCD on the feed, ventilate the supply (it runs hot), and strain-relieve every wire — solder + heatshrink beats screw terminals that rattle loose. Full treatment in <a href="#burn">Burn installs</a>.</p>
+          <div class="ct" data-l="he">🏜️ ואז — המדבר</div>
+          <div class="ct" data-l="en">🏜️ And then — the desert</div>
+          <p data-l="he">אבק, חום ולחות הורסים הכל. סגור ספקים ובקרים בקופסאות אטומות, מגן על הלדים, וקח גיבויים לכל דבר — ספק, בקר וכמה רצועות. ההרחבה המלאה בפרק <a href="#burn">מיצבי ברן</a>.</p>
+          <p data-l="en">Dust, heat and moisture wreck everything. Seal supplies and controllers in boxes, protect the LEDs, and bring backups of everything — a supply, a controller and a few strips. Full treatment in <a href="#burn">Burn installs</a>.</p>
         </div>
       </section>
 
