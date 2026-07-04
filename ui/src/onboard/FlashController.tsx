@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react'
+import { useI18n } from '../lib/i18n'
 
 /**
  * Browser-based ESP flashing entry (WLED-style), using esp-web-tools over the Web Serial API.
@@ -39,6 +40,7 @@ type State =
   | { kind: 'error'; message: string }
 
 export default function FlashController() {
+  const { t } = useI18n()
   const [state, setState] = useState<State>({ kind: 'loading' })
 
   useEffect(() => {
@@ -68,7 +70,7 @@ export default function FlashController() {
         await import('esp-web-tools')
         if (!cancelled) setState({ kind: 'ready' })
       } catch (e: any) {
-        if (!cancelled) setState({ kind: 'error', message: e?.message || 'Failed to load flasher' })
+        if (!cancelled) setState({ kind: 'error', message: e?.message || t({ en: 'Failed to load flasher', he: 'טעינת הצורב נכשלה' }) })
       }
     })()
     return () => {
@@ -78,44 +80,41 @@ export default function FlashController() {
 
   return (
     <div style={S.wrap}>
-      <div style={S.title}>Install firmware on a controller</div>
+      <div style={S.title}>{t({ en: 'Install firmware on a controller', he: 'התקנת קושחה על בקר' })}</div>
 
-      {state.kind === 'loading' && <div style={S.muted}>Checking firmware availability…</div>}
+      {state.kind === 'loading' && <div style={S.muted}>{t({ en: 'Checking firmware availability…', he: 'בודק זמינות קושחה…' })}</div>}
 
       {state.kind === 'ready' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-          <div style={S.muted}>Plug the ESP32 into this computer over USB, then:</div>
+          <div style={S.muted}>{t({ en: 'Plug the ESP32 into this computer over USB, then:', he: 'חבר את ה-ESP32 למחשב הזה דרך USB, ואז:' })}</div>
           {/* esp-web-tools custom element — manifest passed as a string attribute */}
           <esp-web-install-button manifest={MANIFEST_URL}>
-            <button slot="activate" style={S.primary}>⚡ Flash controller</button>
-            <span slot="unsupported" style={S.warn}>Your browser can’t flash — use Chrome or Edge on a desktop.</span>
-            <span slot="not-allowed" style={S.warn}>This page must be served over HTTPS to flash.</span>
+            <button slot="activate" style={S.primary}>⚡ {t({ en: 'Flash controller', he: 'צרוב בקר' })}</button>
+            <span slot="unsupported" style={S.warn}>{t({ en: 'Your browser can’t flash — use Chrome or Edge on a desktop.', he: 'הדפדפן שלך לא יכול לצרוב — השתמש ב-Chrome או Edge במחשב.' })}</span>
+            <span slot="not-allowed" style={S.warn}>{t({ en: 'This page must be served over HTTPS to flash.', he: 'הדף חייב להיטען דרך HTTPS כדי לצרוב.' })}</span>
           </esp-web-install-button>
         </div>
       )}
 
       {state.kind === 'unsupported' && (
         <div style={S.panel}>
-          <div style={{ fontWeight: 700, marginBottom: 6 }}>This browser can’t flash over USB</div>
+          <div style={{ fontWeight: 700, marginBottom: 6 }}>{t({ en: 'This browser can’t flash over USB', he: 'הדפדפן הזה לא יכול לצרוב דרך USB' })}</div>
           <div style={S.muted}>
-            Browser flashing uses the Web Serial API, available only in <b>Chrome</b> or <b>Edge</b> on a
-            desktop/laptop (not Safari, Firefox, iPhone, or iPad). Open this page there and plug the ESP32 in over USB.
+            {t({ en: 'Browser flashing uses the Web Serial API, available only in', he: 'צריבה מהדפדפן משתמשת ב-Web Serial API, הזמין רק ב-' })} <b>Chrome</b> {t({ en: 'or', he: 'או' })} <b>Edge</b> {t({ en: 'on a desktop/laptop (not Safari, Firefox, iPhone, or iPad). Open this page there and plug the ESP32 in over USB.', he: 'במחשב שולחני/נייד (לא Safari, Firefox, iPhone או iPad). פתח את הדף שם וחבר את ה-ESP32 דרך USB.' })}
           </div>
         </div>
       )}
 
       {state.kind === 'no-firmware' && (
         <div style={S.panel}>
-          <div style={{ fontWeight: 700, marginBottom: 6 }}>Firmware isn’t published yet</div>
+          <div style={{ fontWeight: 700, marginBottom: 6 }}>{t({ en: 'Firmware isn’t published yet', he: 'הקושחה טרם פורסמה' })}</div>
           <div style={S.muted}>
-            {state.note || 'The controller firmware for browser flashing hasn’t been published yet.'} You can still
-            declare your controllers below now — flashing turns on automatically once firmware is available. Until
-            then, flash the KivSee firmware with PlatformIO (<code style={S.code}>pio run -t upload</code>).
+            {state.note || t({ en: 'The controller firmware for browser flashing hasn’t been published yet.', he: 'קושחת הבקר לצריבה מהדפדפן טרם פורסמה.' })} {t({ en: 'You can still declare your controllers below now — flashing turns on automatically once firmware is available. Until then, flash the KivSee firmware with PlatformIO (', he: 'עדיין אפשר להצהיר על הבקרים שלך למטה כעת — הצריבה תופעל אוטומטית ברגע שקושחה תהיה זמינה. עד אז, צרוב את קושחת KivSee באמצעות PlatformIO (' })}<code style={S.code}>pio run -t upload</code>).
           </div>
         </div>
       )}
 
-      {state.kind === 'error' && <div style={S.warn}>Couldn’t start the flasher: {state.message}</div>}
+      {state.kind === 'error' && <div style={S.warn}>{t({ en: 'Couldn’t start the flasher:', he: 'לא ניתן להפעיל את הצורב:' })} {state.message}</div>}
     </div>
   )
 }

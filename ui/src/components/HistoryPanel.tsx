@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import { library, DEFAULT_PROJECT, type VersionSummary } from '../lib/library'
+import { useI18n } from '../lib/i18n'
 
 /**
  * Version history (git-like) for the active song. Each Save is an immutable snapshot with a
@@ -28,6 +29,7 @@ const fmtDate = (ms?: number) => {
 const shortId = (id?: string | null) => (id ? id.slice(0, 7) : '')
 
 export default function HistoryPanel({ projectId = DEFAULT_PROJECT, slug, songName, currentBranch, headVerId, onSave, onLoadVersion, onBranch, onClose }: Props) {
+  const { t } = useI18n()
   const [versions, setVersions] = useState<VersionSummary[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -52,7 +54,7 @@ export default function HistoryPanel({ projectId = DEFAULT_PROJECT, slug, songNa
   const refreshSoon = useCallback(() => { void refresh(); setTimeout(() => void refresh(), 1500) }, [refresh])
 
   async function doSave() {
-    setBusy('Saving…')
+    setBusy(t({ en: 'Saving…', he: 'שומר…' }))
     try {
       await onSave(label.trim() || undefined)
       setLabel('')
@@ -64,20 +66,20 @@ export default function HistoryPanel({ projectId = DEFAULT_PROJECT, slug, songNa
     }
   }
   async function doLoad(id: string) {
-    setBusy('Loading…')
+    setBusy(t({ en: 'Loading…', he: 'טוען…' }))
     try { await onLoadVersion(id); onClose() }
     catch (e) { setError(e instanceof Error ? e.message : String(e)); setBusy(null) }
   }
   async function doBranch(id: string) {
-    const name = window.prompt('New branch name:', '')
+    const name = window.prompt(t({ en: 'New branch name:', he: 'שם ענף חדש:' }), '')
     if (name == null || !name.trim()) return
-    setBusy('Branching…')
+    setBusy(t({ en: 'Branching…', he: 'מסתעף…' }))
     try { await onBranch(id, name.trim()); onClose() }
     catch (e) { setError(e instanceof Error ? e.message : String(e)); setBusy(null) }
   }
   async function doDelete(id: string) {
-    if (!slug || !window.confirm('Delete this version?')) return
-    setBusy('Deleting…')
+    if (!slug || !window.confirm(t({ en: 'Delete this version?', he: 'למחוק גרסה זו?' }))) return
+    setBusy(t({ en: 'Deleting…', he: 'מוחק…' }))
     try { await library.removeVersion(slug, id, projectId); refreshSoon() }
     catch (e) { setError(e instanceof Error ? e.message : String(e)) }
     finally { setBusy(null) }
@@ -108,10 +110,10 @@ export default function HistoryPanel({ projectId = DEFAULT_PROJECT, slug, songNa
     <div style={overlay} onClick={onClose}>
       <div style={modal} onClick={(e) => e.stopPropagation()}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-          <h2 style={{ margin: 0, fontSize: 18 }}>🕘 Version History {songName ? `· ${songName}` : ''}</h2>
+          <h2 style={{ margin: 0, fontSize: 18 }}>🕘 {t({ en: 'Version History', he: 'היסטוריית גרסאות' })} {songName ? `· ${songName}` : ''}</h2>
           <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
             <span style={branchChip}>⎇ {currentBranch}</span>
-            <button onClick={() => void refresh()} style={iconBtn} title="Refresh">↻</button>
+            <button onClick={() => void refresh()} style={iconBtn} title={t({ en: 'Refresh', he: 'רענן' })}>↻</button>
             <button onClick={onClose} style={{ fontSize: 18, background: 'none', border: 'none', cursor: 'pointer', color: 'inherit' }}>✕</button>
           </div>
         </div>
@@ -122,24 +124,24 @@ export default function HistoryPanel({ projectId = DEFAULT_PROJECT, slug, songNa
             value={label}
             onChange={(e) => setLabel(e.target.value)}
             onKeyDown={(e) => { if (e.key === 'Enter') void doSave() }}
-            placeholder={`Version description (optional) — saved on branch "${currentBranch}"`}
+            placeholder={`${t({ en: 'Version description (optional) — saved on branch', he: 'תיאור גרסה (אופציונלי) — נשמר בענף' })} "${currentBranch}"`}
             style={saveInput}
           />
-          <button onClick={() => void doSave()} disabled={!!busy} style={saveBtn}>💾 Save version</button>
+          <button onClick={() => void doSave()} disabled={!!busy} style={saveBtn}>💾 {t({ en: 'Save version', he: 'שמור גרסה' })}</button>
         </div>
 
         {error && <div style={errorBox}>{error}</div>}
         {busy && <div style={busyBox}><span style={spinner} /> {busy}</div>}
 
         {loading ? (
-          <div style={{ color: '#9aa', padding: 24, textAlign: 'center' }}>Loading history…</div>
+          <div style={{ color: '#9aa', padding: 24, textAlign: 'center' }}>{t({ en: 'Loading history…', he: 'טוען היסטוריה…' })}</div>
         ) : !slug ? (
           <div style={{ color: '#9aa', padding: 28, textAlign: 'center', lineHeight: 1.7 }}>
-            This song is not in the library yet.<br />Click <b>💾 Save version</b> to create it and start its history.
+            {t({ en: 'This song is not in the library yet.', he: 'שיר זה עדיין לא בספרייה.' })}<br />{t({ en: 'Click', he: 'לחץ על' })} <b>💾 {t({ en: 'Save version', he: 'שמור גרסה' })}</b> {t({ en: 'to create it and start its history.', he: 'כדי ליצור אותו ולהתחיל את ההיסטוריה שלו.' })}
           </div>
         ) : versions.length === 0 ? (
           <div style={{ color: '#9aa', padding: 28, textAlign: 'center', lineHeight: 1.7 }}>
-            No saved versions yet.<br />Click <b>💾 Save version</b> to save the current timeline.
+            {t({ en: 'No saved versions yet.', he: 'אין עדיין גרסאות שמורות.' })}<br />{t({ en: 'Click', he: 'לחץ על' })} <b>💾 {t({ en: 'Save version', he: 'שמור גרסה' })}</b> {t({ en: 'to save the current timeline.', he: 'כדי לשמור את ציר הזמן הנוכחי.' })}
           </div>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
@@ -147,7 +149,7 @@ export default function HistoryPanel({ projectId = DEFAULT_PROJECT, slug, songNa
               <div key={br.name}>
                 <div style={{ ...branchHeader, ...(br.name === currentBranch ? branchHeaderActive : {}) }}>
                   ⎇ {br.name}
-                  {br.name === currentBranch && <span style={{ fontSize: 11, color: '#34d399', marginInlineStart: 6 }}>· current</span>}
+                  {br.name === currentBranch && <span style={{ fontSize: 11, color: '#34d399', marginInlineStart: 6 }}>· {t({ en: 'current', he: 'נוכחי' })}</span>}
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 6 }}>
                   {br.versions.map((v) => {
@@ -158,15 +160,15 @@ export default function HistoryPanel({ projectId = DEFAULT_PROJECT, slug, songNa
                       <div key={v.id} style={{ ...verRow, ...(isHead ? verRowHead : {}) }}>
                         {isHead && <span style={headPill}>● HEAD</span>}
                         <span style={{ flex: 1, minWidth: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                          <b>{v.label || '(no description)'}</b>
-                          {branchPoint && <span style={{ color: '#8a93a3', fontSize: 11 }}> · branched from {shortId(parent?.id)}</span>}
+                          <b>{v.label || t({ en: '(no description)', he: '(ללא תיאור)' })}</b>
+                          {branchPoint && <span style={{ color: '#8a93a3', fontSize: 11 }}> · {t({ en: 'branched from', he: 'הסתעף מ־' })} {shortId(parent?.id)}</span>}
                         </span>
                         <span style={{ color: '#8a93a3', fontSize: 11, whiteSpace: 'nowrap' }}>
                           {v.timeframeCount ?? '?'} tf · {fmtDate(v.ts)} · {shortId(v.id)}
                         </span>
-                        <button onClick={() => void doLoad(v.id)} style={smallBtn} title="Load this version into the timeline">Load</button>
-                        <button onClick={() => void doBranch(v.id)} style={smallBtnOutline} title="Branch off this version">⎇ Branch</button>
-                        <button onClick={() => void doDelete(v.id)} style={smallTrash} title="Delete version">🗑</button>
+                        <button onClick={() => void doLoad(v.id)} style={smallBtn} title={t({ en: 'Load this version into the timeline', he: 'טען גרסה זו לציר הזמן' })}>{t({ en: 'Load', he: 'טען' })}</button>
+                        <button onClick={() => void doBranch(v.id)} style={smallBtnOutline} title={t({ en: 'Branch off this version', he: 'הסתעף מגרסה זו' })}>⎇ {t({ en: 'Branch', he: 'הסתעף' })}</button>
+                        <button onClick={() => void doDelete(v.id)} style={smallTrash} title={t({ en: 'Delete version', he: 'מחק גרסה' })}>🗑</button>
                       </div>
                     )
                   })}
@@ -177,7 +179,7 @@ export default function HistoryPanel({ projectId = DEFAULT_PROJECT, slug, songNa
         )}
 
         <div style={{ fontSize: 11, color: '#6b7280', marginTop: 12, textAlign: 'center' }}>
-          Manual saves only — changes are not saved automatically. Every save = a new version in the history.
+          {t({ en: 'Manual saves only — changes are not saved automatically. Every save = a new version in the history.', he: 'שמירות ידניות בלבד — שינויים אינם נשמרים אוטומטית. כל שמירה = גרסה חדשה בהיסטוריה.' })}
         </div>
       </div>
     </div>

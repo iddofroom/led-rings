@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { mappingApi, deriveThingSegments, Controller, MappedController, MappedLed } from '../lib/mapping'
 import { lumaFromRgba, diff, averageLuma, detectBlob } from './detect'
+import { useI18n } from '../lib/i18n'
 
 /**
  * Mapping stage: aim the computer camera at the installation, drive each controller
@@ -30,6 +31,7 @@ const colorFor = (i: number) => CONTROLLER_COLORS[i % CONTROLLER_COLORS.length]
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
 
 export default function MappingStage({ projectId, projectName, onBack }: Props) {
+  const { t } = useI18n()
   const videoRef = useRef<HTMLVideoElement>(null)
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
   const abortRef = useRef(false)
@@ -68,7 +70,7 @@ export default function MappingStage({ projectId, projectName, onBack }: Props) 
           const byThing: Record<string, MappedController> = {}
           for (const c of blob.controllers) byThing[c.thing] = c
           setMap(byThing)
-          addLog(`Loaded saved map: ${blob.controllers.length} controller(s), ${blob.controllers.reduce((n, c) => n + c.leds.length, 0)} LEDs`)
+          addLog(`${t({ en: 'Loaded saved map:', he: 'נטען מיפוי שמור:' })} ${blob.controllers.length} ${t({ en: 'controller(s),', he: 'בקרים,' })} ${blob.controllers.reduce((n, c) => n + c.leds.length, 0)} ${t({ en: 'LEDs', he: 'לדים' })}`)
         }
       })
       .catch(() => {})
@@ -86,9 +88,9 @@ export default function MappingStage({ projectId, projectName, onBack }: Props) 
       }
       setCameraOn(true)
     } catch (e: any) {
-      setCameraError(e?.message || 'Camera access denied')
+      setCameraError(e?.message || t({ en: 'Camera access denied', he: 'הגישה למצלמה נדחתה' }))
     }
-  }, [])
+  }, [t])
 
   const stopCamera = useCallback(() => {
     streamRef.current?.getTracks().forEach((t) => t.stop())
@@ -127,21 +129,21 @@ export default function MappingStage({ projectId, projectName, onBack }: Props) 
         { thing: 'ring1', alive: true, lastSeen: Date.now(), numPixels: 144 },
         { thing: 'ring2', alive: true, lastSeen: Date.now(), numPixels: 144 },
       ])
-      addLog('Demo: fabricated 2 controllers (no hardware).')
+      addLog(t({ en: 'Demo: fabricated 2 controllers (no hardware).', he: 'דמו: יוצרו 2 בקרים (ללא חומרה).' }))
       setDiscovering(false)
       return
     }
     try {
       const res = await mappingApi.discover()
       setControllers(res.controllers)
-      addLog(`Discovered ${res.controllers.length} controller(s)${res.connected ? '' : ' (MQTT not connected)'}.`)
+      addLog(`${t({ en: 'Discovered', he: 'זוהו' })} ${res.controllers.length} ${t({ en: 'controller(s)', he: 'בקרים' })}${res.connected ? '' : t({ en: ' (MQTT not connected)', he: ' (MQTT לא מחובר)' })}.`)
     } catch (e: any) {
-      setDiscoverError(e?.message || 'Discovery failed')
-      addLog(`Discovery failed: ${e?.message || e}`)
+      setDiscoverError(e?.message || t({ en: 'Discovery failed', he: 'הגילוי נכשל' }))
+      addLog(`${t({ en: 'Discovery failed:', he: 'הגילוי נכשל:' })} ${e?.message || e}`)
     } finally {
       setDiscovering(false)
     }
-  }, [demoMode, addLog])
+  }, [demoMode, addLog, t])
 
   const setStatus = useCallback((thing: string, patch: Partial<SweepStatus>) => {
     setStatuses((s) => {
@@ -172,7 +174,7 @@ export default function MappingStage({ projectId, projectName, onBack }: Props) 
           await sleep(30)
         }
         setStatus(thing, { state: 'done', index: leds.length, found: leds.length, message: `${leds.length} LEDs (demo)` })
-        addLog(`Demo swept ${thing}: ${leds.length} LEDs`)
+        addLog(`${t({ en: 'Demo swept', he: 'דמו סרק את' })} ${thing}: ${leds.length} ${t({ en: 'LEDs', he: 'לדים' })}`)
         return
       }
 
@@ -180,9 +182,9 @@ export default function MappingStage({ projectId, projectName, onBack }: Props) 
 
       try {
         setStatus(thing, { state: 'preparing', index: 0, found: 0, message: 'preparing (ESP reboots ~10s)…' })
-        addLog(`Preparing ${thing} (cap ${cap})…`)
+        addLog(`${t({ en: 'Preparing', he: 'מכין את' })} ${thing} (cap ${cap})…`)
         const prep = await mappingApi.prepare(thing, cap)
-        if (!prep.rejoined) addLog(`⚠ ${thing} did not confirm rejoin — continuing anyway`)
+        if (!prep.rejoined) addLog(`⚠ ${thing} ${t({ en: 'did not confirm rejoin — continuing anyway', he: 'לא אישר חזרה — ממשיך בכל זאת' })}`)
 
         // Baseline: blank, let it settle, average a few dark frames.
         await mappingApi.blank()
@@ -195,7 +197,7 @@ export default function MappingStage({ projectId, projectName, onBack }: Props) 
         setStatus(thing, { state: 'sweeping', index: 0, found: 0 })
         let misses = 0
         for (let i = 0; i < cap; i++) {
-          if (abortRef.current) { addLog(`Aborted ${thing} at index ${i}`); break }
+          if (abortRef.current) { addLog(`${t({ en: 'Aborted', he: 'בוטל' })} ${thing} ${t({ en: 'at index', he: 'באינדקס' })} ${i}`); break }
           await mappingApi.light(thing, i)
           await sleep(settleMs)
           const cap2 = captureLuma()
@@ -209,7 +211,7 @@ export default function MappingStage({ projectId, projectName, onBack }: Props) 
             misses++
           }
           setStatus(thing, { state: 'sweeping', index: i, found: leds.length, message: `${leds.length} found · ${misses} misses` })
-          if (misses >= missLimit) { addLog(`${thing}: ${missLimit} consecutive misses — assuming end of strip at index ${i}`); break }
+          if (misses >= missLimit) { addLog(`${thing}: ${missLimit} ${t({ en: 'consecutive misses — assuming end of strip at index', he: 'החטאות רצופות — מניח סוף רצועה באינדקס' })} ${i}`); break }
         }
 
         setStatus(thing, { state: 'finishing', message: 'restoring geometry…' })
@@ -218,14 +220,14 @@ export default function MappingStage({ projectId, projectName, onBack }: Props) 
 
         setMap((m) => ({ ...m, [thing]: { thing, numPixels: leds.length, imageWidth: dims.w, imageHeight: dims.h, capturedAt: Date.now(), leds } }))
         setStatus(thing, { state: 'done', index: leds.length, found: leds.length, message: `${leds.length} LEDs mapped` })
-        addLog(`Swept ${thing}: ${leds.length} LEDs`)
+        addLog(`${t({ en: 'Swept', he: 'נסרק' })} ${thing}: ${leds.length} ${t({ en: 'LEDs', he: 'לדים' })}`)
       } catch (e: any) {
         setStatus(thing, { state: 'error', message: e?.message || String(e) })
-        addLog(`Error sweeping ${thing}: ${e?.message || e}`)
+        addLog(`${t({ en: 'Error sweeping', he: 'שגיאה בסריקת' })} ${thing}: ${e?.message || e}`)
         try { await mappingApi.blank(); await mappingApi.finish(thing, 'restore') } catch {}
       }
     },
-    [cameraOn, cap, settleMs, missLimit, threshold, demoMode, controllers, captureLuma, setStatus, addLog],
+    [cameraOn, cap, settleMs, missLimit, threshold, demoMode, controllers, captureLuma, setStatus, addLog, t],
   )
 
   const sweepAll = useCallback(async () => {
@@ -243,37 +245,37 @@ export default function MappingStage({ projectId, projectName, onBack }: Props) 
 
   const saveMap = useCallback(async () => {
     const controllersOut = Object.values(map).filter((c) => c.leds.length > 0)
-    if (controllersOut.length === 0) { addLog('Nothing to save.'); return }
+    if (controllersOut.length === 0) { addLog(t({ en: 'Nothing to save.', he: 'אין מה לשמור.' })); return }
     setSaving(true)
     try {
       const res = await mappingApi.saveMap(controllersOut, projectId)
       setSavedAt(res.updatedAt)
-      addLog(`Saved map: ${controllersOut.length} controller(s), ${controllersOut.reduce((n, c) => n + c.leds.length, 0)} LEDs`)
+      addLog(`${t({ en: 'Saved map:', he: 'המיפוי נשמר:' })} ${controllersOut.length} ${t({ en: 'controller(s),', he: 'בקרים,' })} ${controllersOut.reduce((n, c) => n + c.leds.length, 0)} ${t({ en: 'LEDs', he: 'לדים' })}`)
     } catch (e: any) {
-      addLog(`Save failed: ${e?.message || e}`)
+      addLog(`${t({ en: 'Save failed:', he: 'השמירה נכשלה:' })} ${e?.message || e}`)
     } finally {
       setSaving(false)
     }
-  }, [map, projectId, addLog])
+  }, [map, projectId, addLog, t])
 
   const publishGeometry = useCallback(async () => {
     const mapped = Object.values(map).filter((c) => c.leds.length > 0)
-    if (mapped.length === 0) { addLog('Nothing to publish.'); return }
-    if (!demoMode && !window.confirm(`Publish ${mapped.length} controller(s) to the hardware?\n\nThis REPLACES each controller's geometry with an "all" segment ordered by index, and reboots it. Use this on a new installation — not to re-map an existing one you want to keep.`)) return
+    if (mapped.length === 0) { addLog(t({ en: 'Nothing to publish.', he: 'אין מה לפרסם.' })); return }
+    if (!demoMode && !window.confirm(`${t({ en: 'Publish', he: 'לפרסם' })} ${mapped.length} ${t({ en: 'controller(s) to the hardware?\n\nThis REPLACES each controller\'s geometry with an "all" segment ordered by index, and reboots it. Use this on a new installation — not to re-map an existing one you want to keep.', he: 'בקרים לחומרה?\n\nפעולה זו מחליפה את הגאומטריה של כל בקר במקטע "all" מסודר לפי אינדקס, ומאתחלת אותו. השתמש בזה בהתקנה חדשה — לא כדי למפות מחדש התקנה קיימת שברצונך לשמור.' })}`)) return
     setPublishing(true)
     try {
       for (const c of mapped) {
         const cfg = deriveThingSegments(c)
         await mappingApi.finish(c.thing, 'publish', cfg, demoMode)
-        addLog(`Published ${c.thing}: ${cfg.segments[0].pixels.length} px (numberOfPixels ${cfg.numberOfPixels})`)
+        addLog(`${t({ en: 'Published', he: 'פורסם' })} ${c.thing}: ${cfg.segments[0].pixels.length} px (numberOfPixels ${cfg.numberOfPixels})`)
       }
-      addLog(demoMode ? 'Demo: geometry publish simulated.' : 'Geometry published to hardware.')
+      addLog(demoMode ? t({ en: 'Demo: geometry publish simulated.', he: 'דמו: פרסום הגאומטריה סומלץ.' }) : t({ en: 'Geometry published to hardware.', he: 'הגאומטריה פורסמה לחומרה.' }))
     } catch (e: any) {
-      addLog(`Publish failed: ${e?.message || e}`)
+      addLog(`${t({ en: 'Publish failed:', he: 'הפרסום נכשל:' })} ${e?.message || e}`)
     } finally {
       setPublishing(false)
     }
-  }, [map, demoMode, addLog])
+  }, [map, demoMode, addLog, t])
 
   const totalLeds = Object.values(map).reduce((n, c) => n + c.leds.length, 0)
   const controllerIndex = (thing: string) => Math.max(0, controllers.findIndex((c) => c.thing === thing))
@@ -281,14 +283,14 @@ export default function MappingStage({ projectId, projectName, onBack }: Props) 
   return (
     <div style={S.wrap}>
       <div style={S.header}>
-        <button style={S.backBtn} onClick={onBack}>← Back</button>
+        <button style={S.backBtn} onClick={onBack}>← {t({ en: 'Back', he: 'חזרה' })}</button>
         <div>
-          <div style={{ fontWeight: 700, fontSize: 18 }}>🎯 Mapping — {projectName}</div>
-          <div style={{ color: '#8fa0bd', fontSize: 13 }}>Aim the camera at the installation, then sweep each controller to learn every LED's position.</div>
+          <div style={{ fontWeight: 700, fontSize: 18 }}>🎯 {t({ en: 'Mapping', he: 'מיפוי' })} — {projectName}</div>
+          <div style={{ color: '#8fa0bd', fontSize: 13 }}>{t({ en: "Aim the camera at the installation, then sweep each controller to learn every LED's position.", he: 'כוון את המצלמה אל ההתקנה, ואז סרוק כל בקר כדי ללמוד את מיקום כל לד.' })}</div>
         </div>
         <span style={{ flex: 1 }} />
         <div style={{ textAlign: 'right', fontSize: 13, color: '#8fa0bd' }}>
-          {totalLeds} LEDs mapped{savedAt ? ' · saved ✓' : totalLeds ? ' · unsaved' : ''}
+          {totalLeds} {t({ en: 'LEDs mapped', he: 'לדים מופו' })}{savedAt ? t({ en: ' · saved ✓', he: ' · נשמר ✓' }) : totalLeds ? t({ en: ' · unsaved', he: ' · לא נשמר' }) : ''}
         </div>
       </div>
 
@@ -299,10 +301,10 @@ export default function MappingStage({ projectId, projectName, onBack }: Props) 
             <video ref={videoRef} style={S.video} playsInline muted />
             {!cameraOn && (
               <div style={S.videoPlaceholder}>
-                <button style={S.primaryBtn} onClick={startCamera}>📷 Start camera</button>
+                <button style={S.primaryBtn} onClick={startCamera}>📷 {t({ en: 'Start camera', he: 'הפעל מצלמה' })}</button>
                 {cameraError && <div style={{ color: '#ff8a8a', marginTop: 10, fontSize: 13 }}>{cameraError}</div>}
                 <div style={{ color: '#8fa0bd', marginTop: 10, fontSize: 12, maxWidth: 320, textAlign: 'center' }}>
-                  Keep the camera still for the whole session — all controllers are mapped into one frame.
+                  {t({ en: 'Keep the camera still for the whole session — all controllers are mapped into one frame.', he: 'החזק את המצלמה יציבה לאורך כל הסשן — כל הבקרים ממופים לתוך פריים אחד.' })}
                 </div>
               </div>
             )}
@@ -315,19 +317,19 @@ export default function MappingStage({ projectId, projectName, onBack }: Props) 
               )}
             </svg>
           </div>
-          {cameraOn && <button style={S.ghostBtn} onClick={stopCamera}>Stop camera</button>}
+          {cameraOn && <button style={S.ghostBtn} onClick={stopCamera}>{t({ en: 'Stop camera', he: 'עצור מצלמה' })}</button>}
         </div>
 
         {/* Controls */}
         <div style={S.controlsCol}>
           <section style={S.card}>
-            <div style={S.cardTitle}>1 · Controllers</div>
+            <div style={S.cardTitle}>1 · {t({ en: 'Controllers', he: 'בקרים' })}</div>
             <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 8 }}>
-              <button style={S.btn} onClick={discover} disabled={discovering}>{discovering ? 'Scanning…' : '🔍 Discover'}</button>
-              <label style={S.check}><input type="checkbox" checked={demoMode} onChange={(e) => setDemoMode(e.target.checked)} /> Demo (no hardware)</label>
+              <button style={S.btn} onClick={discover} disabled={discovering}>{discovering ? t({ en: 'Scanning…', he: 'סורק…' }) : `🔍 ${t({ en: 'Discover', he: 'גלה' })}`}</button>
+              <label style={S.check}><input type="checkbox" checked={demoMode} onChange={(e) => setDemoMode(e.target.checked)} /> {t({ en: 'Demo (no hardware)', he: 'דמו (ללא חומרה)' })}</label>
             </div>
             {discoverError && <div style={{ color: '#ff8a8a', fontSize: 12, marginBottom: 6 }}>{discoverError}</div>}
-            {controllers.length === 0 && <div style={{ color: '#8fa0bd', fontSize: 13 }}>No controllers yet. Power the installation, then Discover.</div>}
+            {controllers.length === 0 && <div style={{ color: '#8fa0bd', fontSize: 13 }}>{t({ en: 'No controllers yet. Power the installation, then Discover.', he: 'אין עדיין בקרים. הפעל את ההתקנה, ואז גלה.' })}</div>}
             {controllers.map((c) => {
               const st = statuses[c.thing]
               const mapped = map[c.thing]?.leds.length || 0
@@ -339,37 +341,37 @@ export default function MappingStage({ projectId, projectName, onBack }: Props) 
                   <span style={{ flex: 1 }} />
                   {mapped > 0 && <span style={{ fontSize: 12, color: '#38d39f' }}>{mapped} ✓</span>}
                   {st && st.state !== 'idle' && st.state !== 'done' && <span style={{ fontSize: 12, color: '#f0c020' }}>{st.state} {st.index}</span>}
-                  <button style={S.smallBtn} disabled={running} onClick={() => runOne(c.thing)}>Sweep</button>
+                  <button style={S.smallBtn} disabled={running} onClick={() => runOne(c.thing)}>{t({ en: 'Sweep', he: 'סרוק' })}</button>
                 </div>
               )
             })}
           </section>
 
           <section style={S.card}>
-            <div style={S.cardTitle}>2 · Run</div>
+            <div style={S.cardTitle}>2 · {t({ en: 'Run', he: 'הרצה' })}</div>
             <div style={{ display: 'flex', gap: 8 }}>
-              <button style={S.primaryBtn} disabled={running || controllers.length === 0} onClick={sweepAll}>▶ Sweep all</button>
-              <button style={S.ghostBtn} disabled={!running} onClick={abort}>■ Stop</button>
+              <button style={S.primaryBtn} disabled={running || controllers.length === 0} onClick={sweepAll}>▶ {t({ en: 'Sweep all', he: 'סרוק הכל' })}</button>
+              <button style={S.ghostBtn} disabled={!running} onClick={abort}>■ {t({ en: 'Stop', he: 'עצור' })}</button>
             </div>
             <div style={{ marginTop: 10, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-              <Field label="Max LEDs (cap)" value={cap} onChange={setCap} min={1} max={1024} />
-              <Field label="Settle (ms/LED)" value={settleMs} onChange={setSettleMs} min={40} max={2000} />
-              <Field label="Stop after N misses" value={missLimit} onChange={setMissLimit} min={3} max={200} />
-              <Field label="Detect threshold" value={threshold} onChange={setThreshold} min={5} max={200} />
+              <Field label={t({ en: 'Max LEDs (cap)', he: 'מקסימום לדים (תקרה)' })} value={cap} onChange={setCap} min={1} max={1024} />
+              <Field label={t({ en: 'Settle (ms/LED)', he: 'התייצבות (מ״ש/לד)' })} value={settleMs} onChange={setSettleMs} min={40} max={2000} />
+              <Field label={t({ en: 'Stop after N misses', he: 'עצור אחרי N החטאות' })} value={missLimit} onChange={setMissLimit} min={3} max={200} />
+              <Field label={t({ en: 'Detect threshold', he: 'סף זיהוי' })} value={threshold} onChange={setThreshold} min={5} max={200} />
             </div>
           </section>
 
           <section style={S.card}>
-            <div style={S.cardTitle}>3 · Save &amp; publish</div>
-            <button style={S.primaryBtn} disabled={saving || totalLeds === 0} onClick={saveMap}>{saving ? 'Saving…' : `💾 Save map (${totalLeds} LEDs)`}</button>
-            <button style={S.ghostBtn} disabled={publishing || totalLeds === 0} onClick={publishGeometry} title="Write a derived geometry back to the controllers so animations can address them">
-              {publishing ? 'Publishing…' : '📡 Publish geometry to hardware'}
+            <div style={S.cardTitle}>3 · {t({ en: 'Save & publish', he: 'שמירה ופרסום' })}</div>
+            <button style={S.primaryBtn} disabled={saving || totalLeds === 0} onClick={saveMap}>{saving ? t({ en: 'Saving…', he: 'שומר…' }) : `💾 ${t({ en: 'Save map', he: 'שמור מיפוי' })} (${totalLeds} ${t({ en: 'LEDs', he: 'לדים' })})`}</button>
+            <button style={S.ghostBtn} disabled={publishing || totalLeds === 0} onClick={publishGeometry} title={t({ en: 'Write a derived geometry back to the controllers so animations can address them', he: 'כתוב גאומטריה נגזרת בחזרה לבקרים כדי שאנימציות יוכלו לפנות אליהם' })}>
+              {publishing ? t({ en: 'Publishing…', he: 'מפרסם…' }) : `📡 ${t({ en: 'Publish geometry to hardware', he: 'פרסם גאומטריה לחומרה' })}`}
             </button>
-            <div style={{ fontSize: 12, color: '#8fa0bd' }}>Publishing replaces each controller's geometry and reboots it — for a new installation, not to re-map an existing one.</div>
+            <div style={{ fontSize: 12, color: '#8fa0bd' }}>{t({ en: "Publishing replaces each controller's geometry and reboots it — for a new installation, not to re-map an existing one.", he: 'הפרסום מחליף את הגאומטריה של כל בקר ומאתחל אותו — עבור התקנה חדשה, לא כדי למפות מחדש התקנה קיימת.' })}</div>
           </section>
 
           <section style={{ ...S.card, flex: 1, minHeight: 0 }}>
-            <div style={S.cardTitle}>Log</div>
+            <div style={S.cardTitle}>{t({ en: 'Log', he: 'יומן' })}</div>
             <div style={S.log}>{log.map((l, i) => <div key={i}>{l}</div>)}</div>
           </section>
         </div>

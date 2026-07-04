@@ -4,6 +4,7 @@ import { ClerkProvider } from '@clerk/clerk-react'
 import { AppErrorBoundary } from './App'
 import RootShell from './shell/RootShell'
 import { CLERK_PUBLISHABLE_KEY } from './lib/clerk'
+import { I18nProvider } from './lib/i18n'
 import './index.css'
 
 const root = ReactDOM.createRoot(document.getElementById('root')!)
@@ -21,9 +22,11 @@ if (!CLERK_PUBLISHABLE_KEY) {
   root.render(
     <React.StrictMode>
       <ClerkProvider publishableKey={CLERK_PUBLISHABLE_KEY} afterSignOutUrl="/">
-        <AppErrorBoundary>
-          <RootShell />
-        </AppErrorBoundary>
+        <I18nProvider>
+          <AppErrorBoundary>
+            <RootShell />
+          </AppErrorBoundary>
+        </I18nProvider>
       </ClerkProvider>
     </React.StrictMode>,
   )

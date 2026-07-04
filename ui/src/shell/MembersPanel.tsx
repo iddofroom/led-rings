@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react'
 import { library, type LibraryMember } from '../lib/library'
+import { useI18n } from '../lib/i18n'
 
 /**
  * Admin-only member management for a project. Admins invite by email (the invitee sees the project
@@ -14,6 +15,7 @@ interface Props {
 }
 
 export default function MembersPanel({ projectId, projectName, onClose }: Props) {
+  const { t } = useI18n()
   const [members, setMembers] = useState<LibraryMember[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -58,7 +60,7 @@ export default function MembersPanel({ projectId, projectName, onClose }: Props)
   }
 
   async function remove(addr: string) {
-    if (!window.confirm(`Remove ${addr} from ${projectName}?`)) return
+    if (!window.confirm(t({ en: `Remove ${addr} from ${projectName}?`, he: `להסיר את ${addr} מ-${projectName}?` }))) return
     setBusy(true); setError(null)
     try { await library.removeMember(addr, projectId); await refresh() }
     catch (err) { setError(err instanceof Error ? err.message : String(err)) }
@@ -69,7 +71,7 @@ export default function MembersPanel({ projectId, projectName, onClose }: Props)
     <div style={overlay} onClick={onClose}>
       <div style={modal} onClick={(e) => e.stopPropagation()}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-          <h2 style={{ margin: 0, fontSize: 18 }}>👥 Members — {projectName}</h2>
+          <h2 style={{ margin: 0, fontSize: 18 }}>👥 {t({ en: 'Members', he: 'חברים' })} — {projectName}</h2>
           <button onClick={onClose} style={{ fontSize: 18, background: 'none', border: 'none', cursor: 'pointer', color: 'inherit' }}>✕</button>
         </div>
 
@@ -80,35 +82,35 @@ export default function MembersPanel({ projectId, projectName, onClose }: Props)
             type="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            placeholder="email to invite"
+            placeholder={t({ en: 'email to invite', he: 'אימייל להזמנה' })}
             style={input}
             disabled={busy}
           />
           <select value={role} onChange={(e) => setRole(e.target.value === 'admin' ? 'admin' : 'member')} style={select} disabled={busy}>
-            <option value="member">member</option>
-            <option value="admin">admin</option>
+            <option value="member">{t({ en: 'member', he: 'חבר' })}</option>
+            <option value="admin">{t({ en: 'admin', he: 'מנהל' })}</option>
           </select>
-          <button type="submit" style={primaryBtn} disabled={busy || !email.trim()}>Invite</button>
+          <button type="submit" style={primaryBtn} disabled={busy || !email.trim()}>{t({ en: 'Invite', he: 'הזמן' })}</button>
         </form>
 
         {loading ? (
-          <div style={{ color: '#9aa', padding: 20, textAlign: 'center' }}>Loading…</div>
+          <div style={{ color: '#9aa', padding: 20, textAlign: 'center' }}>{t({ en: 'Loading…', he: 'טוען…' })}</div>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
             {members.map((m) => (
               <div key={m.email} style={row}>
                 <span style={{ flex: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{m.email}</span>
                 <select value={m.role} onChange={(e) => setMemberRole(m.email, e.target.value === 'admin' ? 'admin' : 'member')} style={smallSelect} disabled={busy}>
-                  <option value="member">member</option>
-                  <option value="admin">admin</option>
+                  <option value="member">{t({ en: 'member', he: 'חבר' })}</option>
+                  <option value="admin">{t({ en: 'admin', he: 'מנהל' })}</option>
                 </select>
-                <button onClick={() => remove(m.email)} style={trashBtn} title="Remove" disabled={busy}>🗑</button>
+                <button onClick={() => remove(m.email)} style={trashBtn} title={t({ en: 'Remove', he: 'הסר' })} disabled={busy}>🗑</button>
               </div>
             ))}
           </div>
         )}
         <div style={{ fontSize: 11, color: '#6b7280', marginTop: 14 }}>
-          Invited people see this project the next time they sign in. No email is sent.
+          {t({ en: 'Invited people see this project the next time they sign in. No email is sent.', he: 'אנשים שהוזמנו יראו את הפרויקט הזה בפעם הבאה שיתחברו. לא נשלח אימייל.' })}
         </div>
       </div>
     </div>

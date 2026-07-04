@@ -7,6 +7,7 @@ import TimeframePanel from './TimeframePanel'
 import { WLED_PALETTES, DEFAULT_PALETTE, paletteById, paletteGradientCss } from '../../../shared/wled-palettes'
 import { presetToTimeframes, extractPresetColor } from '../presets'
 import type { PresetMetadata } from '../presets'
+import { useI18n, type Bilingual } from '../lib/i18n'
 
 /**
  * Fullscreen LIVE CONSOLE — a VJ surface for performing the LED show while the song
@@ -86,12 +87,12 @@ const RATE_TICKS = [0.25, 0.5, 1, 2, 4, 8]
 // Cross-ring travel direction. Realised as a `stagger` movement (every ring plays the
 // SAME effect, wave-shifted in time) so only the direction changes, not the pattern.
 // 'none' = no movement (all rings together — the previous default).
-const DIRECTIONS: { id: MovementDirection | 'none'; short: string; title: string }[] = [
-  { id: 'none', short: '⊘', title: 'No direction — all rings together' },
-  { id: 'forward', short: '1→12', title: 'Travel 1 → 12' },
-  { id: 'backward', short: '12→1', title: 'Travel 12 → 1' },
-  { id: 'center-out', short: 'C→O', title: 'Center → out' },
-  { id: 'edges-in', short: 'E→I', title: 'Edges → in' },
+const DIRECTIONS: { id: MovementDirection | 'none'; short: string; title: Bilingual }[] = [
+  { id: 'none', short: '⊘', title: { en: 'No direction — all rings together', he: 'ללא כיוון — כל הטבעות יחד' } },
+  { id: 'forward', short: '1→12', title: { en: 'Travel 1 → 12', he: 'מעבר 1 → 12' } },
+  { id: 'backward', short: '12→1', title: { en: 'Travel 12 → 1', he: 'מעבר 12 → 1' } },
+  { id: 'center-out', short: 'C→O', title: { en: 'Center → out', he: 'מרכז → החוצה' } },
+  { id: 'edges-in', short: 'E→I', title: { en: 'Edges → in', he: 'קצוות → פנימה' } },
 ]
 /** Build the `stagger` movement for a direction over a ring set / span (undefined = no direction). */
 function movementFor(dir: MovementDirection | 'none', rings: number[], start: number, end: number): TimeframeMovement | undefined {
@@ -186,6 +187,8 @@ export default function LiveConsole({
   brightness, brightnessConnected, onBrightnessChange, autoSend, onRecompose,
   strip, sectionLines = [], onSectionLinesChange, presetPads = [], songAnimations = [], onRemoveAnimation, onClose,
 }: LiveConsoleProps) {
+  // i18n: aliased to `tr` because `t` is used as a map/loop iterator throughout this component.
+  const { t: tr } = useI18n()
   const [paletteId, setPaletteId] = useState(DEFAULT_PALETTE.id)
   const palette = paletteById(paletteId)
   const [color, setColor] = useState(DEFAULT_PALETTE.colors[6])
@@ -586,7 +589,7 @@ export default function LiveConsole({
     })
     onApplyTimeframes([...timeframes.filter((t) => t.id !== tf.id), ...segs])
     setSelectedId(segs[0].id)
-    setFlash('⚡ speed curve applied'); window.setTimeout(() => setFlash(null), 1100)
+    setFlash(tr({ en: '⚡ speed curve applied', he: '⚡ עקומת מהירות הוחלה' })); window.setTimeout(() => setFlash(null), 1100)
   }
 
   // Full per-property edit of the selected block (the "All options" drawer reuses the same
@@ -612,14 +615,14 @@ export default function LiveConsole({
     const b = Math.round(Math.max(1, Math.min(songLengthBeats - 1, beat)))
     if (sectionLines.some((x) => Math.abs(x - b) < 0.5)) return
     onSectionLinesChange([...sectionLines, b].sort((a, c) => a - c))
-    setFlash(`＋ line @ ${b}b`); window.setTimeout(() => setFlash(null), 900)
+    setFlash(tr({ en: `＋ line @ ${b}b`, he: `＋ קו @ ${b}b` })); window.setTimeout(() => setFlash(null), 900)
   }
   function addGridLines(interval: number) {
     if (!onSectionLinesChange || interval <= 0) return
     const set = new Set(sectionLines.map((b) => Math.round(b)))
     for (let b = interval; b < songLengthBeats; b += interval) set.add(Math.round(b))
     onSectionLinesChange([...set].sort((a, c) => a - c))
-    setFlash(`＋ lines every ${interval}b`); window.setTimeout(() => setFlash(null), 900)
+    setFlash(tr({ en: `＋ lines every ${interval}b`, he: `＋ קווים כל ${interval}b` })); window.setTimeout(() => setFlash(null), 900)
   }
   function removeLineNear(beat: number) {
     if (!onSectionLinesChange || !sectionLines.length) return
@@ -748,35 +751,35 @@ export default function LiveConsole({
       {/* Top bar */}
       <div style={topbar}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <span style={{ fontWeight: 700, fontSize: 15 }}>🎛️ Live Console</span>
-          <span style={{ fontSize: 12, color: '#8aa' }}>{song.name || 'Untitled'} · {song.bpm || 120} BPM</span>
+          <span style={{ fontWeight: 700, fontSize: 15 }}>🎛️ {tr({ en: 'Live Console', he: 'קונסולת לייב' })}</span>
+          <span style={{ fontSize: 12, color: '#8aa' }}>{song.name || tr({ en: 'Untitled', he: 'ללא שם' })} · {song.bpm || 120} BPM</span>
           <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 999, background: autoSend ? '#064e3b' : '#3a3f4b', color: autoSend ? '#6ee7b7' : '#aaa' }}>
-            {autoSend ? '● auto → LEDs' : 'sim only'}
+            {autoSend ? tr({ en: '● auto → LEDs', he: '● אוטומטי → לדים' }) : tr({ en: 'sim only', he: 'סימולציה בלבד' })}
           </span>
-          {armed && <span style={{ fontSize: 11, color: '#34d399' }}>armed: {PAT_BY_KEY.get(armed)?.label} — click a lane or drag onto the timeline</span>}
+          {armed && <span style={{ fontSize: 11, color: '#34d399' }}>{tr({ en: 'armed:', he: 'דרוך:' })} {PAT_BY_KEY.get(armed)?.label} {tr({ en: '— click a lane or drag onto the timeline', he: '— לחץ על מסלול או גרור אל ציר הזמן' })}</span>}
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           {onRecompose && (
             <button
               onClick={async () => { setRecomposing(true); try { await onRecompose() } finally { setRecomposing(false) } }}
               disabled={recomposing}
-              title="Regenerate the whole composition from the audio analysis"
+              title={tr({ en: 'Regenerate the whole composition from the audio analysis', he: 'צור מחדש את כל הקומפוזיציה מניתוח האודיו' })}
               style={{ ...closeBtn, background: '#7c3aed', opacity: recomposing ? 0.6 : 1, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
               {recomposing && <span style={{ width: 12, height: 12, border: '2px solid #fff', borderTopColor: 'transparent', borderRadius: '50%', display: 'inline-block', animation: 'composeSpin 0.8s linear infinite' }} />}
-              {recomposing ? 'Recomposing…' : '↻ Recompose'}
+              {recomposing ? tr({ en: 'Recomposing…', he: 'מרכיב מחדש…' }) : tr({ en: '↻ Recompose', he: '↻ הרכב מחדש' })}
             </button>
           )}
           <button
-            onClick={() => { if (timeframes.length && window.confirm(`Delete all ${timeframes.length} blocks and clear the timeline?`)) clearAllBlocks() }}
+            onClick={() => { if (timeframes.length && window.confirm(tr({ en: `Delete all ${timeframes.length} blocks and clear the timeline?`, he: `למחוק את כל ${timeframes.length} הבלוקים ולנקות את ציר הזמן?` }))) clearAllBlocks() }}
             disabled={!timeframes.length}
-            title="Delete every block and clear the timeline (also on right-click)"
+            title={tr({ en: 'Delete every block and clear the timeline (also on right-click)', he: 'מחק כל בלוק ונקה את ציר הזמן (גם בלחיצה ימנית)' })}
             style={{ ...closeBtn, background: '#7f1d1d', opacity: timeframes.length ? 1 : 0.5 }}>
-            🗑 Clear
+            🗑 {tr({ en: 'Clear', he: 'נקה' })}
           </button>
-          <span style={{ fontSize: 12, color: '#8aa' }}>Brightness</span>
+          <span style={{ fontSize: 12, color: '#8aa' }}>{tr({ en: 'Brightness', he: 'בהירות' })}</span>
           <input type="range" min={0} max={1} step={0.01} value={brightness} disabled={!brightnessConnected}
             onChange={(e) => onBrightnessChange(parseFloat(e.target.value))} style={{ width: 120, accentColor: '#34d399' }} />
-          <button onClick={onClose} style={closeBtn}>✕ Close (Esc)</button>
+          <button onClick={onClose} style={closeBtn}>✕ {tr({ en: 'Close (Esc)', he: 'סגור (Esc)' })}</button>
         </div>
       </div>
 
@@ -785,10 +788,10 @@ export default function LiveConsole({
         {/* ── Left rail ── */}
         <div style={rail}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 2 }}>
-            <span style={{ ...railLabel, flex: 1 }}>Patterns</span>
-            <button onClick={() => setEditPads((v) => !v)} title="Rename pads / pin patterns to this rail"
+            <span style={{ ...railLabel, flex: 1 }}>{tr({ en: 'Patterns', he: 'תבניות' })}</span>
+            <button onClick={() => setEditPads((v) => !v)} title={tr({ en: 'Rename pads / pin patterns to this rail', he: 'שנה שם לפדים / הצמד תבניות לסרגל' })}
               style={{ ...miniBtn, padding: '2px 7px', background: editPads ? '#34d399' : '#2a3340', color: editPads ? '#04150f' : '#cdd' }}>
-              {editPads ? '✓ Done' : '✎ Edit'}
+              {editPads ? tr({ en: '✓ Done', he: '✓ סיום' }) : tr({ en: '✎ Edit', he: '✎ עריכה' })}
             </button>
           </div>
           {pinned.map((key) => {
@@ -798,7 +801,7 @@ export default function LiveConsole({
               <div key={key} draggable={!editPads}
                 onDragStart={(e) => { e.dataTransfer.setData(DT_KEY, key); e.dataTransfer.effectAllowed = 'copy' }}
                 onClick={() => { if (!editPads) setArmed((cur) => (cur === key ? null : key)) }}
-                title={editPads ? 'Rename, or × to remove from the rail' : 'Drag onto a lane, or click to arm then click a lane'}
+                title={editPads ? tr({ en: 'Rename, or × to remove from the rail', he: 'שנה שם, או × להסרה מהסרגל' }) : tr({ en: 'Drag onto a lane, or click to arm then click a lane', he: 'גרור אל מסלול, או לחץ לדריכה ואז לחץ על מסלול' })}
                 style={{ ...padV, cursor: editPads ? 'default' : 'grab', outline: armed === key ? '2px solid #34d399' : '1px solid #2c3645', background: `linear-gradient(160deg, ${info.color}22, #1b2230)` }}>
                 {info.icon
                   ? <span style={{ fontSize: 15, width: 18, textAlign: 'center', flexShrink: 0 }}>{info.icon}</span>
@@ -806,7 +809,7 @@ export default function LiveConsole({
                 {editPads ? (
                   <>
                     <input value={info.label} onChange={(e) => renamePad(key, e.target.value)} onClick={(e) => e.stopPropagation()} style={padRenameInput} />
-                    <button onClick={(e) => { e.stopPropagation(); togglePin(key) }} title="Remove from rail" style={pinBtn}>×</button>
+                    <button onClick={(e) => { e.stopPropagation(); togglePin(key) }} title={tr({ en: 'Remove from rail', he: 'הסר מהסרגל' })} style={pinBtn}>×</button>
                   </>
                 ) : (
                   <span style={{ fontSize: 12, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{info.label}</span>
@@ -817,22 +820,22 @@ export default function LiveConsole({
           {editPads && PATTERNS.some((p) => !pinned.includes(p.key)) && (
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, padding: '2px 0 4px' }}>
               {PATTERNS.filter((p) => !pinned.includes(p.key)).map((p) => (
-                <button key={p.key} onClick={() => togglePin(p.key)} title={`Add ${labelFor(p.key, p.label)} back to the rail`}
+                <button key={p.key} onClick={() => togglePin(p.key)} title={tr({ en: `Add ${labelFor(p.key, p.label)} back to the rail`, he: `החזר את ${labelFor(p.key, p.label)} לסרגל` })}
                   style={{ ...miniBtn, fontSize: 11 }}>＋ {p.icon} {labelFor(p.key, p.label)}</button>
               ))}
             </div>
           )}
           <div onClick={onRandomize}
-            title={`Random pattern → replace the current section (${currentSection?.label ?? 'song'}) on ALL rings`}
+            title={tr({ en: `Random pattern → replace the current section (${currentSection?.label ?? 'song'}) on ALL rings`, he: `תבנית אקראית → החלף את המקטע הנוכחי (${currentSection?.label ?? 'שיר'}) בכל הטבעות` })}
             style={{ ...padV, cursor: 'pointer', outline: '1px solid #f59e0b88', background: 'linear-gradient(160deg, #f59e0b33, #2a1f10)' }}>
             <span style={{ fontSize: 18, width: 22, textAlign: 'center' }}>🎲</span>
-            <span style={{ fontSize: 12, fontWeight: 700, color: '#fbbf24' }}>Random</span>
+            <span style={{ fontSize: 12, fontWeight: 700, color: '#fbbf24' }}>{tr({ en: 'Random', he: 'אקראי' })}</span>
           </div>
 
           {songAnimations.length > 0 && (
             <>
               <div style={railDivider} />
-              <div style={railLabel}>🎬 Song patterns · {songAnimations.length}</div>
+              <div style={railLabel}>🎬 {tr({ en: 'Song patterns', he: 'תבניות השיר' })} · {songAnimations.length}</div>
               {songAnimations.map((a) => {
                 const k = `anim:${a.id}`
                 const c = a.timeframes.find((t) => t.color)?.color || '#a855f7'
@@ -840,11 +843,11 @@ export default function LiveConsole({
                   <div key={a.id} draggable
                     onDragStart={(e) => { e.dataTransfer.setData(DT_KEY, k); e.dataTransfer.effectAllowed = 'copy' }}
                     onClick={() => setArmed((cur) => (cur === k ? null : k))}
-                    title={`${a.name} — drag to a lane or click to arm`}
+                    title={tr({ en: `${a.name} — drag to a lane or click to arm`, he: `${a.name} — גרור אל מסלול או לחץ לדריכה` })}
                     style={{ ...padV, height: 26, outline: armed === k ? '2px solid #34d399' : '1px solid #2c3645', background: `linear-gradient(160deg, ${c}33, #1b2230)` }}>
                     <span style={{ width: 11, height: 11, borderRadius: 3, background: c, flexShrink: 0 }} />
                     <span style={{ fontSize: 12, fontWeight: 600, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{a.name}</span>
-                    {onRemoveAnimation && <button onClick={(e) => { e.stopPropagation(); onRemoveAnimation(a.id) }} title="Remove from song" style={pinBtn}>×</button>}
+                    {onRemoveAnimation && <button onClick={(e) => { e.stopPropagation(); onRemoveAnimation(a.id) }} title={tr({ en: 'Remove from song', he: 'הסר מהשיר' })} style={pinBtn}>×</button>}
                   </div>
                 )
               })}
@@ -853,7 +856,7 @@ export default function LiveConsole({
 
           {songAnimations.length === 0 && (
             <div style={{ fontSize: 11, color: '#667', padding: '6px 2px', lineHeight: 1.5 }}>
-              No patterns saved to this song yet. Edit a pattern on the main screen and click "💾 Save" / "＋ Add to song".
+              {tr({ en: 'No patterns saved to this song yet. Edit a pattern on the main screen and click "💾 Save" / "＋ Add to song".', he: 'אין עדיין תבניות שמורות לשיר הזה. ערוך תבנית במסך הראשי ולחץ "💾 שמור" / "＋ הוסף לשיר".' })}
             </div>
           )}
 
@@ -861,11 +864,11 @@ export default function LiveConsole({
           {presetPads.length > 0 && (
             <>
               <div style={railDivider} />
-              <div style={railLabel}>📚 Pattern library · {presetPads.length}</div>
+              <div style={railLabel}>📚 {tr({ en: 'Pattern library', he: 'ספריית התבניות' })} · {presetPads.length}</div>
               <input
                 value={libFilter}
                 onChange={(e) => setLibFilter(e.target.value)}
-                placeholder="Search patterns…"
+                placeholder={tr({ en: 'Search patterns…', he: 'חפש תבניות…' })}
                 style={{ width: '100%', boxSizing: 'border-box', background: '#0d1117', color: '#e8eef5', border: '1px solid #2c3645', borderRadius: 6, padding: '4px 8px', fontSize: 11, marginBottom: 2 }}
               />
               {presetPads
@@ -881,7 +884,7 @@ export default function LiveConsole({
                     <div key={p.id} draggable
                       onDragStart={(e) => { e.dataTransfer.setData(DT_KEY, k); e.dataTransfer.effectAllowed = 'copy' }}
                       onClick={() => setArmed((cur) => (cur === k ? null : k))}
-                      title={`${label} — drag to a lane or click to arm`}
+                      title={tr({ en: `${label} — drag to a lane or click to arm`, he: `${label} — גרור אל מסלול או לחץ לדריכה` })}
                       style={{ ...padV, height: 26, cursor: 'grab', outline: armed === k ? '2px solid #34d399' : '1px solid #2c3645', background: `linear-gradient(160deg, ${c}33, #1b2230)` }}>
                       <span style={{ width: 11, height: 11, borderRadius: 3, background: c, flexShrink: 0 }} />
                       <span style={{ fontSize: 12, fontWeight: 600, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{label}</span>
@@ -892,10 +895,10 @@ export default function LiveConsole({
           )}
 
           <div style={railDivider} />
-          <div style={railLabel}>Rate · {rate}b/cycle</div>
+          <div style={railLabel}>{tr({ en: 'Rate', he: 'קצב' })} · {rate}b/cycle</div>
           <input type="range" min={0.1} max={32} step={0.05} value={rate}
             onChange={(e) => setRate(parseFloat(e.target.value))}
-            title="Beats per cycle for new patterns (lower = faster)"
+            title={tr({ en: 'Beats per cycle for new patterns (lower = faster)', he: 'ביטים למחזור עבור תבניות חדשות (נמוך יותר = מהיר יותר)' })}
             style={{ width: '100%', accentColor: '#f59e0b' }} />
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
             {RATE_TICKS.map((t) => (
@@ -907,10 +910,10 @@ export default function LiveConsole({
           </div>
 
           <div style={railDivider} />
-          <div style={railLabel}>Direction</div>
+          <div style={railLabel}>{tr({ en: 'Direction', he: 'כיוון' })}</div>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
             {DIRECTIONS.map((d) => (
-              <button key={d.id} onClick={() => setDirection(d.id)} title={d.title}
+              <button key={d.id} onClick={() => setDirection(d.id)} title={tr(d.title)}
                 style={{ ...miniBtn, fontSize: 11, background: direction === d.id ? '#f59e0b' : '#2a3340', color: direction === d.id ? '#1b1200' : '#cdd' }}>
                 {d.short}
               </button>
@@ -918,14 +921,14 @@ export default function LiveConsole({
           </div>
 
           <div style={railDivider} />
-          <div style={railLabel}>Palette · WLED</div>
-          <select value={paletteId} onChange={(e) => selectPalette(e.target.value)} title="WLED color palette" style={paletteSelect}>
+          <div style={railLabel}>{tr({ en: 'Palette', he: 'פלטה' })} · WLED</div>
+          <select value={paletteId} onChange={(e) => selectPalette(e.target.value)} title={tr({ en: 'WLED color palette', he: 'פלטת צבעים WLED' })} style={paletteSelect}>
             {WLED_PALETTES.map((p) => (
               <option key={p.id} value={p.id}>{p.name}</option>
             ))}
           </select>
           <div title={palette.name} style={{ height: 12, borderRadius: 6, background: paletteGradientCss(palette), border: '1px solid #0006' }} />
-          <div style={{ ...railLabel, marginTop: 4 }}>Color</div>
+          <div style={{ ...railLabel, marginTop: 4 }}>{tr({ en: 'Color', he: 'צבע' })}</div>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
             {palette.colors.map((c) => (
               <button key={c} onClick={() => setColor(c)} title={c}
@@ -942,7 +945,7 @@ export default function LiveConsole({
               <RingVisualization mapping="all" activeRings={activeRings} timeframes={activeTimeframes}
                 currentTime={currentTime} globalBrightness={brightness} darkOff />
             ) : (
-              <div style={{ color: '#566', fontSize: 14 }}>No active segment at {currentTime.toFixed(1)}b — press ▶ or drop a pattern onto a lane.</div>
+              <div style={{ color: '#566', fontSize: 14 }}>{tr({ en: 'No active segment at', he: 'אין מקטע פעיל ב-' })} {currentTime.toFixed(1)}b {tr({ en: '— press ▶ or drop a pattern onto a lane.', he: '— לחץ ▶ או שחרר תבנית על מסלול.' })}</div>
             )}
             {flash && <div style={flashPill}>{flash}</div>}
           </div>
@@ -952,27 +955,27 @@ export default function LiveConsole({
             {/* Header: collapse toggle + zoom controls */}
             <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: timelineCollapsed ? 0 : 6 }}>
               <button style={{ ...zoomBtn, width: 22 }} onClick={() => setTimelineCollapsed((c) => !c)}
-                title={timelineCollapsed ? 'Expand timeline' : 'Collapse timeline — bigger LEDs'}>
+                title={timelineCollapsed ? tr({ en: 'Expand timeline', he: 'הרחב ציר זמן' }) : tr({ en: 'Collapse timeline — bigger LEDs', he: 'כווץ ציר זמן — לדים גדולים יותר' })}>
                 {timelineCollapsed ? '▸' : '▾'}
               </button>
-              <span style={{ fontSize: 10, fontWeight: 700, color: '#667', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Timeline</span>
+              <span style={{ fontSize: 10, fontWeight: 700, color: '#667', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{tr({ en: 'Timeline', he: 'ציר זמן' })}</span>
               <span style={{ flex: 1 }} />
               {!timelineCollapsed && (
                 <>
-                  <span style={{ fontSize: 10, color: '#778' }}>grid</span>
+                  <span style={{ fontSize: 10, color: '#778' }}>{tr({ en: 'grid', he: 'רשת' })}</span>
                   {[0, 1, 2, 4, 8, 16].map((g) => (
                     <button key={g} onClick={() => setGridBeats(g)}
-                      title={g === 0 ? 'No beat grid' : `Snap lines every ${g} beat${g > 1 ? 's' : ''}`}
+                      title={g === 0 ? tr({ en: 'No beat grid', he: 'אין רשת ביטים' }) : tr({ en: `Snap lines every ${g} beat${g > 1 ? 's' : ''}`, he: `קווי הצמדה כל ${g} ביט${g > 1 ? 'ים' : ''}` })}
                       style={{ ...zoomBtn, width: 'auto', padding: '0 6px', background: gridBeats === g ? '#6366f1' : '#2a3340', color: gridBeats === g ? '#fff' : '#cdd' }}>
-                      {g === 0 ? 'off' : g}
+                      {g === 0 ? tr({ en: 'off', he: 'כבוי' }) : g}
                     </button>
                   ))}
                   <span style={{ width: 8 }} />
-                  <span style={{ fontSize: 10, color: '#778' }}>ctrl+scroll to zoom · drag empty to pan</span>
-                  <button style={zoomBtn} onClick={() => zoomAt(1 / 1.5)} disabled={zoom <= ZOOM_MIN} title="Zoom out">−</button>
+                  <span style={{ fontSize: 10, color: '#778' }}>{tr({ en: 'ctrl+scroll to zoom · drag empty to pan', he: 'ctrl+גלילה לזום · גרור ריק להזזה' })}</span>
+                  <button style={zoomBtn} onClick={() => zoomAt(1 / 1.5)} disabled={zoom <= ZOOM_MIN} title={tr({ en: 'Zoom out', he: 'התרחק' })}>−</button>
                   <span style={{ fontSize: 11, color: '#9ab', width: 36, textAlign: 'center' }}>{Math.round(zoom * 100)}%</span>
-                  <button style={zoomBtn} onClick={() => zoomAt(1.5)} disabled={zoom >= ZOOM_MAX} title="Zoom in">+</button>
-                  <button style={{ ...zoomBtn, width: 'auto', padding: '0 8px' }} onClick={() => { setZoom(1); if (scrollRef.current) scrollRef.current.scrollLeft = 0 }} title="Fit whole song">1:1</button>
+                  <button style={zoomBtn} onClick={() => zoomAt(1.5)} disabled={zoom >= ZOOM_MAX} title={tr({ en: 'Zoom in', he: 'התקרב' })}>+</button>
+                  <button style={{ ...zoomBtn, width: 'auto', padding: '0 8px' }} onClick={() => { setZoom(1); if (scrollRef.current) scrollRef.current.scrollLeft = 0 }} title={tr({ en: 'Fit whole song', he: 'התאם לכל השיר' })}>1:1</button>
                 </>
               )}
             </div>
@@ -981,7 +984,7 @@ export default function LiveConsole({
             <div style={{ display: 'flex' }}>
               {/* Fixed label column */}
               <div style={{ width: LABEL_W, flexShrink: 0 }}>
-                <div style={{ height: LANE_H, fontSize: 9, color: '#667', textAlign: 'center', lineHeight: `${LANE_H}px` }}>beat</div>
+                <div style={{ height: LANE_H, fontSize: 9, color: '#667', textAlign: 'center', lineHeight: `${LANE_H}px` }}>{tr({ en: 'beat', he: 'ביט' })}</div>
                 {LANES.map((lane) => (
                   <div key={lane.key} style={{ height: LANE_H, lineHeight: `${LANE_H}px`, fontSize: 10, fontWeight: lane.key === 'all' ? 800 : 600, color: lane.key === 'all' ? '#a5b4fc' : '#8aa', textAlign: 'center' }}>
                     {lane.label}
@@ -998,7 +1001,7 @@ export default function LiveConsole({
                     <div style={{ position: 'relative', height: 40, marginBottom: 3, borderRadius: 4, overflow: 'hidden', cursor: 'context-menu' }}
                       onContextMenu={(e) => { e.preventDefault(); setCtxMenu({ x: e.clientX, y: e.clientY, beat: xToBeat(e, e.currentTarget as HTMLElement) }) }}
                       onClick={(e) => { setSelectedId(null); onSeekBeat(xToBeat(e, e.currentTarget as HTMLElement)) }}
-                      title="Right-click to add beat lines that patterns snap to">
+                      title={tr({ en: 'Right-click to add beat lines that patterns snap to', he: 'לחץ ימני להוספת קווי ביט שהתבניות נצמדות אליהם' })}>
                       <svg width="100%" height={40} viewBox={`0 0 ${Math.max(1, songLengthBeats)} 100`} preserveAspectRatio="none" style={{ display: 'block', background: '#0b0f17' }}>
                         <polygon points={`0,100 ${strip.beats.map((b, i) => `${b},${100 - (strip.energy[i] || 0) * 100}`).join(' ')} ${songLengthBeats},100`} fill="rgba(255,255,255,0.10)" />
                         {([['sub', '#3b82f6'], ['low', '#22c55e'], ['mid', '#f59e0b'], ['high', '#ef4444']] as const).map(([band, col]) => (
@@ -1031,7 +1034,7 @@ export default function LiveConsole({
                         onMouseDown={onTrackMouseDown}
                         onClick={onLaneClick(lane)}
                         onContextMenu={(e) => { e.preventDefault(); setLaneMenu({ x: e.clientX, y: e.clientY, beat: xToBeat(e, e.currentTarget as HTMLElement) }) }}
-                        title={`${lane.label} — drag a pattern here (or click while a pad is armed). Click a block to edit it. Right-click to clear.`}
+                        title={tr({ en: `${lane.label} — drag a pattern here (or click while a pad is armed). Click a block to edit it. Right-click to clear.`, he: `${lane.label} — גרור תבנית לכאן (או לחץ בזמן שפד דרוך). לחץ על בלוק לעריכה. לחץ ימני לניקוי.` })}
                         style={{
                           position: 'relative', flex: 1, height: 15, borderRadius: 4, cursor: armed ? 'copy' : zoom > 1 ? 'grab' : 'pointer',
                           background: lane.key === 'all' ? '#171d29' : '#12161f',
@@ -1047,7 +1050,7 @@ export default function LiveConsole({
                           const s0 = dr ? dr.startTime : tf.startTime
                           const e0 = dr ? dr.endTime : tf.endTime
                           return (
-                            <div key={tf.id} title={`${tf.label} — double-click to play from its start`}
+                            <div key={tf.id} title={tr({ en: `${tf.label} — double-click to play from its start`, he: `${tf.label} — לחיצה כפולה לנגינה מתחילתו` })}
                               onClick={(e) => { e.stopPropagation(); if (armed) { onLaneClick(lane)(e) } else setSelectedId(tf.id) }}
                               onDoubleClick={(e) => { e.stopPropagation(); setSelectedId(tf.id); onSeekBeat(tf.startTime); if (!isPlaying) onPlayPause() }}
                               style={{
@@ -1059,9 +1062,9 @@ export default function LiveConsole({
                                 boxSizing: 'border-box', overflow: 'visible', cursor: 'pointer',
                               }}>
                               {/* edge resize handles */}
-                              <div onMouseDown={(e) => startResize(tf, 'start', e)} title="Drag to move start (snaps to beat)"
+                              <div onMouseDown={(e) => startResize(tf, 'start', e)} title={tr({ en: 'Drag to move start (snaps to beat)', he: 'גרור להזזת ההתחלה (נצמד לביט)' })}
                                 style={{ position: 'absolute', left: -3, top: 0, bottom: 0, width: 7, cursor: 'ew-resize', background: sel ? 'rgba(255,255,255,0.5)' : 'transparent', borderRadius: 2 }} />
-                              <div onMouseDown={(e) => startResize(tf, 'end', e)} title="Drag to move end (snaps to beat)"
+                              <div onMouseDown={(e) => startResize(tf, 'end', e)} title={tr({ en: 'Drag to move end (snaps to beat)', he: 'גרור להזזת הסוף (נצמד לביט)' })}
                                 style={{ position: 'absolute', right: -3, top: 0, bottom: 0, width: 7, cursor: 'ew-resize', background: sel ? 'rgba(255,255,255,0.5)' : 'transparent', borderRadius: 2 }} />
                             </div>
                           )
@@ -1110,24 +1113,24 @@ export default function LiveConsole({
       {selectedTf && (
         <div style={editor}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-            <span style={{ fontWeight: 700, fontSize: 13 }}>Edit block</span>
+            <span style={{ fontWeight: 700, fontSize: 13 }}>{tr({ en: 'Edit block', he: 'ערוך בלוק' })}</span>
             <span style={{ fontSize: 11, color: '#8aa' }}>
-              {isAllRings(selectedTf) ? 'ALL rings' : `ring${selectedTf.rings.length > 1 ? 's' : ''} ${selectedTf.rings.join(',')}`} · {fmt(selectedTf.startTime)}→{fmt(selectedTf.endTime)} ({selectedTf.endTime - selectedTf.startTime}b)
+              {isAllRings(selectedTf) ? tr({ en: 'ALL rings', he: 'כל הטבעות' }) : tr({ en: `ring${selectedTf.rings.length > 1 ? 's' : ''} ${selectedTf.rings.join(',')}`, he: `טבע${selectedTf.rings.length > 1 ? 'ות' : 'ת'} ${selectedTf.rings.join(',')}` })} · {fmt(selectedTf.startTime)}→{fmt(selectedTf.endTime)} ({selectedTf.endTime - selectedTf.startTime}b)
             </span>
-            <span style={{ fontSize: 10, color: '#556' }} title="Keyboard: ←/→ move in time (Shift = 4b) · ↑/↓ move across rings · Delete removes">⌨ ←→ time · ↑↓ rings · Del</span>
+            <span style={{ fontSize: 10, color: '#556' }} title={tr({ en: 'Keyboard: ←/→ move in time (Shift = 4b) · ↑/↓ move across rings · Delete removes', he: 'מקלדת: ←/→ הזזה בזמן (Shift = 4b) · ↑/↓ מעבר בין טבעות · Delete מוחק' })}>{tr({ en: '⌨ ←→ time · ↑↓ rings · Del', he: '⌨ ←→ זמן · ↑↓ טבעות · Del' })}</span>
             <span style={{ flex: 1 }} />
             <button
               style={{ ...miniBtn, background: showAdvanced ? '#6366f1' : '#3730a3', color: '#fff' }}
               onClick={() => setShowAdvanced((v) => !v)}
-              title="Full editor — color/HSV, cycle &amp; repeat, effects + params, movement, mapping, rings, phase (same options as the main panel)">
-              {showAdvanced ? '⚙ Hide options' : '⚙ All options'}
+              title={tr({ en: 'Full editor — color/HSV, cycle & repeat, effects + params, movement, mapping, rings, phase (same options as the main panel)', he: 'עורך מלא — צבע/HSV, מחזור וחזרה, אפקטים + פרמטרים, תנועה, מיפוי, טבעות, פאזה (אותן אפשרויות כמו בפאנל הראשי)' })}>
+              {showAdvanced ? tr({ en: '⚙ Hide options', he: '⚙ הסתר אפשרויות' }) : tr({ en: '⚙ All options', he: '⚙ כל האפשרויות' })}
             </button>
-            <button style={{ ...miniBtn, background: '#7f1d1d', color: '#fecaca' }} onClick={deleteSelected}>🗑 Delete</button>
+            <button style={{ ...miniBtn, background: '#7f1d1d', color: '#fecaca' }} onClick={deleteSelected}>🗑 {tr({ en: 'Delete', he: 'מחק' })}</button>
             <button style={{ ...miniBtn, background: '#2a3340', color: '#cdd' }} onClick={() => { setShowAdvanced(false); setSelectedId(null) }}>✕</button>
           </div>
           <div style={{ display: 'flex', gap: 18, flexWrap: 'wrap', alignItems: 'center' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-              <span style={editLbl}>Pattern</span>
+              <span style={editLbl}>{tr({ en: 'Pattern', he: 'תבנית' })}</span>
               {PATTERNS.map((p) => {
                 const on = patternKeyOf(selectedTf) === p.key
                 return (
@@ -1139,11 +1142,11 @@ export default function LiveConsole({
               })}
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-              <span style={editLbl}>Direction</span>
+              <span style={editLbl}>{tr({ en: 'Direction', he: 'כיוון' })}</span>
               {DIRECTIONS.map((d) => {
                 const on = directionOf(selectedTf) === d.id
                 return (
-                  <button key={d.id} title={d.title} onClick={() => setSelectedDirection(d.id)}
+                  <button key={d.id} title={tr(d.title)} onClick={() => setSelectedDirection(d.id)}
                     style={{ ...miniBtn, fontSize: 11, background: on ? '#f59e0b' : '#2a3340', color: on ? '#1b1200' : '#cdd' }}>
                     {d.short}
                   </button>
@@ -1151,7 +1154,7 @@ export default function LiveConsole({
               })}
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-              <span style={editLbl}>Color</span>
+              <span style={editLbl}>{tr({ en: 'Color', he: 'צבע' })}</span>
               {palette.colors.map((c) => (
                 <button key={c} onClick={() => patchSelected({ color: c })}
                   style={{ width: 20, height: 20, borderRadius: 5, background: c, cursor: 'pointer',
@@ -1159,10 +1162,10 @@ export default function LiveConsole({
               ))}
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-              <span style={editLbl}>Speed</span>
+              <span style={editLbl}>{tr({ en: 'Speed', he: 'מהירות' })}</span>
               <input type="range" min={0.1} max={32} step={0.05} value={rateOf(selectedTf) ?? rate}
                 onChange={(e) => patchSelected({ rate: parseFloat(e.target.value) })}
-                title="Beats per cycle for this block (lower = faster)"
+                title={tr({ en: 'Beats per cycle for this block (lower = faster)', he: 'ביטים למחזור עבור בלוק זה (נמוך יותר = מהיר יותר)' })}
                 style={{ width: 120, accentColor: '#f59e0b' }} />
               <span style={{ fontSize: 11, color: '#9ab', width: 56, textAlign: 'center', fontVariantNumeric: 'tabular-nums' }}>{(rateOf(selectedTf) ?? rate)}b/cyc</span>
               {RATE_TICKS.map((t) => {
@@ -1176,34 +1179,34 @@ export default function LiveConsole({
               })}
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-              <span style={editLbl}>Trim</span>
-              <button style={miniBtn} onClick={() => nudgeSelected(-1, 0)} title="start −1b">⟸</button>
-              <button style={miniBtn} onClick={() => nudgeSelected(1, 0)} title="start +1b">⟹</button>
+              <span style={editLbl}>{tr({ en: 'Trim', he: 'חיתוך' })}</span>
+              <button style={miniBtn} onClick={() => nudgeSelected(-1, 0)} title={tr({ en: 'start −1b', he: 'התחלה −1b' })}>⟸</button>
+              <button style={miniBtn} onClick={() => nudgeSelected(1, 0)} title={tr({ en: 'start +1b', he: 'התחלה +1b' })}>⟹</button>
               <span style={{ color: '#566', fontSize: 10 }}>|</span>
-              <button style={miniBtn} onClick={() => nudgeSelected(0, -1)} title="end −1b">⟜</button>
-              <button style={miniBtn} onClick={() => nudgeSelected(0, 1)} title="end +1b">⟞</button>
+              <button style={miniBtn} onClick={() => nudgeSelected(0, -1)} title={tr({ en: 'end −1b', he: 'סוף −1b' })}>⟜</button>
+              <button style={miniBtn} onClick={() => nudgeSelected(0, 1)} title={tr({ en: 'end +1b', he: 'סוף +1b' })}>⟞</button>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-              <span style={editLbl}>Fade</span>
+              <span style={editLbl}>{tr({ en: 'Fade', he: 'עמעום' })}</span>
               {(() => {
                 const f = fadeOf(selectedTf)
                 return (
                   <>
                     <button style={{ ...miniBtn, background: f.fadeIn ? '#34d399' : '#2a3340', color: f.fadeIn ? '#04150f' : '#cdd' }}
-                      onClick={() => setSelectedFade(!f.fadeIn, f.fadeOut)} title="Fade brightness in over the block">In</button>
+                      onClick={() => setSelectedFade(!f.fadeIn, f.fadeOut)} title={tr({ en: 'Fade brightness in over the block', he: 'עמעום בהירות פנימה לאורך הבלוק' })}>{tr({ en: 'In', he: 'פנימה' })}</button>
                     <button style={{ ...miniBtn, background: f.fadeOut ? '#34d399' : '#2a3340', color: f.fadeOut ? '#04150f' : '#cdd' }}
-                      onClick={() => setSelectedFade(f.fadeIn, !f.fadeOut)} title="Fade brightness out over the block">Out</button>
+                      onClick={() => setSelectedFade(f.fadeIn, !f.fadeOut)} title={tr({ en: 'Fade brightness out over the block', he: 'עמעום בהירות החוצה לאורך הבלוק' })}>{tr({ en: 'Out', he: 'החוצה' })}</button>
                   </>
                 )
               })()}
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-              <span style={editLbl} title="Vary the speed over the block (xLights value-curve). Splits it into segments.">Speed curve</span>
-              <button style={miniBtn} title="Constant" onClick={() => setSpeedCurve(Array(SPEED_CURVE_N).fill(1))}>▬</button>
-              <button style={miniBtn} title="Accelerate" onClick={() => { const c = genSpeedCurve('accel'); setSpeedCurve(c); applySpeedCurve(c) }}>↗</button>
-              <button style={miniBtn} title="Decelerate" onClick={() => { const c = genSpeedCurve('decel'); setSpeedCurve(c); applySpeedCurve(c) }}>↘</button>
-              <button style={miniBtn} title="Ease (slow-fast-slow)" onClick={() => { const c = genSpeedCurve('easeInOut'); setSpeedCurve(c); applySpeedCurve(c) }}>∿</button>
-              <button style={miniBtn} title="Bounce" onClick={() => { const c = genSpeedCurve('bounce'); setSpeedCurve(c); applySpeedCurve(c) }}>⤴⤵</button>
+              <span style={editLbl} title={tr({ en: 'Vary the speed over the block (xLights value-curve). Splits it into segments.', he: 'שנה את המהירות לאורך הבלוק (עקומת ערך בסגנון xLights). מפצל אותו למקטעים.' })}>{tr({ en: 'Speed curve', he: 'עקומת מהירות' })}</span>
+              <button style={miniBtn} title={tr({ en: 'Constant', he: 'קבוע' })} onClick={() => setSpeedCurve(Array(SPEED_CURVE_N).fill(1))}>▬</button>
+              <button style={miniBtn} title={tr({ en: 'Accelerate', he: 'האצה' })} onClick={() => { const c = genSpeedCurve('accel'); setSpeedCurve(c); applySpeedCurve(c) }}>↗</button>
+              <button style={miniBtn} title={tr({ en: 'Decelerate', he: 'האטה' })} onClick={() => { const c = genSpeedCurve('decel'); setSpeedCurve(c); applySpeedCurve(c) }}>↘</button>
+              <button style={miniBtn} title={tr({ en: 'Ease (slow-fast-slow)', he: 'ריכוך (איטי-מהיר-איטי)' })} onClick={() => { const c = genSpeedCurve('easeInOut'); setSpeedCurve(c); applySpeedCurve(c) }}>∿</button>
+              <button style={miniBtn} title={tr({ en: 'Bounce', he: 'קפיצה' })} onClick={() => { const c = genSpeedCurve('bounce'); setSpeedCurve(c); applySpeedCurve(c) }}>⤴⤵</button>
               <svg width={120} height={30} style={{ background: '#0d1117', borderRadius: 4, cursor: 'crosshair' }}
                 onClick={(e) => {
                   const r = (e.currentTarget as SVGElement).getBoundingClientRect()
@@ -1211,25 +1214,25 @@ export default function LiveConsole({
                   const v = SPEED_MAX - ((e.clientY - r.top) / r.height) * (SPEED_MAX - SPEED_MIN)
                   setSpeedCurve((cur) => cur.map((x, i) => (i === col ? Math.max(SPEED_MIN, Math.min(SPEED_MAX, +v.toFixed(2))) : x)))
                 }}>
-                <title>Draw a manual speed curve (click a column to set its speed)</title>
+                <title>{tr({ en: 'Draw a manual speed curve (click a column to set its speed)', he: 'צייר עקומת מהירות ידנית (לחץ על עמודה לקביעת המהירות שלה)' })}</title>
                 {speedCurve.map((m, i) => {
                   const bw = 120 / SPEED_CURVE_N
                   const h = ((m - SPEED_MIN) / (SPEED_MAX - SPEED_MIN)) * 30
                   return <rect key={i} x={i * bw + 1} y={30 - h} width={bw - 2} height={Math.max(1, h)} fill="#f59e0b" rx={1} />
                 })}
               </svg>
-              <button style={{ ...miniBtn, background: '#34d399', color: '#04150f' }} title="Apply the manual curve to this block" onClick={() => applySpeedCurve(speedCurve)}>Apply</button>
+              <button style={{ ...miniBtn, background: '#34d399', color: '#04150f' }} title={tr({ en: 'Apply the manual curve to this block', he: 'החל את העקומה הידנית על בלוק זה' })} onClick={() => applySpeedCurve(speedCurve)}>{tr({ en: 'Apply', he: 'החל' })}</button>
             </div>
           </div>
           {/* One-click changes to EVERY block */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 8, flexWrap: 'wrap', borderTop: '1px solid #1b2230', paddingTop: 8 }}>
-            <span style={{ ...editLbl, fontWeight: 700 }}>Apply to ALL blocks:</span>
-            <button style={miniBtn} onClick={() => applyToAll((t) => withFade(t, true, fadeOf(t).fadeOut), 'Fade in → all')}>＋Fade in</button>
-            <button style={miniBtn} onClick={() => applyToAll((t) => withFade(t, fadeOf(t).fadeIn, true), 'Fade out → all')}>＋Fade out</button>
-            <button style={miniBtn} onClick={() => applyToAll((t) => withFade(t, false, false), 'No fades → all')}>No fades</button>
+            <span style={{ ...editLbl, fontWeight: 700 }}>{tr({ en: 'Apply to ALL blocks:', he: 'החל על כל הבלוקים:' })}</span>
+            <button style={miniBtn} onClick={() => applyToAll((t) => withFade(t, true, fadeOf(t).fadeOut), tr({ en: 'Fade in → all', he: 'עמעום פנימה → הכל' }))}>＋{tr({ en: 'Fade in', he: 'עמעום פנימה' })}</button>
+            <button style={miniBtn} onClick={() => applyToAll((t) => withFade(t, fadeOf(t).fadeIn, true), tr({ en: 'Fade out → all', he: 'עמעום החוצה → הכל' }))}>＋{tr({ en: 'Fade out', he: 'עמעום החוצה' })}</button>
+            <button style={miniBtn} onClick={() => applyToAll((t) => withFade(t, false, false), tr({ en: 'No fades → all', he: 'ללא עמעום → הכל' }))}>{tr({ en: 'No fades', he: 'ללא עמעום' })}</button>
             <span style={{ color: '#566', fontSize: 10 }}>|</span>
-            <button style={miniBtn} onClick={() => applyToAll((t) => ({ ...t, color: selectedTf.color, hasExplicitColor: true }), 'Color → all')}>This color</button>
-            <button style={miniBtn} onClick={() => applyToAll((t) => withPattern(t, patternKeyOf(selectedTf), rateOf(selectedTf) ?? rate), 'Pattern → all')}>This pattern</button>
+            <button style={miniBtn} onClick={() => applyToAll((t) => ({ ...t, color: selectedTf.color, hasExplicitColor: true }), tr({ en: 'Color → all', he: 'צבע → הכל' }))}>{tr({ en: 'This color', he: 'צבע זה' })}</button>
+            <button style={miniBtn} onClick={() => applyToAll((t) => withPattern(t, patternKeyOf(selectedTf), rateOf(selectedTf) ?? rate), tr({ en: 'Pattern → all', he: 'תבנית → הכל' }))}>{tr({ en: 'This pattern', he: 'תבנית זו' })}</button>
           </div>
         </div>
       )}
@@ -1239,14 +1242,14 @@ export default function LiveConsole({
         <>
           <div onClick={() => setCtxMenu(null)} onContextMenu={(e) => { e.preventDefault(); setCtxMenu(null) }} style={{ position: 'fixed', inset: 0, zIndex: 2200 }} />
           <div style={{ position: 'fixed', left: Math.min(ctxMenu.x, window.innerWidth - 220), top: Math.min(ctxMenu.y, window.innerHeight - 260), zIndex: 2201, background: '#1b2230', border: '1px solid #2c3645', borderRadius: 8, padding: 6, boxShadow: '0 10px 30px #000b', minWidth: 200 }}>
-            <div style={{ fontSize: 10, color: '#778', padding: '2px 8px 6px', fontWeight: 700 }}>≈ beat {Math.round(ctxMenu.beat)} · add white snap-lines</div>
-            <button style={ctxItem} onClick={() => { addLineAt(ctxMenu.beat); setCtxMenu(null) }}>＋ Line here</button>
+            <div style={{ fontSize: 10, color: '#778', padding: '2px 8px 6px', fontWeight: 700 }}>{tr({ en: '≈ beat', he: '≈ ביט' })} {Math.round(ctxMenu.beat)} {tr({ en: '· add white snap-lines', he: '· הוסף קווי הצמדה לבנים' })}</div>
+            <button style={ctxItem} onClick={() => { addLineAt(ctxMenu.beat); setCtxMenu(null) }}>{tr({ en: '＋ Line here', he: '＋ קו כאן' })}</button>
             {[1, 2, 4, 8, 16].map((n) => (
-              <button key={n} style={ctxItem} onClick={() => { addGridLines(n); setCtxMenu(null) }}>＋ Lines every {n} beat{n > 1 ? 's' : ''}</button>
+              <button key={n} style={ctxItem} onClick={() => { addGridLines(n); setCtxMenu(null) }}>{tr({ en: `＋ Lines every ${n} beat${n > 1 ? 's' : ''}`, he: `＋ קווים כל ${n} ביט${n > 1 ? 'ים' : ''}` })}</button>
             ))}
             <div style={{ height: 1, background: '#2c3645', margin: '4px 0' }} />
-            <button style={ctxItem} onClick={() => { removeLineNear(ctxMenu.beat); setCtxMenu(null) }}>－ Remove nearest line</button>
-            <button style={{ ...ctxItem, color: '#fca5a5' }} onClick={() => { onSectionLinesChange?.([]); setCtxMenu(null) }}>🗑 Clear all lines</button>
+            <button style={ctxItem} onClick={() => { removeLineNear(ctxMenu.beat); setCtxMenu(null) }}>{tr({ en: '－ Remove nearest line', he: '－ הסר את הקו הקרוב ביותר' })}</button>
+            <button style={{ ...ctxItem, color: '#fca5a5' }} onClick={() => { onSectionLinesChange?.([]); setCtxMenu(null) }}>🗑 {tr({ en: 'Clear all lines', he: 'נקה את כל הקווים' })}</button>
           </div>
         </>
       )}
@@ -1256,10 +1259,10 @@ export default function LiveConsole({
         <>
           <div onClick={() => setLaneMenu(null)} onContextMenu={(e) => { e.preventDefault(); setLaneMenu(null) }} style={{ position: 'fixed', inset: 0, zIndex: 2200 }} />
           <div style={{ position: 'fixed', left: Math.min(laneMenu.x, window.innerWidth - 260), top: Math.min(laneMenu.y, window.innerHeight - 150), zIndex: 2201, background: '#1b2230', border: '1px solid #2c3645', borderRadius: 8, padding: 6, boxShadow: '0 10px 30px #000b', minWidth: 240 }}>
-            <div style={{ fontSize: 10, color: '#778', padding: '2px 8px 6px', fontWeight: 700 }}>{timeframes.length} blocks on the timeline</div>
-            <button style={{ ...ctxItem, color: '#fca5a5' }} onClick={() => { deleteBlocksInSection(laneMenu.beat); setLaneMenu(null) }}>🗑 Delete this section · {sectionAtBeat(laneMenu.beat).label}</button>
+            <div style={{ fontSize: 10, color: '#778', padding: '2px 8px 6px', fontWeight: 700 }}>{timeframes.length} {tr({ en: 'blocks on the timeline', he: 'בלוקים על ציר הזמן' })}</div>
+            <button style={{ ...ctxItem, color: '#fca5a5' }} onClick={() => { deleteBlocksInSection(laneMenu.beat); setLaneMenu(null) }}>🗑 {tr({ en: 'Delete this section', he: 'מחק מקטע זה' })} · {sectionAtBeat(laneMenu.beat).label}</button>
             <div style={{ height: 1, background: '#2c3645', margin: '4px 0' }} />
-            <button style={{ ...ctxItem, color: '#fecaca', background: '#7f1d1d' }} onClick={() => { clearAllBlocks(); setLaneMenu(null) }}>🗑 Clear the whole timeline ({timeframes.length})</button>
+            <button style={{ ...ctxItem, color: '#fecaca', background: '#7f1d1d' }} onClick={() => { clearAllBlocks(); setLaneMenu(null) }}>🗑 {tr({ en: 'Clear the whole timeline', he: 'נקה את כל ציר הזמן' })} ({timeframes.length})</button>
           </div>
         </>
       )}
@@ -1274,7 +1277,7 @@ export default function LiveConsole({
           {fmt(currentTime)} / {fmt(songLengthBeats)}
         </span>
         <span style={{ fontSize: 11, color: '#667' }}>
-          {currentTime.toFixed(1)}b · {currentSection?.label ?? 'song'}
+          {currentTime.toFixed(1)}b · {currentSection?.label ?? tr({ en: 'song', he: 'שיר' })}
         </span>
       </div>
     </div>

@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import { library, Device, DevicePin } from '../lib/library'
 import FlashController from './FlashController'
+import { useI18n } from '../lib/i18n'
 
 /**
  * Step 2 — "Set up the controllers". The user installs firmware on each ESP (via FlashController)
@@ -18,6 +19,7 @@ interface Props {
 const THING_RE = /^[A-Za-z0-9_-]{1,16}$/
 
 export default function ControllerSetup({ projectId, projectName, onBack }: Props) {
+  const { t } = useI18n()
   const [devices, setDevices] = useState<Device[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -28,11 +30,11 @@ export default function ControllerSetup({ projectId, projectName, onBack }: Prop
       setDevices(await library.listDevices(projectId))
       setError(null)
     } catch (e: any) {
-      setError(e?.message || 'Failed to load controllers')
+      setError(e?.message || t({ en: 'Failed to load controllers', he: 'טעינת הבקרים נכשלה' }))
     } finally {
       setLoading(false)
     }
-  }, [projectId])
+  }, [projectId, t])
 
   useEffect(() => {
     refresh()
@@ -40,15 +42,15 @@ export default function ControllerSetup({ projectId, projectName, onBack }: Prop
 
   const remove = useCallback(
     async (thing: string) => {
-      if (!window.confirm(`Remove controller "${thing}" from this project?`)) return
+      if (!window.confirm(t({ en: `Remove controller "${thing}" from this project?`, he: `להסיר את הבקר "${thing}" מהפרויקט הזה?` }))) return
       try {
         await library.removeDevice(thing, projectId)
         await refresh()
       } catch (e: any) {
-        setError(e?.message || 'Remove failed')
+        setError(e?.message || t({ en: 'Remove failed', he: 'ההסרה נכשלה' }))
       }
     },
-    [projectId, refresh],
+    [projectId, refresh, t],
   )
 
   return (
@@ -56,30 +58,30 @@ export default function ControllerSetup({ projectId, projectName, onBack }: Prop
       <div style={S.head}>
         <button style={S.back} onClick={onBack}>← {projectName}</button>
         <div>
-          <div style={{ fontSize: 22, fontWeight: 800, letterSpacing: '-0.01em' }}>Set up the controllers</div>
-          <div style={{ color: '#8fa0bd', fontSize: 13 }}>Install the firmware, then name each ESP and list its LED output pins.</div>
+          <div style={{ fontSize: 22, fontWeight: 800, letterSpacing: '-0.01em' }}>{t({ en: 'Set up the controllers', he: 'הגדרת הבקרים' })}</div>
+          <div style={{ color: '#8fa0bd', fontSize: 13 }}>{t({ en: 'Install the firmware, then name each ESP and list its LED output pins.', he: 'התקן את הקושחה, ואז תן שם לכל ESP ורשום את פיני יציאת הלדים שלו.' })}</div>
         </div>
       </div>
 
       <div style={S.grid}>
         <section style={S.card}>
-          <div style={S.cardTitle}>Install firmware</div>
+          <div style={S.cardTitle}>{t({ en: 'Install firmware', he: 'התקנת קושחה' })}</div>
           <FlashController />
         </section>
 
         <section style={S.card}>
-          <div style={S.cardTitle}>Add a controller</div>
+          <div style={S.cardTitle}>{t({ en: 'Add a controller', he: 'הוסף בקר' })}</div>
           <AddControllerForm projectId={projectId} existing={devices} onSaved={refresh} onError={setError} />
         </section>
       </div>
 
       <section style={{ ...S.card, marginTop: 16 }}>
-        <div style={S.cardTitle}>Your controllers {devices.length > 0 && <span style={{ color: '#8fa0bd', fontWeight: 400 }}>· {devices.length}</span>}</div>
+        <div style={S.cardTitle}>{t({ en: 'Your controllers', he: 'הבקרים שלך' })} {devices.length > 0 && <span style={{ color: '#8fa0bd', fontWeight: 400 }}>· {devices.length}</span>}</div>
         {error && <div style={S.err}>{error}</div>}
         {loading ? (
-          <div style={S.muted}>Loading…</div>
+          <div style={S.muted}>{t({ en: 'Loading…', he: 'טוען…' })}</div>
         ) : devices.length === 0 ? (
-          <div style={S.muted}>No controllers yet. Add one above — you can do this before or after mapping.</div>
+          <div style={S.muted}>{t({ en: 'No controllers yet. Add one above — you can do this before or after mapping.', he: 'אין עדיין בקרים. הוסף אחד למעלה — אפשר לעשות זאת לפני או אחרי המיפוי.' })}</div>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             {devices.map((d) => (
@@ -88,9 +90,9 @@ export default function ControllerSetup({ projectId, projectName, onBack }: Prop
                 {d.chip && <span style={S.chip}>{d.chip}</span>}
                 <span style={{ flex: 1 }} />
                 <span style={{ color: '#8fa0bd', fontSize: 13 }}>
-                  {d.pins.length ? d.pins.map((p) => `GPIO ${p.gpio}${p.label ? ` (${p.label})` : ''}`).join(' · ') : 'no pins'}
+                  {d.pins.length ? d.pins.map((p) => `GPIO ${p.gpio}${p.label ? ` (${p.label})` : ''}`).join(' · ') : t({ en: 'no pins', he: 'ללא פינים' })}
                 </span>
-                <button style={S.smallGhost} onClick={() => remove(d.thing)}>Remove</button>
+                <button style={S.smallGhost} onClick={() => remove(d.thing)}>{t({ en: 'Remove', he: 'הסר' })}</button>
               </div>
             ))}
           </div>
@@ -111,6 +113,7 @@ function AddControllerForm({
   onSaved: () => void
   onError: (m: string | null) => void
 }) {
+  const { t } = useI18n()
   const [thing, setThing] = useState('')
   const [pins, setPins] = useState<DevicePin[]>([{ gpio: 2 }])
   const [saving, setSaving] = useState(false)
@@ -134,7 +137,7 @@ function AddControllerForm({
       setPins([{ gpio: 2 }])
       onSaved()
     } catch (e: any) {
-      onError(e?.message || 'Save failed')
+      onError(e?.message || t({ en: 'Save failed', he: 'השמירה נכשלה' }))
     } finally {
       setSaving(false)
     }
@@ -143,25 +146,25 @@ function AddControllerForm({
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
       <label style={S.field}>
-        Controller name
+        {t({ en: 'Controller name', he: 'שם הבקר' })}
         <input
           value={thing}
           onChange={(e) => setThing(e.target.value)}
-          placeholder="e.g. ring1"
+          placeholder={t({ en: 'e.g. ring1', he: 'לדוגמה ring1' })}
           maxLength={16}
           style={{ ...S.input, ...(thing && !nameValid ? S.inputBad : {}) }}
         />
         <span style={S.hint}>
           {thing && !nameValid
-            ? 'Letters, digits, - or _ only (max 16)'
+            ? t({ en: 'Letters, digits, - or _ only (max 16)', he: 'אותיות, ספרות, - או _ בלבד (עד 16)' })
             : nameTaken
-              ? 'A controller with this name already exists'
-              : 'This becomes the ESP’s thing name'}
+              ? t({ en: 'A controller with this name already exists', he: 'כבר קיים בקר בשם הזה' })
+              : t({ en: 'This becomes the ESP’s thing name', he: 'זה יהיה שם ה-thing של ה-ESP' })}
         </span>
       </label>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-        <span style={{ fontSize: 12, color: '#8fa0bd' }}>LED output pins (GPIO) — no count needed</span>
+        <span style={{ fontSize: 12, color: '#8fa0bd' }}>{t({ en: 'LED output pins (GPIO) — no count needed', he: 'פיני יציאת לדים (GPIO) — אין צורך במספר' })}</span>
         {pins.map((p, i) => (
           <div key={i} style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
             <span style={{ color: '#66707f', fontSize: 12, width: 44 }}>GPIO</span>
@@ -176,19 +179,19 @@ function AddControllerForm({
             <input
               value={p.label || ''}
               onChange={(e) => setPin(i, { label: e.target.value })}
-              placeholder="label (optional)"
+              placeholder={t({ en: 'label (optional)', he: 'תווית (אופציונלי)' })}
               style={{ ...S.input, flex: 1 }}
             />
             {pins.length > 1 && (
-              <button style={S.smallGhost} onClick={() => removePin(i)} title="Remove pin">✕</button>
+              <button style={S.smallGhost} onClick={() => removePin(i)} title={t({ en: 'Remove pin', he: 'הסר פין' })}>✕</button>
             )}
           </div>
         ))}
-        <button style={S.ghost} onClick={addPin}>+ Add pin</button>
+        <button style={S.ghost} onClick={addPin}>{t({ en: '+ Add pin', he: '+ הוסף פין' })}</button>
       </div>
 
       <button style={{ ...S.primary, opacity: canSave ? 1 : 0.5, cursor: canSave ? 'pointer' : 'not-allowed' }} disabled={!canSave} onClick={save}>
-        {saving ? 'Saving…' : 'Save controller'}
+        {saving ? t({ en: 'Saving…', he: 'שומר…' }) : t({ en: 'Save controller', he: 'שמור בקר' })}
       </button>
     </div>
   )

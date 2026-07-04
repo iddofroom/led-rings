@@ -181,3 +181,13 @@ dist
 
 # flow engine runtime state (applied rules)
 .flow-rules.json
+
+# wrangler files
+.wrangler
+.dev.vars*
+!.dev.vars.example
+!.env.example
+
+# python bytecode cache
+__pycache__/
+*.pyc

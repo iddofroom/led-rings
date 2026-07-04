@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { library, fileToBase64, type LibrarySongSummary } from '../lib/library'
 import MembersPanel from './MembersPanel'
+import { useI18n } from '../lib/i18n'
 
 /**
  * Second screen: pick a song within the chosen installation (or start a new one). Scoped to
@@ -33,8 +34,17 @@ const methodBadge: Record<string, { label: string; bg: string }> = {
   rules: { label: 'rules', bg: '#3b82f6' },
   manual: { label: 'manual', bg: '#4b5563' },
 }
+// Bilingual label for a composition method badge. The method key stays an untranslated code value.
+const methodLabelBil = (method?: string) => {
+  switch (method) {
+    case 'gemini': return { en: 'AI', he: 'AI' }
+    case 'rules': return { en: 'rules', he: 'כללים' }
+    default: return { en: 'manual', he: 'ידני' }
+  }
+}
 
 export default function SongPicker({ projectId, projectName, projectRole, onOpenSong, onNewSong, onBack }: Props) {
+  const { t } = useI18n()
   const [songs, setSongs] = useState<LibrarySongSummary[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -63,7 +73,7 @@ export default function SongPicker({ projectId, projectName, projectRole, onOpen
     const file = e.target.files?.[0]
     if (e.target) e.target.value = ''
     if (!file) return
-    setBusy(`Uploading ${file.name}…`)
+    setBusy(`${t({ en: 'Uploading', he: 'מעלה' })} ${file.name}…`)
     setError(null)
     try {
       const name = file.name.replace(/\.[^.]+$/, '')
@@ -88,8 +98,10 @@ export default function SongPicker({ projectId, projectName, projectRole, onOpen
   }
 
   async function del(slug: string, comp?: string, label?: string) {
-    if (!window.confirm(comp ? `Delete animation "${label}"?` : `Delete the whole song "${label}" and all its data?`)) return
-    setBusy('Deleting…')
+    if (!window.confirm(comp
+      ? t({ en: `Delete animation "${label}"?`, he: `למחוק את האנימציה "${label}"?` })
+      : t({ en: `Delete the whole song "${label}" and all its data?`, he: `למחוק את השיר "${label}" וכל הנתונים שלו?` }))) return
+    setBusy(t({ en: 'Deleting…', he: 'מוחק…' }))
     try {
       await library.remove(slug, comp, projectId)
       refreshSoon()
@@ -104,24 +116,24 @@ export default function SongPicker({ projectId, projectName, projectRole, onOpen
     <div style={wrap}>
       <div style={{ maxWidth: 900, margin: '0 auto', width: '100%' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 4 }}>
-          <button onClick={onBack} style={backBtn}>← Installations</button>
+          <button onClick={onBack} style={backBtn}>← {t({ en: 'Installations', he: 'מיצבים' })}</button>
           <h1 style={{ fontSize: 24, margin: 0, flex: 1 }}>{projectName}</h1>
-          {projectRole === 'admin' && <button onClick={() => setShowMembers(true)} style={secondaryBtn}>👥 Members</button>}
-          <button onClick={() => fileRef.current?.click()} style={secondaryBtn}>⬆ Upload MP3</button>
-          <button onClick={onNewSong} style={primaryBtn}>＋ New song</button>
+          {projectRole === 'admin' && <button onClick={() => setShowMembers(true)} style={secondaryBtn}>⚙️ {t({ en: 'Settings', he: 'הגדרות' })}</button>}
+          <button onClick={() => fileRef.current?.click()} style={secondaryBtn}>⬆ {t({ en: 'Upload MP3', he: 'העלה MP3' })}</button>
+          <button onClick={onNewSong} style={primaryBtn}>＋ {t({ en: 'New song', he: 'שיר חדש' })}</button>
         </div>
-        <p style={{ color: '#8a93a3', margin: '0 0 20px' }}>Open a saved song, upload an MP3, or start fresh.</p>
+        <p style={{ color: '#8a93a3', margin: '0 0 20px' }}>{t({ en: 'Open a saved song, upload an MP3, or start fresh.', he: 'פתח שיר שמור, העלה MP3, או התחל מחדש.' })}</p>
         <input ref={fileRef} type="file" accept=".mp3,.wav,.ogg,.m4a,audio/*" onChange={handleUpload} style={{ display: 'none' }} />
 
         {error && <div style={errorBox}>{error}</div>}
         {busy && <div style={busyBox}><span style={spinner} /> {busy}</div>}
 
         {loading ? (
-          <div style={{ color: '#9aa', padding: 40, textAlign: 'center' }}>Loading songs…</div>
+          <div style={{ color: '#9aa', padding: 40, textAlign: 'center' }}>{t({ en: 'Loading songs…', he: 'טוען שירים…' })}</div>
         ) : songs.length === 0 ? (
           <div style={{ color: '#9aa', padding: 40, textAlign: 'center', lineHeight: 1.6 }}>
-            No songs in this installation yet.<br />
-            Upload an MP3, or press <b>＋ New song</b> to start from scratch.
+            {t({ en: 'No songs in this installation yet.', he: 'אין עדיין שירים במיצב הזה.' })}<br />
+            {t({ en: 'Upload an MP3, or press ', he: 'העלה MP3, או לחץ ' })}<b>＋ {t({ en: 'New song', he: 'שיר חדש' })}</b>{t({ en: ' to start from scratch.', he: ' כדי להתחיל מאפס.' })}
           </div>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -137,43 +149,43 @@ export default function SongPicker({ projectId, projectName, projectRole, onOpen
                       <div style={{ fontSize: 11, color: '#8a93a3', marginTop: 2 }}>
                         {s.bpm ? `${s.bpm} BPM · ` : ''}{fmtTime(s.lengthSeconds || 0)}
                         {s.hasAudio ? ` · 🎵 ${fmtSize(s.audioSize)}` : ''}
-                        {s.hasAnalysis ? ' · 📊 analysis' : ''}
-                        {comps.length ? ` · ${comps.length} saved` : ''}
+                        {s.hasAnalysis ? ` · 📊 ${t({ en: 'analysis', he: 'ניתוח' })}` : ''}
+                        {comps.length ? ` · ${comps.length} ${t({ en: 'saved', he: 'שמורות' })}` : ''}
                         {s.updatedAt ? ` · ${fmtDate(s.updatedAt)}` : ''}
                       </div>
                     </div>
                     <button
                       onClick={() => onOpenSong(s.slug, s.hasWorking ? 'working' : 'fresh')}
                       style={loadBtn}
-                      title={s.hasWorking ? 'Open the last working timeline' : 'Open this song with an empty timeline'}
+                      title={s.hasWorking ? t({ en: 'Open the last working timeline', he: 'פתח את ציר הזמן האחרון שנשמר' }) : t({ en: 'Open this song with an empty timeline', he: 'פתח שיר זה עם ציר זמן ריק' })}
                     >
-                      Open ▸
+                      {t({ en: 'Open', he: 'פתח' })} ▸
                     </button>
-                    <button onClick={() => del(s.slug, undefined, s.name || s.slug)} style={trashBtn} title="Delete song">🗑</button>
+                    <button onClick={() => del(s.slug, undefined, s.name || s.slug)} style={trashBtn} title={t({ en: 'Delete song', he: 'מחק שיר' })}>🗑</button>
                   </div>
 
                   {open && (
                     <div style={{ marginTop: 10, marginLeft: 30, display: 'flex', flexDirection: 'column', gap: 6 }}>
                       {s.hasWorking && (
                         <div style={compRow}>
-                          <span style={{ flex: 1 }}><b>Working timeline</b></span>
-                          <button onClick={() => onOpenSong(s.slug, 'working')} style={smallLoadBtn}>Open</button>
+                          <span style={{ flex: 1 }}><b>{t({ en: 'Working timeline', he: 'ציר זמן פעיל' })}</b></span>
+                          <button onClick={() => onOpenSong(s.slug, 'working')} style={smallLoadBtn}>{t({ en: 'Open', he: 'פתח' })}</button>
                         </div>
                       )}
                       {comps.map((c) => {
                         const badge = methodBadge[c.method || 'manual'] || methodBadge.manual
                         return (
                           <div key={c.slug} style={compRow}>
-                            <span style={{ ...badgeStyle, background: badge.bg }}>{badge.label}</span>
+                            <span style={{ ...badgeStyle, background: badge.bg }}>{t(methodLabelBil(c.method))}</span>
                             <span style={{ flex: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{c.name || c.slug}</span>
                             <span style={{ color: '#8a93a3', fontSize: 11 }}>{c.timeframeCount ?? '?'} tf · {fmtDate(c.createdAt)}</span>
-                            <button onClick={() => onOpenSong(s.slug, c.slug)} style={smallLoadBtn}>Open</button>
+                            <button onClick={() => onOpenSong(s.slug, c.slug)} style={smallLoadBtn}>{t({ en: 'Open', he: 'פתח' })}</button>
                             <button onClick={() => del(s.slug, c.slug, c.name || c.slug)} style={smallTrashBtn}>🗑</button>
                           </div>
                         )
                       })}
                       {!s.hasWorking && s.compositions.length === 0 && (
-                        <div style={{ color: '#8a93a3', fontSize: 12 }}>No saved animations yet. Open this song and compose.</div>
+                        <div style={{ color: '#8a93a3', fontSize: 12 }}>{t({ en: 'No saved animations yet. Open this song and compose.', he: 'אין עדיין אנימציות שמורות. פתח שיר זה והלחן.' })}</div>
                       )}
                     </div>
                   )}

@@ -268,6 +268,34 @@
   pointer-events: none;
 }
 
+/* Compact "is a song selected?" badge that replaced the raw audio-path input. */
+.song-audio-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 3px 10px;
+  border-radius: 999px;
+  white-space: nowrap;
+  background: rgba(15, 23, 42, 0.18);
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  color: rgba(255, 255, 255, 0.72);
+}
+
+.song-audio-status.is-set {
+  color: #bbf7d0;
+  border-color: rgba(34, 197, 94, 0.55);
+  background: rgba(22, 163, 74, 0.22);
+}
+
+/* ── Hybrid RTL (Hebrew): text/panels read right-to-left, but the geometry-critical
+   containers keep dir="ltr" in the markup so panel order + resize math never flip. ── */
+.app[dir='rtl'] .app-header-actions {
+  margin-left: 0;
+  margin-right: auto;
+}
+
 .song-browse-button {
   padding: 6px 12px;
   font-size: 12px;

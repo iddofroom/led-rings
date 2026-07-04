@@ -1,5 +1,6 @@
 import React, { useRef, useEffect, useCallback, useState } from 'react'
 import { realFftMagnitude } from '../fft'
+import { useI18n } from '../lib/i18n'
 import './Spectrogram.css'
 
 const FFT_SIZE = 2048
@@ -175,6 +176,8 @@ export default function Spectrogram({
   beatDetectControls,
   onRangeSelectionChange,
 }: SpectrogramProps) {
+  // Aliased to `tr` because a `t` loop variable is used in the axis-drawing code below.
+  const { t: tr } = useI18n()
   const wrapperRef = useRef<HTMLDivElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const scrollViewRef = useRef<HTMLDivElement>(null)
@@ -274,7 +277,10 @@ export default function Spectrogram({
         if (expectedBytes != null && buf.byteLength !== expectedBytes) {
           return Promise.reject(
             new Error(
-              `File truncated: received ${buf.byteLength} of ${expectedBytes} bytes. Check network or try a shorter file.`
+              tr({
+                en: `File truncated: received ${buf.byteLength} of ${expectedBytes} bytes. Check network or try a shorter file.`,
+                he: `הקובץ קטוע: התקבלו ${buf.byteLength} מתוך ${expectedBytes} בייטים. בדוק את הרשת או נסה קובץ קצר יותר.`,
+              })
             )
           )
         }
@@ -345,8 +351,14 @@ export default function Spectrogram({
           buffer.duration < expectedDurationSec * 0.99
         ) {
           setError(
-            `Only ${buffer.duration.toFixed(1)}s decoded (expected ${expectedDurationSec}s). ` +
-              'Browsers often limit decodeAudioData for long files; try splitting the file or use a shorter clip.'
+            tr({
+              en:
+                `Only ${buffer.duration.toFixed(1)}s decoded (expected ${expectedDurationSec}s). ` +
+                'Browsers often limit decodeAudioData for long files; try splitting the file or use a shorter clip.',
+              he:
+                `רק ${buffer.duration.toFixed(1)}ש׳ פוענחו (צפוי ${expectedDurationSec}ש׳). ` +
+                'דפדפנים מגבילים לעיתים קרובות את decodeAudioData לקבצים ארוכים; נסה לפצל את הקובץ או להשתמש בקטע קצר יותר.',
+            })
           )
           setLoading(false)
           return
@@ -376,7 +388,7 @@ export default function Spectrogram({
       })
       .catch((err) => {
         if (!cancelled) {
-          setError(err?.message || 'Failed to load audio')
+          setError(err?.message || tr({ en: 'Failed to load audio', he: 'טעינת האודיו נכשלה' }))
           setLoading(false)
         }
       })
@@ -773,7 +785,7 @@ export default function Spectrogram({
       if (loading) {
         ctx.fillStyle = 'rgba(255,255,255,0.6)'
         ctx.font = '14px sans-serif'
-        ctx.fillText('Loading spectrogram…', graphLeft + 12, height / 2)
+        ctx.fillText(tr({ en: 'Loading spectrogram…', he: 'טוען ספקטרוגרמה…' }), graphLeft + 12, height / 2)
       } else if (error) {
         ctx.fillStyle = 'rgba(255,120,120,0.9)'
         ctx.font = '14px sans-serif'
@@ -1091,16 +1103,16 @@ export default function Spectrogram({
   return (
     <div className="spectrogram-wrapper">
       <div className="spectrogram-header">
-        <span className="spectrogram-label">Spectrogram</span>
+        <span className="spectrogram-label">{tr({ en: 'Spectrogram', he: 'ספקטרוגרמה' })}</span>
         <div className="spectrogram-header-right">
           {onBeatEditModeChange != null && (
-            <label className="spectrogram-edit-beats-toggle" title="Select beats to remove or move; use Add beat / Remove beat buttons">
+            <label className="spectrogram-edit-beats-toggle" title={tr({ en: 'Select beats to remove or move; use Add beat / Remove beat buttons', he: 'בחר ביטים להסרה או הזזה; השתמש בכפתורים הוסף ביט / הסר ביט' })}>
               <input
                 type="checkbox"
                 checked={beatEditMode}
                 onChange={(e) => onBeatEditModeChange(e.target.checked)}
               />
-              <span>Edit beats</span>
+              <span>{tr({ en: 'Edit beats', he: 'ערוך ביטים' })}</span>
             </label>
           )}
           {beatEditMode && onBeatAdd != null && (
@@ -1108,9 +1120,9 @@ export default function Spectrogram({
               type="button"
               className="spectrogram-tool-btn"
               onClick={handleAddBeat}
-              title="Add a beat at current playhead position"
+              title={tr({ en: 'Add a beat at current playhead position', he: 'הוסף ביט במיקום הנגן הנוכחי' })}
             >
-              Add beat
+              {tr({ en: 'Add beat', he: 'הוסף ביט' })}
             </button>
           )}
           {beatEditMode && onBeatRemove != null && (
@@ -1119,9 +1131,9 @@ export default function Spectrogram({
               className="spectrogram-tool-btn"
               onClick={handleRemoveBeat}
               disabled={selectedBeatIndex === null}
-              title="Remove the selected beat (click a green line first)"
+              title={tr({ en: 'Remove the selected beat (click a green line first)', he: 'הסר את הביט הנבחר (לחץ תחילה על קו ירוק)' })}
             >
-              Remove beat
+              {tr({ en: 'Remove beat', he: 'הסר ביט' })}
             </button>
           )}
           <div className="spectrogram-zoom-controls">
@@ -1135,8 +1147,8 @@ export default function Spectrogram({
                 const anchorSec = viewStart + playheadFrac * viewDuration
                 onZoomAtSeconds('out', anchorSec, playheadFrac)
               }}
-              title="Zoom out"
-              aria-label="Zoom out"
+              title={tr({ en: 'Zoom out', he: 'התרחק' })}
+              aria-label={tr({ en: 'Zoom out', he: 'התרחק' })}
             >
               −
             </button>
@@ -1150,8 +1162,8 @@ export default function Spectrogram({
                 const anchorSec = viewStart + playheadFrac * viewDuration
                 onZoomAtSeconds('in', anchorSec, playheadFrac)
               }}
-              title="Zoom in"
-              aria-label="Zoom in"
+              title={tr({ en: 'Zoom in', he: 'התקרב' })}
+              aria-label={tr({ en: 'Zoom in', he: 'התקרב' })}
             >
               +
             </button>
@@ -1169,7 +1181,9 @@ export default function Spectrogram({
           className="spectrogram-canvas"
           width={800}
           height={180}
-          title={beatEditMode ? 'Click a green line to select it; use Remove beat to delete. Drag a line to move. Use Add beat to add at playhead.' : 'Full-song spectrogram with playhead; zooms with timeline. When stopped, click to move marker and Run from.'}
+          title={beatEditMode
+            ? tr({ en: 'Click a green line to select it; use Remove beat to delete. Drag a line to move. Use Add beat to add at playhead.', he: 'לחץ על קו ירוק כדי לבחור אותו; השתמש ב״הסר ביט״ למחיקה. גרור קו כדי להזיז. השתמש ב״הוסף ביט״ כדי להוסיף במיקום הנגן.' })
+            : tr({ en: 'Full-song spectrogram with playhead; zooms with timeline. When stopped, click to move marker and Run from.', he: 'ספקטרוגרמה של השיר המלא עם נגן; מתקרבת יחד עם ציר הזמן. כשעצור, לחץ כדי להזיז את הסמן ולהריץ מנקודה זו.' })}
           onMouseMove={handleCanvasMouseMove}
           onMouseDown={handleCanvasMouseDown}
           onClick={handleCanvasClick}

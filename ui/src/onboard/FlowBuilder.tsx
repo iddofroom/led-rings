@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react'
 import { flowApi } from '../lib/flow'
 import { library, FlowRule, LibrarySongSummary } from '../lib/library'
+import { useI18n } from '../lib/i18n'
 
 /**
  * Step 8 — "Installation flow". Map physical inputs (RFID scans) to actions (play a song, fire a
@@ -15,21 +16,22 @@ interface Props {
 }
 
 const ACTIONS = [
-  { value: 'playSong', label: 'Play a song' },
-  { value: 'trigger', label: 'Fire a pattern' },
-  { value: 'brightness', label: 'Set brightness' },
-  { value: 'stop', label: 'Stop' },
+  { value: 'playSong', label: 'Play a song', he: 'נגן שיר' },
+  { value: 'trigger', label: 'Fire a pattern', he: 'הפעל תבנית' },
+  { value: 'brightness', label: 'Set brightness', he: 'קבע בהירות' },
+  { value: 'stop', label: 'Stop', he: 'עצור' },
 ] as const
 
 let idc = 0
 const newId = () => `r${Date.now().toString(36)}${idc++}`
 
 export default function FlowBuilder({ projectId, projectName, onBack }: Props) {
+  const { t } = useI18n()
   const [rules, setRules] = useState<FlowRule[]>([])
   const [songs, setSongs] = useState<LibrarySongSummary[]>([])
   const [loading, setLoading] = useState(true)
   const [busy, setBusy] = useState(false)
-  const [msg, setMsg] = useState<string | null>(null)
+  const [msg, setMsg] = useState<{ text: string; ok: boolean } | null>(null)
 
   useEffect(() => {
     Promise.all([flowApi.loadRules(projectId).catch(() => null), library.listSongs(projectId).catch(() => [])])
@@ -53,13 +55,13 @@ export default function FlowBuilder({ projectId, projectName, onBack }: Props) {
     setMsg(null)
     try {
       await flowApi.saveRules(rules, projectId)
-      setMsg('Saved ✓')
+      setMsg({ text: t({ en: 'Saved ✓', he: 'נשמר ✓' }), ok: true })
     } catch (e: any) {
-      setMsg(`Save failed: ${e?.message || e}`)
+      setMsg({ text: `${t({ en: 'Save failed:', he: 'השמירה נכשלה:' })} ${e?.message || e}`, ok: false })
     } finally {
       setBusy(false)
     }
-  }, [rules, projectId])
+  }, [rules, projectId, t])
 
   const apply = useCallback(async () => {
     setBusy(true)
@@ -67,49 +69,49 @@ export default function FlowBuilder({ projectId, projectName, onBack }: Props) {
     try {
       await flowApi.saveRules(rules, projectId) // persist first
       const r = await flowApi.apply(rules) // then push to the Pi engine
-      setMsg(`Applied to hardware ✓ (${r.ruleCount} rules live)`)
+      setMsg({ text: `${t({ en: 'Applied to hardware ✓', he: 'הוחל על החומרה ✓' })} (${r.ruleCount} ${t({ en: 'rules live', he: 'חוקים פעילים' })})`, ok: true })
     } catch (e: any) {
-      setMsg(`Apply failed: ${e?.message || e}`)
+      setMsg({ text: `${t({ en: 'Apply failed:', he: 'ההחלה נכשלה:' })} ${e?.message || e}`, ok: false })
     } finally {
       setBusy(false)
     }
-  }, [rules, projectId])
+  }, [rules, projectId, t])
 
   return (
     <div style={S.wrap}>
       <div style={S.head}>
         <button style={S.back} onClick={onBack}>← {projectName}</button>
         <div>
-          <div style={{ fontSize: 22, fontWeight: 800, letterSpacing: '-0.01em' }}>Installation flow</div>
-          <div style={{ color: '#8fa0bd', fontSize: 13 }}>When a tag is scanned, do something — then apply it to the installation.</div>
+          <div style={{ fontSize: 22, fontWeight: 800, letterSpacing: '-0.01em' }}>{t({ en: 'Installation flow', he: 'פלואו התקנה' })}</div>
+          <div style={{ color: '#8fa0bd', fontSize: 13 }}>{t({ en: 'When a tag is scanned, do something — then apply it to the installation.', he: 'כאשר תג נסרק, בצע פעולה — ואז החל אותה על ההתקנה.' })}</div>
         </div>
       </div>
 
       <section style={S.card}>
-        <div style={S.cardTitle}>Rules</div>
+        <div style={S.cardTitle}>{t({ en: 'Rules', he: 'חוקים' })}</div>
         {loading ? (
-          <div style={S.muted}>Loading…</div>
+          <div style={S.muted}>{t({ en: 'Loading…', he: 'טוען…' })}</div>
         ) : rules.length === 0 ? (
-          <div style={S.muted}>No rules yet. Add one below.</div>
+          <div style={S.muted}>{t({ en: 'No rules yet. Add one below.', he: 'אין עדיין חוקים. הוסף אחד למטה.' })}</div>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
             {rules.map((r) => (
               <div key={r.id} style={S.rule}>
-                <span style={S.when}>WHEN</span>
-                <input style={{ ...S.input, width: 80 }} value={r.when.box || ''} placeholder="any box" onChange={(e) => patchWhen(r.id, { box: e.target.value })} title="RFID box (e.g. box1) — blank = any" />
-                <input style={{ ...S.input, width: 90 }} value={r.when.color || ''} placeholder="any tag" onChange={(e) => patchWhen(r.id, { color: e.target.value })} title="Tag colour/value — blank = any" />
-                <span style={S.then}>DO</span>
+                <span style={S.when}>{t({ en: 'WHEN', he: 'כאשר' })}</span>
+                <input style={{ ...S.input, width: 80 }} value={r.when.box || ''} placeholder={t({ en: 'any box', he: 'כל box' })} onChange={(e) => patchWhen(r.id, { box: e.target.value })} title={t({ en: 'RFID box (e.g. box1) — blank = any', he: 'תיבת RFID (למשל box1) — ריק = הכל' })} />
+                <input style={{ ...S.input, width: 90 }} value={r.when.color || ''} placeholder={t({ en: 'any tag', he: 'כל תג' })} onChange={(e) => patchWhen(r.id, { color: e.target.value })} title={t({ en: 'Tag colour/value — blank = any', he: 'צבע/ערך התג — ריק = הכל' })} />
+                <span style={S.then}>{t({ en: 'DO', he: 'אז' })}</span>
                 <select style={S.input} value={r.then.action} onChange={(e) => patchThen(r.id, { action: e.target.value as FlowRule['then']['action'] })}>
-                  {ACTIONS.map((a) => <option key={a.value} value={a.value}>{a.label}</option>)}
+                  {ACTIONS.map((a) => <option key={a.value} value={a.value}>{t({ en: a.label, he: a.he })}</option>)}
                 </select>
                 {r.then.action === 'playSong' && (
                   <select style={{ ...S.input, flex: 1 }} value={r.then.song || ''} onChange={(e) => patchThen(r.id, { song: e.target.value })}>
-                    <option value="">— pick a song —</option>
+                    <option value="">{t({ en: '— pick a song —', he: '— בחר שיר —' })}</option>
                     {songs.map((s) => <option key={s.slug} value={s.slug}>{s.name || s.slug}</option>)}
                   </select>
                 )}
                 {r.then.action === 'trigger' && (
-                  <input style={{ ...S.input, flex: 1 }} value={r.then.trigger || ''} placeholder="trigger name (e.g. clock)" onChange={(e) => patchThen(r.id, { trigger: e.target.value })} />
+                  <input style={{ ...S.input, flex: 1 }} value={r.then.trigger || ''} placeholder={t({ en: 'trigger name (e.g. clock)', he: 'שם טריגר (למשל clock)' })} onChange={(e) => patchThen(r.id, { trigger: e.target.value })} />
                 )}
                 {r.then.action === 'brightness' && (
                   <input type="number" min={0} max={1} step={0.05} style={{ ...S.input, width: 90 }} value={r.then.brightness ?? 1} onChange={(e) => patchThen(r.id, { brightness: Math.max(0, Math.min(1, Number(e.target.value) || 0)) })} />
@@ -120,23 +122,20 @@ export default function FlowBuilder({ projectId, projectName, onBack }: Props) {
             ))}
           </div>
         )}
-        <button style={S.ghost} onClick={addRule}>+ Add rule</button>
+        <button style={S.ghost} onClick={addRule}>{t({ en: '+ Add rule', he: '+ הוסף חוק' })}</button>
         <div style={{ display: 'flex', gap: 8, marginTop: 6, alignItems: 'center' }}>
-          <button style={S.primary} disabled={busy} onClick={apply}>{busy ? 'Working…' : '⚡ Apply to installation'}</button>
-          <button style={S.ghost} disabled={busy} onClick={save}>Save only</button>
-          {msg && <span style={{ fontSize: 13, color: msg.includes('failed') ? '#ff8a8a' : '#38d39f' }}>{msg}</span>}
+          <button style={S.primary} disabled={busy} onClick={apply}>{busy ? t({ en: 'Working…', he: 'עובד…' }) : `⚡ ${t({ en: 'Apply to installation', he: 'החל על ההתקנה' })}`}</button>
+          <button style={S.ghost} disabled={busy} onClick={save}>{t({ en: 'Save only', he: 'שמור בלבד' })}</button>
+          {msg && <span style={{ fontSize: 13, color: msg.ok ? '#38d39f' : '#ff8a8a' }}>{msg.text}</span>}
         </div>
       </section>
 
       <section style={S.card}>
-        <div style={S.cardTitle}>How to wire it</div>
+        <div style={S.cardTitle}>{t({ en: 'How to wire it', he: 'איך לחווט' })}</div>
         <div style={S.muted}>
-          A rule fires when an <b>RFID reader</b> publishes a scan over MQTT. Wire an RFID reader board (e.g. an ESP or a
-          Pi HAT) to your network and have it publish, on each scan:
+          {t({ en: 'A rule fires when an', he: 'חוק מופעל כאשר' })} <b>{t({ en: 'RFID reader', he: 'קורא RFID' })}</b> {t({ en: 'publishes a scan over MQTT. Wire an RFID reader board (e.g. an ESP or a Pi HAT) to your network and have it publish, on each scan:', he: 'מפרסם סריקה דרך MQTT. חבר לוח קורא RFID (למשל ESP או Pi HAT) לרשת שלך, וגרום לו לפרסם בכל סריקה:' })}
           <div style={S.codeblock}>topic: <b>sensors/rfid/box1/chip</b>{'\n'}payload: {'{'} "color": "red" {'}'}</div>
-          Use one <b>box</b> per physical reader (<code style={S.codei}>box1</code>, <code style={S.codei}>box2</code>…), and put the
-          tag's value in <code style={S.codei}>color</code>. The Pi's flow engine (already listening on <code style={S.codei}>sensors/#</code>)
-          matches your rules and runs the action. Leave a field blank to match any box / any tag.
+          {t({ en: 'Use one', he: 'השתמש ב-' })} <b>box</b> {t({ en: 'per physical reader (', he: 'אחד לכל קורא פיזי (' })}<code style={S.codei}>box1</code>, <code style={S.codei}>box2</code>{t({ en: "…), and put the tag's value in", he: '…), ושים את ערך התג ב-' })} <code style={S.codei}>color</code>{t({ en: ". The Pi's flow engine (already listening on", he: '. מנוע ה-flow של ה-Pi (שמאזין כבר ל-' })} <code style={S.codei}>sensors/#</code>{t({ en: ') matches your rules and runs the action. Leave a field blank to match any box / any tag.', he: ') מתאים את החוקים שלך ומריץ את הפעולה. השאר שדה ריק כדי להתאים לכל box / כל תג.' })}
         </div>
       </section>
     </div>

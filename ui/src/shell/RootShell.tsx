@@ -8,6 +8,7 @@ import SongPicker from './SongPicker'
 import MappingStage from '../mapping/MappingStage'
 import ControllerSetup from '../onboard/ControllerSetup'
 import FlowBuilder from '../onboard/FlowBuilder'
+import { useI18n } from '../lib/i18n'
 
 /**
  * Top-level navigation shell: Clerk sign-in → Project picker → Song picker → Editor.
@@ -63,6 +64,7 @@ export default function RootShell() {
 }
 
 function ShellInner() {
+  const { t } = useI18n()
   const { getToken } = useAuth()
   const { user } = useUser()
   const email = user?.primaryEmailAddress?.emailAddress ?? null
@@ -126,7 +128,7 @@ function ShellInner() {
           onClick={() => patch({ view: 'projects', pendingLoad: null })}
           style={{ background: 'transparent', color: '#e8eaed', border: 0, padding: 0, cursor: 'pointer', fontWeight: 700, letterSpacing: '0.02em', fontSize: 15 }}
         >
-          🎛️ LED Studio
+          🎛️ {t({ en: 'LED Studio', he: 'LED Studio' })}
         </button>
         {(view === 'songs') && (
           <>

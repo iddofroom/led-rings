@@ -6,7 +6,105 @@ import segmentsData from '../segments.json'
 import RingVisualization from './RingVisualization'
 import HsvColorPicker from './HsvColorPicker'
 import { WLED_PALETTES, DEFAULT_PALETTE, paletteById } from '../../../shared/wled-palettes'
+import { useI18n } from '../lib/i18n'
 import './TimeframePanel.css'
+
+// Hebrew for data-driven labels (effect names, float-function kinds, effect/movement
+// param labels, movement descriptions). Keyed by the English display string so the
+// machine values (effectKey / param key / union ids) stay byte-for-byte unchanged;
+// only the visible label is translated at its render site.
+const HE_LABEL: Record<string, string> = {
+  // Effect names
+  'Position Brightness': 'בהירות לפי מיקום',
+  'Position Hue': 'גוון לפי מיקום',
+  'Position Saturation': 'רוויה לפי מיקום',
+  'Timed Brightness': 'בהירות לפי זמן',
+  'Timed Hue': 'גוון לפי זמן',
+  'Timed Saturation': 'רוויה לפי זמן',
+  'Snake Brightness': 'בהירות נחש',
+  'Snake Hue': 'גוון נחש',
+  'Snake Saturation': 'רוויה נחש',
+  'Brightness': 'בהירות',
+  'Fade In': 'דהייה פנימה',
+  'Fade Out': 'דהייה החוצה',
+  'Fade In Out': 'דהייה פנימה והחוצה',
+  'Fade Out In': 'דהייה החוצה ופנימה',
+  'Blink': 'הבהוב',
+  'Pulse': 'פעימה',
+  'Fade': 'דהייה',
+  'Static Hue Shift': 'הסטת גוון קבועה',
+  'Hue Shift Start To End': 'הסטת גוון מהתחלה לסוף',
+  'Hue Shift Sin': 'הסטת גוון סינוס',
+  'Snake Head Move': 'תנועת ראש נחש',
+  'Static Snake': 'נחש קבוע',
+  'Snake': 'נחש',
+  'Snake Head Sin': 'ראש נחש סינוס',
+  'Snake Fill Grow': 'מילוי נחש גדל',
+  'Snake In Out': 'נחש פנימה והחוצה',
+  'Snake Slow Fast': 'נחש איטי־מהיר',
+  'Snake Tail Shrink Grow': 'זנב נחש מתכווץ־גדל',
+  'Snake Head Steps': 'צעדי ראש נחש',
+  // Effect categories (optgroup labels)
+  'Position': 'מיקום',
+  'Timed': 'מתוזמן',
+  'Motion': 'תנועה',
+  'Hue': 'גוון',
+  // Float-function kinds
+  'Const': 'קבוע',
+  'Linear': 'ליניארי',
+  'Sin': 'סינוס',
+  'Steps': 'צעדים',
+  // Float-function params
+  'Value': 'ערך',
+  'Start': 'התחלה',
+  'End': 'סיום',
+  'Min': 'מינימום',
+  'Max': 'מקסימום',
+  'Phase': 'פאזה',
+  'Repeats': 'חזרות',
+  'Diff per step': 'הפרש לכל צעד',
+  'First value': 'ערך ראשון',
+  // Effect params
+  'High': 'גבוה',
+  'Low': 'נמוך',
+  'Static phase': 'פאזה קבועה',
+  'Amount': 'כמות',
+  'Tail': 'זנב',
+  'Tail length': 'אורך זנב',
+  'Cyclic': 'מחזורי',
+  'Reverse': 'הפוך',
+  'Increase (by position)': 'הגברה (לפי מיקום)',
+  'Decrease (by position)': 'הפחתה (לפי מיקום)',
+  'Offset (by position)': 'היסט (לפי מיקום)',
+  'Increase (by time)': 'הגברה (לפי זמן)',
+  'Decrease (by time)': 'הפחתה (לפי זמן)',
+  'Offset (by time)': 'היסט (לפי זמן)',
+  'Head (time)': 'ראש (זמן)',
+  'Increase (along snake)': 'הגברה (לאורך הנחש)',
+  'Decrease (along snake)': 'הפחתה (לאורך הנחש)',
+  'Offset (along snake)': 'היסט (לאורך הנחש)',
+  // Movement types
+  'Spread': 'פיזור',
+  'Sweep': 'סריקה',
+  'Stagger': 'מדורג',
+  'Random': 'אקראי',
+  // Movement descriptions
+  'Rings activate progressively; all stay on until the end.': 'הטבעות נדלקות בהדרגה; כולן נשארות דולקות עד הסוף.',
+  'One ring (or group) at a time, moving across.': 'טבעת אחת (או קבוצה) בכל פעם, נעה לרוחב.',
+  'All rings play the same effect, wave-shifted in time.': 'כל הטבעות מנגנות את אותו אפקט, מוסטות בזמן כמו גל.',
+  'Rings activate in random order (one at a time, like sweep).': 'הטבעות נדלקות בסדר אקראי (אחת בכל פעם, כמו סריקה).',
+  // Movement extra params
+  'Retire (diamond)': 'פרישה (יהלום)',
+  'Bounce (ping-pong)': 'קפיצה (הלוך־ושוב)',
+  'Retire (stay off after fade)': 'פרישה (נשאר כבוי אחרי דהייה)',
+  'Accumulate (stay on after fade)': 'צבירה (נשאר דולק אחרי דהייה)',
+  // Movement directions
+  'Center → Out': 'מרכז → חוץ',
+  'Edges → In': 'קצוות → פנים',
+  'Opposite pairs →': 'זוגות נגדיים →',
+  'Opposite pairs ←': 'זוגות נגדיים ←',
+  'Custom order…': 'סדר מותאם…',
+}
 
 // Effect options by category (brightness.ts, hue.ts, motion.ts — coloring removed)
 const BRIGHTNESS_EFFECT_OPTIONS: { value: string; label: string }[] = [
@@ -306,6 +404,9 @@ interface TimeframePanelProps {
 }
 
 const TimeframePanel = ({ timeframe, onUpdate, onClose, songLengthBeats }: TimeframePanelProps) => {
+  const { t } = useI18n()
+  // Translate a data-driven English display label via HE_LABEL (falls back to English).
+  const trLabel = (label: string) => t({ en: label, he: HE_LABEL[label] ?? label })
   const [editingField, setEditingField] = useState<'label' | 'startTime' | 'endTime' | null>(null)
   const [colorPickerOpen, setColorPickerOpen] = useState(false)
   const [panelPaletteId, setPanelPaletteId] = useState(DEFAULT_PALETTE.id)
@@ -352,7 +453,7 @@ const TimeframePanel = ({ timeframe, onUpdate, onClose, songLengthBeats }: Timef
     return (
       <div className="timeframe-panel">
         <div className="timeframe-panel-empty">
-          <p>Select a timeframe to view and edit its properties</p>
+          <p>{t({ en: 'Select a timeframe to view and edit its properties', he: 'בחר מסגרת זמן כדי לצפות ולערוך את מאפייניה' })}</p>
         </div>
       </div>
     )
@@ -413,11 +514,11 @@ const TimeframePanel = ({ timeframe, onUpdate, onClose, songLengthBeats }: Timef
   return (
     <div className="timeframe-panel">
       <div className="timeframe-panel-header">
-        <h2>Timeframe Details</h2>
+        <h2>{t({ en: 'Timeframe Details', he: 'פרטי מסגרת זמן' })}</h2>
         <button
           className="timeframe-panel-delete"
           onClick={onClose}
-          title="Close details"
+          title={t({ en: 'Close details', he: 'סגור פרטים' })}
         >
           ×
         </button>
@@ -425,7 +526,7 @@ const TimeframePanel = ({ timeframe, onUpdate, onClose, songLengthBeats }: Timef
 
       <div className="timeframe-panel-content">
         <div className="timeframe-panel-section">
-          <label className="timeframe-panel-label">Label</label>
+          <label className="timeframe-panel-label">{t({ en: 'Label', he: 'תווית' })}</label>
           {editingField === 'label' ? (
             <input
               type="text"
@@ -454,12 +555,12 @@ const TimeframePanel = ({ timeframe, onUpdate, onClose, songLengthBeats }: Timef
               onChange={(e) => onUpdate({ disabled: !e.target.checked })}
               className="timeframe-panel-checkbox"
             />
-            <span>Enabled</span>
+            <span>{t({ en: 'Enabled', he: 'מופעל' })}</span>
           </label>
         </div>
 
         <div className="timeframe-panel-section">
-          <label className="timeframe-panel-label">Time Range</label>
+          <label className="timeframe-panel-label">{t({ en: 'Time Range', he: 'טווח זמן' })}</label>
           <div className="timeframe-panel-time-row">
             {editingField === 'startTime' ? (
               <input
@@ -508,17 +609,17 @@ const TimeframePanel = ({ timeframe, onUpdate, onClose, songLengthBeats }: Timef
 
           {/* Cycles: only one cycle or cycleBeats per timeframe (hardware doesn't support nesting) */}
           <div className="timeframe-panel-cycles">
-            <label className="timeframe-panel-label" title="Repeat the effect within the timeframe. Only one cycle per timeframe is supported.">Cycle</label>
+            <label className="timeframe-panel-label" title={t({ en: 'Repeat the effect within the timeframe. Only one cycle per timeframe is supported.', he: 'חזור על האפקט בתוך מסגרת הזמן. נתמך מחזור אחד בלבד לכל מסגרת זמן.' })}>{t({ en: 'Cycle', he: 'מחזור' })}</label>
             <div className="timeframe-panel-cycles-list">
               {(timeframe.cycles ?? []).map((entry, idx) => (
                 <div key={idx} className="timeframe-panel-cycle-row">
                   <span className="timeframe-panel-cycle-type" title={entry.type === 'cycle'
-                    ? 'Repeat the full effect every N beats'
-                    : 'Repeat the effect every N beats, but only play the window from startBeat to endBeat within each cycle'}
+                    ? t({ en: 'Repeat the full effect every N beats', he: 'חזור על האפקט המלא כל N ביטים' })
+                    : t({ en: 'Repeat the effect every N beats, but only play the window from startBeat to endBeat within each cycle', he: 'חזור על האפקט כל N ביטים, אך נגן רק את החלון מ־startBeat עד endBeat בכל מחזור' })}
                   >{entry.type === 'cycle' ? 'cycle' : 'cycleBeats'}</span>
                   {entry.type === 'cycle' ? (
                     <>
-                      <label className="timeframe-panel-cycle-param" title="Number of beats per repetition">
+                      <label className="timeframe-panel-cycle-param" title={t({ en: 'Number of beats per repetition', he: 'מספר ביטים לכל חזרה' })}>
                         <span>beatsInCycle</span>
                         <input
                           type="number"
@@ -540,7 +641,7 @@ const TimeframePanel = ({ timeframe, onUpdate, onClose, songLengthBeats }: Timef
                     </>
                   ) : (
                     <>
-                      <label className="timeframe-panel-cycle-param" title="Number of beats per repetition">
+                      <label className="timeframe-panel-cycle-param" title={t({ en: 'Number of beats per repetition', he: 'מספר ביטים לכל חזרה' })}>
                         <span>beatsInCycle</span>
                         <input
                           type="number"
@@ -559,7 +660,7 @@ const TimeframePanel = ({ timeframe, onUpdate, onClose, songLengthBeats }: Timef
                           className={'timeframe-panel-input-small' + (entry.beatsInCycle === 0 ? ' input-error' : '')}
                         />
                       </label>
-                      <label className="timeframe-panel-cycle-param" title="Start of the active window within each cycle (in beats)">
+                      <label className="timeframe-panel-cycle-param" title={t({ en: 'Start of the active window within each cycle (in beats)', he: 'תחילת החלון הפעיל בכל מחזור (בביטים)' })}>
                         <span>startBeat</span>
                         <input
                           type="number"
@@ -577,7 +678,7 @@ const TimeframePanel = ({ timeframe, onUpdate, onClose, songLengthBeats }: Timef
                           className="timeframe-panel-input-small"
                         />
                       </label>
-                      <label className="timeframe-panel-cycle-param" title="End of the active window within each cycle (in beats)">
+                      <label className="timeframe-panel-cycle-param" title={t({ en: 'End of the active window within each cycle (in beats)', he: 'סוף החלון הפעיל בכל מחזור (בביטים)' })}>
                         <span>endBeat</span>
                         <input
                           type="number"
@@ -604,7 +705,7 @@ const TimeframePanel = ({ timeframe, onUpdate, onClose, songLengthBeats }: Timef
                       const next = (timeframe.cycles ?? []).filter((_, i) => i !== idx)
                       onUpdate({ cycles: next.length ? next : undefined })
                     }}
-                    title="Remove"
+                    title={t({ en: 'Remove', he: 'הסר' })}
                   >
                     ×
                   </button>
@@ -619,7 +720,7 @@ const TimeframePanel = ({ timeframe, onUpdate, onClose, songLengthBeats }: Timef
                   onClick={() => {
                     onUpdate({ cycles: [{ type: 'cycle', beatsInCycle: 1 } as TimeframeCycleEntry] })
                   }}
-                  title="Repeat the full effect every N beats"
+                  title={t({ en: 'Repeat the full effect every N beats', he: 'חזור על האפקט המלא כל N ביטים' })}
                 >
                   + cycle
                 </button>
@@ -629,7 +730,7 @@ const TimeframePanel = ({ timeframe, onUpdate, onClose, songLengthBeats }: Timef
                   onClick={() => {
                     onUpdate({ cycles: [{ type: 'cycleBeats', beatsInCycle: 1, startBeat: 0, endBeat: 0.5 } as TimeframeCycleBeats] })
                   }}
-                  title="Repeat every N beats, playing only a window within each cycle"
+                  title={t({ en: 'Repeat every N beats, playing only a window within each cycle', he: 'חזור כל N ביטים, נגן רק חלון בתוך כל מחזור' })}
                 >
                   + cycleBeats
                 </button>
@@ -639,7 +740,7 @@ const TimeframePanel = ({ timeframe, onUpdate, onClose, songLengthBeats }: Timef
         </div>
 
         <div className="timeframe-panel-section">
-          <label className="timeframe-panel-label">Color</label>
+          <label className="timeframe-panel-label">{t({ en: 'Color', he: 'צבע' })}</label>
           <div className="timeframe-panel-color-row">
             <div className="timeframe-panel-color-picker-anchor" ref={colorPickerRef}>
               <div
@@ -666,7 +767,7 @@ const TimeframePanel = ({ timeframe, onUpdate, onClose, songLengthBeats }: Timef
                   <span className="timeframe-panel-color-hsv-item" onClick={openColorPicker}><span className="timeframe-panel-color-hsv-label">V</span>{v}%</span>
                   <span
                     className="timeframe-panel-color-hsv-hex"
-                    title="Click to copy hex color"
+                    title={t({ en: 'Click to copy hex color', he: 'לחץ להעתקת צבע hex' })}
                     onClick={() => { navigator.clipboard?.writeText(hex).catch(() => {}) }}
                   >
                     {hex}
@@ -676,7 +777,7 @@ const TimeframePanel = ({ timeframe, onUpdate, onClose, songLengthBeats }: Timef
             })()}
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 8, flexWrap: 'wrap' }}>
-            <select value={panelPaletteId} onChange={(e) => setPanelPaletteId(e.target.value)} title="Pick a colour palette, then click a swatch"
+            <select value={panelPaletteId} onChange={(e) => setPanelPaletteId(e.target.value)} title={t({ en: 'Pick a colour palette, then click a swatch', he: 'בחר פלטת צבעים, ואז לחץ על דוגמית' })}
               style={{ background: 'var(--surface2)', color: 'var(--text)', border: '1px solid var(--border2)', borderRadius: 6, padding: '4px 6px', fontSize: 12, maxWidth: 150 }}>
               {WLED_PALETTES.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
             </select>
@@ -687,17 +788,17 @@ const TimeframePanel = ({ timeframe, onUpdate, onClose, songLengthBeats }: Timef
               ))}
             </div>
           </div>
-          <label className="timeframe-panel-checkbox-label" title="When checked, this timeframe does not contribute color (no constColor). Only its effects (e.g. brightness, hue shift) apply on top of underlying layers. Timeline shows gray.">
+          <label className="timeframe-panel-checkbox-label" title={t({ en: 'When checked, this timeframe does not contribute color (no constColor). Only its effects (e.g. brightness, hue shift) apply on top of underlying layers. Timeline shows gray.', he: 'כשמסומן, מסגרת זמן זו אינה תורמת צבע (ללא constColor). רק האפקטים שלה (למשל בהירות, הסטת גוון) מוחלים מעל השכבות שמתחת. ציר הזמן מוצג באפור.' })}>
             <input
               type="checkbox"
               className="timeframe-panel-checkbox"
               checked={timeframe.hasExplicitColor === false}
               onChange={(e) => onUpdate({ hasExplicitColor: e.target.checked ? false : undefined })}
             />
-            <span>No color (modifiers only)</span>
+            <span>{t({ en: 'No color (modifiers only)', he: 'ללא צבע (משנים בלבד)' })}</span>
           </label>
           <div className="timeframe-panel-phase-row">
-            <label className="timeframe-panel-phase-label">Color Phase</label>
+            <label className="timeframe-panel-phase-label">{t({ en: 'Color Phase', he: 'פאזת צבע' })}</label>
             <input
               type="number"
               value={timeframe.phase ?? ''}
@@ -716,12 +817,12 @@ const TimeframePanel = ({ timeframe, onUpdate, onClose, songLengthBeats }: Timef
               }}
               className="timeframe-panel-input-small"
             />
-            <span className="timeframe-panel-phase-hint">Offsets base hue per ring</span>
+            <span className="timeframe-panel-phase-hint">{t({ en: 'Offsets base hue per ring', he: 'מסיט את גוון הבסיס לכל טבעת' })}</span>
           </div>
         </div>
 
         <div className="timeframe-panel-section">
-          <label className="timeframe-panel-label">Rings</label>
+          <label className="timeframe-panel-label">{t({ en: 'Rings', he: 'טבעות' })}</label>
           <div className="timeframe-panel-rings">
             <div className="timeframe-panel-rings-grid">
               {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map(ring => (
@@ -734,25 +835,25 @@ const TimeframePanel = ({ timeframe, onUpdate, onClose, songLengthBeats }: Timef
                       : [...timeframe.rings, ring].sort((a, b) => a - b)
                     onUpdate({ rings: newRings })
                   }}
-                  title={`Ring ${ring}`}
+                  title={`${t({ en: 'Ring', he: 'טבעת' })} ${ring}`}
                 >
                   {ring}
                 </button>
               ))}
             </div>
             <div className="timeframe-panel-rings-quick-select">
-              <button onClick={() => onUpdate({ rings: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12] })}>All</button>
-              <button onClick={() => onUpdate({ rings: [2, 4, 6, 8, 10, 12] })}>Even</button>
-              <button onClick={() => onUpdate({ rings: [1, 3, 5, 7, 9, 11] })}>Odd</button>
-              <button onClick={() => onUpdate({ rings: [1, 2, 3, 4, 5, 6] })}>Left</button>
-              <button onClick={() => onUpdate({ rings: [7, 8, 9, 10, 11, 12] })}>Right</button>
-              <button onClick={() => onUpdate({ rings: [4, 5, 6, 7, 8, 9] })}>Center</button>
+              <button onClick={() => onUpdate({ rings: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12] })}>{t({ en: 'All', he: 'הכול' })}</button>
+              <button onClick={() => onUpdate({ rings: [2, 4, 6, 8, 10, 12] })}>{t({ en: 'Even', he: 'זוגיות' })}</button>
+              <button onClick={() => onUpdate({ rings: [1, 3, 5, 7, 9, 11] })}>{t({ en: 'Odd', he: 'אי־זוגיות' })}</button>
+              <button onClick={() => onUpdate({ rings: [1, 2, 3, 4, 5, 6] })}>{t({ en: 'Left', he: 'שמאל' })}</button>
+              <button onClick={() => onUpdate({ rings: [7, 8, 9, 10, 11, 12] })}>{t({ en: 'Right', he: 'ימין' })}</button>
+              <button onClick={() => onUpdate({ rings: [4, 5, 6, 7, 8, 9] })}>{t({ en: 'Center', he: 'מרכז' })}</button>
             </div>
           </div>
         </div>
 
         <div className="timeframe-panel-section timeframe-panel-effects-section">
-          <label className="timeframe-panel-label">Effects</label>
+          <label className="timeframe-panel-label">{t({ en: 'Effects', he: 'אפקטים' })}</label>
           {(() => {
             const effects = getTimeframeEffects(timeframe)
             const displayList: TimeframeEffectEntry[] = effects.length > 0
@@ -792,18 +893,18 @@ const TimeframePanel = ({ timeframe, onUpdate, onClose, songLengthBeats }: Timef
                         }}
                         className="timeframe-panel-select"
                       >
-                        <option value="">(none)</option>
+                        <option value="">{t({ en: '(none)', he: '(ללא)' })}</option>
                         {(['Position', 'Timed', 'Snake', 'Brightness', 'Hue', 'Motion'] as const).map(cat => (
-                          <optgroup key={cat} label={cat}>
+                          <optgroup key={cat} label={trLabel(cat)}>
                             {ALL_EFFECT_OPTIONS.filter(o => o.category === cat).map(opt => (
-                              <option key={opt.value} value={opt.value}>{opt.label}</option>
+                              <option key={opt.value} value={opt.value}>{trLabel(opt.label)}</option>
                             ))}
                           </optgroup>
                         ))}
                         </select>
                         {entry.id !== 'placeholder' && entry.effectKey && (
                           <div className="timeframe-panel-effect-phase">
-                            <label className="timeframe-panel-effect-phase-label">Phase</label>
+                            <label className="timeframe-panel-effect-phase-label">{t({ en: 'Phase', he: 'פאזה' })}</label>
                             <input
                               type="number"
                               value={entry.phase ?? ''}
@@ -827,7 +928,7 @@ const TimeframePanel = ({ timeframe, onUpdate, onClose, songLengthBeats }: Timef
                             type="button"
                             className="timeframe-panel-effect-remove"
                             onClick={() => setEffects(effects.filter((_, i) => i !== idx))}
-                            title="Remove effect"
+                            title={t({ en: 'Remove effect', he: 'הסר אפקט' })}
                           >
                             ×
                           </button>
@@ -860,7 +961,7 @@ const TimeframePanel = ({ timeframe, onUpdate, onClose, songLengthBeats }: Timef
                                       <>
                                         <div className="timeframe-panel-float-function-block">
                                           <div className="timeframe-panel-effect-param-row">
-                                            <label className="timeframe-panel-effect-param-label">Head (time)</label>
+                                            <label className="timeframe-panel-effect-param-label">{trLabel('Head (time)')}</label>
                                             <select
                                               value={headKind}
                                               onChange={(e) => {
@@ -873,13 +974,13 @@ const TimeframePanel = ({ timeframe, onUpdate, onClose, songLengthBeats }: Timef
                                               className="timeframe-panel-select timeframe-panel-select-small"
                                             >
                                               {FLOAT_FUNCTION_KINDS.map(k => (
-                                                <option key={k.value} value={k.value}>{k.label}</option>
+                                                <option key={k.value} value={k.value}>{trLabel(k.label)}</option>
                                               ))}
                                             </select>
                                           </div>
                                           {headParams.map(pDef => (
                                             <div key={pDef.key} className="timeframe-panel-effect-param-row timeframe-panel-effect-param-row-indent">
-                                              <label className="timeframe-panel-effect-param-label">{pDef.label}</label>
+                                              <label className="timeframe-panel-effect-param-label">{trLabel(pDef.label)}</label>
                                               <input
                                                 type="number"
                                                 value={typeof headObj[pDef.key] === 'number' ? headObj[pDef.key] : pDef.default}
@@ -902,7 +1003,7 @@ const TimeframePanel = ({ timeframe, onUpdate, onClose, songLengthBeats }: Timef
                                         </div>
                                         <div className="timeframe-panel-float-function-block">
                                           <div className="timeframe-panel-effect-param-row">
-                                            <label className="timeframe-panel-effect-param-label">Tail length</label>
+                                            <label className="timeframe-panel-effect-param-label">{trLabel('Tail length')}</label>
                                             <select
                                               value={tailKind}
                                               onChange={(e) => {
@@ -915,13 +1016,13 @@ const TimeframePanel = ({ timeframe, onUpdate, onClose, songLengthBeats }: Timef
                                               className="timeframe-panel-select timeframe-panel-select-small"
                                             >
                                               {FLOAT_FUNCTION_KINDS.map(k => (
-                                                <option key={k.value} value={k.value}>{k.label}</option>
+                                                <option key={k.value} value={k.value}>{trLabel(k.label)}</option>
                                               ))}
                                             </select>
                                           </div>
                                           {tailParams.map(pDef => (
                                             <div key={pDef.key} className="timeframe-panel-effect-param-row timeframe-panel-effect-param-row-indent">
-                                              <label className="timeframe-panel-effect-param-label">{pDef.label}</label>
+                                              <label className="timeframe-panel-effect-param-label">{trLabel(pDef.label)}</label>
                                               <input
                                                 type="number"
                                                 value={typeof tailObj[pDef.key] === 'number' ? tailObj[pDef.key] : pDef.default}
@@ -955,14 +1056,14 @@ const TimeframePanel = ({ timeframe, onUpdate, onClose, songLengthBeats }: Timef
                                               }}
                                               className="timeframe-panel-checkbox"
                                             />
-                                            <span>Cyclic</span>
+                                            <span>{t({ en: 'Cyclic', he: 'מחזורי' })}</span>
                                           </label>
                                         </div>
                                       </>
                                     )
                                   })()}
                                   <div className="timeframe-panel-effect-param-row">
-                                    <label className="timeframe-panel-effect-param-label">Apply</label>
+                                    <label className="timeframe-panel-effect-param-label">{t({ en: 'Apply', he: 'החל' })}</label>
                                     <select
                                       value={currentKey}
                                       onChange={(e) => {
@@ -981,13 +1082,13 @@ const TimeframePanel = ({ timeframe, onUpdate, onClose, songLengthBeats }: Timef
                                       }}
                                       className="timeframe-panel-select timeframe-panel-select-small"
                                     >
-                                      <option value={DECREASE_KEY}>Decrease</option>
-                                      <option value={INCREASE_KEY}>Increase</option>
+                                      <option value={DECREASE_KEY}>{t({ en: 'Decrease', he: 'הפחתה' })}</option>
+                                      <option value={INCREASE_KEY}>{t({ en: 'Increase', he: 'הגברה' })}</option>
                                     </select>
                                   </div>
                                   <div className="timeframe-panel-float-function-block">
                                     <div className="timeframe-panel-effect-param-row">
-                                      <label className="timeframe-panel-effect-param-label">Function</label>
+                                      <label className="timeframe-panel-effect-param-label">{t({ en: 'Function', he: 'פונקציה' })}</label>
                                       <select
                                         value={kind}
                                         onChange={(e) => {
@@ -1005,7 +1106,7 @@ const TimeframePanel = ({ timeframe, onUpdate, onClose, songLengthBeats }: Timef
                                         className="timeframe-panel-select timeframe-panel-select-small"
                                       >
                                         {FLOAT_FUNCTION_KINDS.map(k => (
-                                          <option key={k.value} value={k.value}>{k.label}</option>
+                                          <option key={k.value} value={k.value}>{trLabel(k.label)}</option>
                                         ))}
                                       </select>
                                     </div>
@@ -1013,7 +1114,7 @@ const TimeframePanel = ({ timeframe, onUpdate, onClose, songLengthBeats }: Timef
                                       const pVal = typeof currentObj[pDef.key] === 'number' ? currentObj[pDef.key] : pDef.default
                                       return (
                                         <div key={pDef.key} className="timeframe-panel-effect-param-row timeframe-panel-effect-param-row-indent">
-                                          <label className="timeframe-panel-effect-param-label">{pDef.label}</label>
+                                          <label className="timeframe-panel-effect-param-label">{trLabel(pDef.label)}</label>
                                           <input
                                             type="number"
                                             value={pVal}
@@ -1049,7 +1150,7 @@ const TimeframePanel = ({ timeframe, onUpdate, onClose, songLengthBeats }: Timef
                                 return (
                                   <div key={def.key} className="timeframe-panel-float-function-block">
                                     <div className="timeframe-panel-effect-param-row">
-                                      <label className="timeframe-panel-effect-param-label">{def.label}</label>
+                                      <label className="timeframe-panel-effect-param-label">{trLabel(def.label)}</label>
                                       <select
                                         value={kind}
                                         onChange={(e) => {
@@ -1063,7 +1164,7 @@ const TimeframePanel = ({ timeframe, onUpdate, onClose, songLengthBeats }: Timef
                                         className="timeframe-panel-select timeframe-panel-select-small"
                                       >
                                         {FLOAT_FUNCTION_KINDS.map(k => (
-                                          <option key={k.value} value={k.value}>{k.label}</option>
+                                          <option key={k.value} value={k.value}>{trLabel(k.label)}</option>
                                         ))}
                                       </select>
                                     </div>
@@ -1071,7 +1172,7 @@ const TimeframePanel = ({ timeframe, onUpdate, onClose, songLengthBeats }: Timef
                                       const pVal = typeof currentObj[pDef.key] === 'number' ? currentObj[pDef.key] : pDef.default
                                       return (
                                         <div key={pDef.key} className="timeframe-panel-effect-param-row timeframe-panel-effect-param-row-indent">
-                                          <label className="timeframe-panel-effect-param-label">{pDef.label}</label>
+                                          <label className="timeframe-panel-effect-param-label">{trLabel(pDef.label)}</label>
                                           <input
                                             type="number"
                                             value={pVal}
@@ -1100,7 +1201,7 @@ const TimeframePanel = ({ timeframe, onUpdate, onClose, songLengthBeats }: Timef
                               const value = current !== undefined ? current : def.default
                               return (
                                 <div key={def.key} className="timeframe-panel-effect-param-row">
-                                  <label className="timeframe-panel-effect-param-label">{def.label}</label>
+                                  <label className="timeframe-panel-effect-param-label">{trLabel(def.label)}</label>
                                   {def.type === 'boolean' ? (
                                     <input
                                       type="checkbox"
@@ -1150,7 +1251,7 @@ const TimeframePanel = ({ timeframe, onUpdate, onClose, songLengthBeats }: Timef
                       })
                     }}
                   >
-                    + Add effect
+                    {t({ en: '+ Add effect', he: '+ הוסף אפקט' })}
                   </button>
                 )}
               </>
@@ -1159,7 +1260,7 @@ const TimeframePanel = ({ timeframe, onUpdate, onClose, songLengthBeats }: Timef
         </div>
 
         <div className="timeframe-panel-section timeframe-panel-movement-section">
-          <label className="timeframe-panel-label">Movement</label>
+          <label className="timeframe-panel-label">{t({ en: 'Movement', he: 'תנועה' })}</label>
           <select
             value={timeframe.movement?.type ?? ''}
             onChange={(e) => {
@@ -1180,9 +1281,9 @@ const TimeframePanel = ({ timeframe, onUpdate, onClose, songLengthBeats }: Timef
             }}
             className="timeframe-panel-select"
           >
-            <option value="">(none)</option>
+            <option value="">{t({ en: '(none)', he: '(ללא)' })}</option>
             {MOVEMENT_TYPES.map(mt => (
-              <option key={mt.id} value={mt.id}>{mt.label}</option>
+              <option key={mt.id} value={mt.id}>{trLabel(mt.label)}</option>
             ))}
           </select>
           {timeframe.movement && (() => {
@@ -1190,11 +1291,11 @@ const TimeframePanel = ({ timeframe, onUpdate, onClose, songLengthBeats }: Timef
             const typeDef = MOVEMENT_TYPES.find(mt => mt.id === mv.type)
             return (
               <div className="timeframe-panel-movement-config">
-                <p className="timeframe-panel-movement-desc">{typeDef?.description}</p>
+                <p className="timeframe-panel-movement-desc">{typeDef?.description ? trLabel(typeDef.description) : null}</p>
                 {/* Direction: hidden for random unless using a custom order (random shuffles otherwise). */}
                 {(mv.type !== 'random' || mv.direction === 'custom') && (
                   <div className="timeframe-panel-movement-param-row">
-                    <label className="timeframe-panel-effect-param-label">Direction</label>
+                    <label className="timeframe-panel-effect-param-label">{t({ en: 'Direction', he: 'כיוון' })}</label>
                     <select
                       value={mv.direction}
                       onChange={(e) => {
@@ -1208,7 +1309,7 @@ const TimeframePanel = ({ timeframe, onUpdate, onClose, songLengthBeats }: Timef
                       className="timeframe-panel-select timeframe-panel-select-small"
                     >
                       {MOVEMENT_DIRECTIONS.map(d => (
-                        <option key={d.id} value={d.id}>{d.label}</option>
+                        <option key={d.id} value={d.id}>{trLabel(d.label)}</option>
                       ))}
                     </select>
                   </div>
@@ -1226,17 +1327,17 @@ const TimeframePanel = ({ timeframe, onUpdate, onClose, songLengthBeats }: Timef
                         }}
                         className="timeframe-panel-checkbox"
                       />
-                      <span>Use custom order</span>
+                      <span>{t({ en: 'Use custom order', he: 'השתמש בסדר מותאם' })}</span>
                     </label>
                   </div>
                 )}
                 {mv.direction === 'custom' && (
                   <div className="timeframe-panel-movement-param-row">
-                    <label className="timeframe-panel-effect-param-label">Ring order</label>
+                    <label className="timeframe-panel-effect-param-label">{t({ en: 'Ring order', he: 'סדר טבעות' })}</label>
                     <input
                       type="text"
                       value={ringOrderText}
-                      placeholder="e.g. 1, 2, 3, 4, 6"
+                      placeholder={t({ en: 'e.g. 1, 2, 3, 4, 6', he: 'למשל 1, 2, 3, 4, 6' })}
                       onChange={(e) => {
                         setRingOrderText(e.target.value)
                         const seen = new Set<number>()
@@ -1257,14 +1358,14 @@ const TimeframePanel = ({ timeframe, onUpdate, onClose, songLengthBeats }: Timef
                   const stayOn = timeframe.rings.filter(r => !order.includes(r)).sort((a, b) => a - b)
                   return (
                     <p className="timeframe-panel-movement-desc">
-                      {order.length === 0 && 'Enter a ring order above.'}
-                      {notInSet.length > 0 && `Ignored (not in this timeframe): ${notInSet.join(', ')}. `}
-                      {stayOn.length > 0 && `Stay on full-time: ${stayOn.join(', ')}.`}
+                      {order.length === 0 && t({ en: 'Enter a ring order above.', he: 'הזן סדר טבעות למעלה.' })}
+                      {notInSet.length > 0 && `${t({ en: 'Ignored (not in this timeframe):', he: 'התעלמות (לא במסגרת זמן זו):' })} ${notInSet.join(', ')}. `}
+                      {stayOn.length > 0 && `${t({ en: 'Stay on full-time:', he: 'נשארות דולקות כל הזמן:' })} ${stayOn.join(', ')}.`}
                     </p>
                   )
                 })()}
                 <div className="timeframe-panel-movement-param-row">
-                  <label className="timeframe-panel-effect-param-label">Beats / ring</label>
+                  <label className="timeframe-panel-effect-param-label">{t({ en: 'Beats / ring', he: 'ביטים / טבעת' })}</label>
                   <input
                     type="number"
                     value={mv.beatsPerRing}
@@ -1301,7 +1402,7 @@ const TimeframePanel = ({ timeframe, onUpdate, onClose, songLengthBeats }: Timef
                         }}
                         className="timeframe-panel-checkbox"
                       />
-                      <span>{ep.label}</span>
+                      <span>{trLabel(ep.label)}</span>
                     </label>
                   </div>
                 ))}
@@ -1311,7 +1412,7 @@ const TimeframePanel = ({ timeframe, onUpdate, onClose, songLengthBeats }: Timef
         </div>
 
         <div className="timeframe-panel-section">
-          <label className="timeframe-panel-label">Mapping</label>
+          <label className="timeframe-panel-label">{t({ en: 'Mapping', he: 'מיפוי' })}</label>
           <select
             value={timeframe.mapping || 'all'}
             onChange={(e) => onUpdate({ mapping: e.target.value })}

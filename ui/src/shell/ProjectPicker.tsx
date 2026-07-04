@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react'
 import { library, type LibraryProject } from '../lib/library'
+import { useI18n } from '../lib/i18n'
 
 /**
  * First screen after login: pick an installation ("project"). "Rings" is the built-in project
@@ -15,6 +16,7 @@ interface Props {
 const icon = (p: LibraryProject) => (p.builtin ? '💍' : '🎨')
 
 export default function ProjectPicker({ onOpen }: Props) {
+  const { t } = useI18n()
   const [projects, setProjects] = useState<LibraryProject[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -34,7 +36,7 @@ export default function ProjectPicker({ onOpen }: Props) {
   useEffect(() => { void refresh() }, [refresh])
 
   async function createProject() {
-    const name = window.prompt('New installation name:', '')
+    const name = window.prompt(t({ en: 'New installation name:', he: 'שם מיצב חדש:' }), '')
     if (name == null || !name.trim()) return
     setBusy(true)
     setError(null)
@@ -52,25 +54,25 @@ export default function ProjectPicker({ onOpen }: Props) {
   return (
     <div style={wrap}>
       <div style={{ maxWidth: 900, margin: '0 auto', width: '100%' }}>
-        <h1 style={{ fontSize: 26, margin: '8px 0 4px' }}>Choose an installation</h1>
-        <p style={{ color: '#8a93a3', margin: '0 0 24px' }}>Each installation keeps its own song library.</p>
+        <h1 style={{ fontSize: 26, margin: '8px 0 4px' }}>{t({ en: 'Choose an installation', he: 'בחר מיצב' })}</h1>
+        <p style={{ color: '#8a93a3', margin: '0 0 24px' }}>{t({ en: 'Each installation keeps its own song library.', he: 'לכל מיצב יש ספריית שירים משלו.' })}</p>
 
         {error && <div style={errorBox}>{error}</div>}
 
         {loading ? (
-          <div style={{ color: '#9aa', padding: 40, textAlign: 'center' }}>Loading…</div>
+          <div style={{ color: '#9aa', padding: 40, textAlign: 'center' }}>{t({ en: 'Loading…', he: 'טוען…' })}</div>
         ) : (
           <div style={grid}>
             {projects.map((p) => (
               <button key={p.id} style={card} onClick={() => onOpen(p.id, p.name, p.role ?? null)} disabled={busy}>
                 <span style={{ fontSize: 40 }}>{icon(p)}</span>
                 <span style={{ fontWeight: 700, fontSize: 18 }}>{p.name}</span>
-                {p.role && <span style={{ ...roleBadge, ...(p.role === 'admin' ? adminBadge : {}) }}>{p.role}</span>}
+                {p.role && <span style={{ ...roleBadge, ...(p.role === 'admin' ? adminBadge : {}) }}>{t(p.role === 'admin' ? { en: 'admin', he: 'מנהל' } : { en: 'member', he: 'חבר' })}</span>}
               </button>
             ))}
             <button style={{ ...card, ...addCard }} onClick={createProject} disabled={busy}>
               <span style={{ fontSize: 40 }}>＋</span>
-              <span style={{ fontWeight: 700, fontSize: 16 }}>New installation</span>
+              <span style={{ fontWeight: 700, fontSize: 16 }}>{t({ en: 'New installation', he: 'מיצב חדש' })}</span>
             </button>
           </div>
         )}

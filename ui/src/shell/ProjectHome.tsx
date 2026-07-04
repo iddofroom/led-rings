@@ -1,6 +1,8 @@
 import React, { useCallback, useEffect, useState } from 'react'
 import { mappingApi } from '../lib/mapping'
 import { library } from '../lib/library'
+import { useI18n } from '../lib/i18n'
+import MembersPanel from './MembersPanel'
 
 /**
  * Project home: the ordered stages of building an installation, from connecting
@@ -23,6 +25,8 @@ interface Props {
 type StageState = 'unknown' | 'checking' | 'ok' | 'todo'
 
 export default function ProjectHome({ projectId, projectName, projectRole, onCompose, onMapping, onSetupControllers, onFlow, onBack }: Props) {
+  const { t } = useI18n()
+  const [showSettings, setShowSettings] = useState(false)
   const [pi, setPi] = useState<StageState>('unknown')
   const [controllers, setControllers] = useState<{ state: StageState; count: number }>({ state: 'unknown', count: 0 })
   const [declared, setDeclared] = useState(0)
@@ -71,73 +75,99 @@ export default function ProjectHome({ projectId, projectName, projectRole, onCom
     {
       key: 'pi',
       badge: '1',
-      title: 'Connect the Raspberry Pi',
-      desc: 'Run the host bundle on the Pi wired to the installation. The tool reaches the hardware through it.',
+      title: t({ en: 'Connect the Raspberry Pi', he: 'חבר את ה-Raspberry Pi' }),
+      desc: t({
+        en: 'Run the host bundle on the Pi wired to the installation. The tool reaches the hardware through it.',
+        he: 'הרץ את חבילת המארח על ה-Pi המחובר למיצב. הכלי מגיע לחומרה דרכו.',
+      }),
       state: pi,
-      status: pi === 'ok' ? 'Online' : pi === 'checking' ? 'Checking…' : 'Offline',
-      action: <button style={S.ghost} onClick={refresh}>Test connection</button>,
+      status: pi === 'ok' ? t({ en: 'Online', he: 'מחובר' }) : pi === 'checking' ? t({ en: 'Checking…', he: 'בודק…' }) : t({ en: 'Offline', he: 'מנותק' }),
+      action: <button style={S.ghost} onClick={refresh}>{t({ en: 'Test connection', he: 'בדוק חיבור' })}</button>,
     },
     {
       key: 'esp',
       badge: '2',
-      title: 'Set up the controllers',
-      desc: 'Flash each ESP32 with its thing name and power it. They announce themselves automatically.',
+      title: t({ en: 'Set up the controllers', he: 'הגדר את הבקרים' }),
+      desc: t({
+        en: 'Flash each ESP32 with its thing name and power it. They announce themselves automatically.',
+        he: 'צרוב כל ESP32 עם שם ה-thing שלו והפעל אותו. הם מכריזים על עצמם אוטומטית.',
+      }),
       state: controllers.state,
       status:
         controllers.state === 'ok'
-          ? `${controllers.count} online${declared ? ` · ${declared} declared` : ''}`
+          ? `${controllers.count} ${t({ en: 'online', he: 'מחוברים' })}${declared ? ` · ${declared} ${t({ en: 'declared', he: 'רשומים' })}` : ''}`
           : controllers.state === 'checking'
-            ? 'Scanning…'
+            ? t({ en: 'Scanning…', he: 'סורק…' })
             : declared
-              ? `${declared} declared · offline`
-              : 'None yet',
+              ? `${declared} ${t({ en: 'declared', he: 'רשומים' })} · ${t({ en: 'offline', he: 'מנותק' })}`
+              : t({ en: 'None yet', he: 'אין עדיין' }),
       action: (
         <>
-          <button style={S.primary} onClick={onSetupControllers}>Set up controllers →</button>
-          <button style={S.ghost} onClick={refresh}>Refresh</button>
+          <button style={S.primary} onClick={onSetupControllers}>{t({ en: 'Set up controllers →', he: 'הגדר בקרים →' })}</button>
+          <button style={S.ghost} onClick={refresh}>{t({ en: 'Refresh', he: 'רענן' })}</button>
         </>
       ),
     },
     {
       key: 'map',
       badge: '3',
-      title: 'Map the LEDs',
-      desc: 'Aim your camera at the installation and let the tool learn every LED’s position.',
+      title: t({ en: 'Map the LEDs', he: 'מפה את ה-LEDs' }),
+      desc: t({
+        en: 'Aim your camera at the installation and let the tool learn every LED’s position.',
+        he: 'כוון את המצלמה אל המיצב ותן לכלי ללמוד את המיקום של כל LED.',
+      }),
       state: mapInfo.state,
       status:
-        mapInfo.state === 'ok' ? `${mapInfo.leds} LEDs · ${mapInfo.controllers} controllers` : mapInfo.state === 'checking' ? 'Loading…' : 'Not mapped',
-      action: <button style={S.primary} onClick={onMapping}>Open mapping →</button>,
+        mapInfo.state === 'ok'
+          ? `${mapInfo.leds} LEDs · ${mapInfo.controllers} ${t({ en: 'controllers', he: 'בקרים' })}`
+          : mapInfo.state === 'checking'
+            ? t({ en: 'Loading…', he: 'טוען…' })
+            : t({ en: 'Not mapped', he: 'לא ממופה' }),
+      action: <button style={S.primary} onClick={onMapping}>{t({ en: 'Open mapping →', he: 'פתח מיפוי →' })}</button>,
     },
     {
       key: 'compose',
       badge: '4',
-      title: 'Compose & play',
-      desc: 'Upload a song, generate a beat-synced animation, edit the timeline, and play it live.',
+      title: t({ en: 'Compose & play', he: 'הלחן ונגן' }),
+      desc: t({
+        en: 'Upload a song, generate a beat-synced animation, edit the timeline, and play it live.',
+        he: 'העלה שיר, צור אנימציה מסונכרנת לקצב, ערוך את ציר הזמן, ונגן אותה בשידור חי.',
+      }),
       state: 'unknown' as StageState,
-      status: 'Ready',
-      action: <button style={S.primary} onClick={onCompose}>Open songs →</button>,
+      status: t({ en: 'Ready', he: 'מוכן' }),
+      action: <button style={S.primary} onClick={onCompose}>{t({ en: 'Open songs →', he: 'פתח שירים →' })}</button>,
     },
     {
       key: 'flow',
       badge: '5',
-      title: 'Installation flow',
-      desc: 'Wire buttons / RFID to actions — scan a tag to play a song or fire a pattern.',
+      title: t({ en: 'Installation flow', he: 'פלואו של המיצב' }),
+      desc: t({
+        en: 'Wire buttons / RFID to actions — scan a tag to play a song or fire a pattern.',
+        he: 'חבר כפתורים / RFID לפעולות — סרוק תג כדי לנגן שיר או להפעיל תבנית.',
+      }),
       state: 'unknown' as StageState,
-      status: 'Optional',
-      action: <button style={S.ghost} onClick={onFlow}>Open flow →</button>,
+      status: t({ en: 'Optional', he: 'אופציונלי' }),
+      action: <button style={S.ghost} onClick={onFlow}>{t({ en: 'Open flow →', he: 'פתח פלואו →' })}</button>,
     },
   ]
 
   return (
     <div style={S.wrap}>
       <div style={S.head}>
-        <button style={S.back} onClick={onBack}>← Projects</button>
+        <button style={S.back} onClick={onBack}>← {t({ en: 'Projects', he: 'פרויקטים' })}</button>
         <div>
           <div style={{ fontSize: 22, fontWeight: 800, letterSpacing: '-0.01em' }}>{projectName}</div>
           <div style={{ color: '#8fa0bd', fontSize: 13 }}>
-            Build your installation, one step at a time{projectRole ? ` · you are ${projectRole}` : ''}
+            {t({ en: 'Build your installation, one step at a time', he: 'בנה את המיצב שלך, שלב אחר שלב' })}
+            {projectRole ? ` · ${t({ en: 'you are', he: 'התפקיד שלך' })} ${t(projectRole === 'admin' ? { en: 'admin', he: 'מנהל' } : { en: 'member', he: 'חבר' })}` : ''}
           </div>
         </div>
+        <span style={{ flex: 1 }} />
+        {projectRole === 'admin' && (
+          <button style={S.settings} onClick={() => setShowSettings(true)}>
+            ⚙️ {t({ en: 'Settings', he: 'הגדרות' })}
+          </button>
+        )}
       </div>
 
       <div style={S.grid}>
@@ -154,6 +184,10 @@ export default function ProjectHome({ projectId, projectName, projectRole, onCom
           </div>
         ))}
       </div>
+
+      {showSettings && projectRole === 'admin' && (
+        <MembersPanel projectId={projectId} projectName={projectName} onClose={() => setShowSettings(false)} />
+      )}
     </div>
   )
 }
@@ -172,6 +206,7 @@ const S: Record<string, React.CSSProperties> = {
   wrap: { flex: 1, padding: '28px 24px 48px', maxWidth: 980, margin: '0 auto', width: '100%' },
   head: { display: 'flex', alignItems: 'center', gap: 16, marginBottom: 26 },
   back: { background: 'transparent', color: '#8fb4ff', border: '1px solid #2a3140', borderRadius: 8, padding: '6px 12px', cursor: 'pointer' },
+  settings: { background: 'transparent', color: '#c7d2e6', border: '1px solid #2a3140', borderRadius: 8, padding: '6px 12px', cursor: 'pointer', fontWeight: 600, whiteSpace: 'nowrap' },
   grid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: 16 },
   card: { background: '#12161d', border: '1px solid #1e232c', borderRadius: 14, padding: 18, display: 'flex', flexDirection: 'column', gap: 10, minHeight: 168 },
   cardHead: { display: 'flex', alignItems: 'center', gap: 10 },

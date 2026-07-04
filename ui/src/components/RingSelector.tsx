@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react'
 import { createPortal } from 'react-dom'
+import { useI18n } from '../lib/i18n'
 import './RingSelector.css'
 
 interface RingSelectorProps {
@@ -14,6 +15,7 @@ const RingSelector = ({ rings, onChange }: RingSelectorProps) => {
   const buttonRef = useRef<HTMLButtonElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
   const allRings = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
+  const { t } = useI18n()
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -137,9 +139,9 @@ const RingSelector = ({ rings, onChange }: RingSelectorProps) => {
           e.stopPropagation()
           setIsExpanded(!isExpanded)
         }}
-        title="Select rings"
+        title={t({ en: 'Select rings', he: 'בחר טבעות' })}
       >
-        Rings: {rings.length === 12 ? 'All' : rings.length === 0 ? 'None' : rings.join(', ')}
+        {t({ en: 'Rings', he: 'טבעות' })}: {rings.length === 12 ? t({ en: 'All', he: 'הכול' }) : rings.length === 0 ? t({ en: 'None', he: 'ללא' }) : rings.join(', ')}
         <span className={`ring-selector-arrow ${isExpanded ? 'expanded' : ''}`}>▼</span>
       </button>
       {isExpanded && createPortal(
@@ -152,13 +154,13 @@ const RingSelector = ({ rings, onChange }: RingSelectorProps) => {
           }}
         >
           <div className="ring-quick-select">
-            <button onClick={(e) => quickSelect('all', e)}>All</button>
-            <button onClick={(e) => quickSelect('even', e)}>Even</button>
-            <button onClick={(e) => quickSelect('odd', e)}>Odd</button>
-            <button onClick={(e) => quickSelect('left', e)}>Left</button>
-            <button onClick={(e) => quickSelect('right', e)}>Right</button>
-            <button onClick={(e) => quickSelect('center', e)}>Center</button>
-            <button onClick={(e) => quickSelect('outer', e)}>Outer</button>
+            <button onClick={(e) => quickSelect('all', e)}>{t({ en: 'All', he: 'הכול' })}</button>
+            <button onClick={(e) => quickSelect('even', e)}>{t({ en: 'Even', he: 'זוגי' })}</button>
+            <button onClick={(e) => quickSelect('odd', e)}>{t({ en: 'Odd', he: 'אי-זוגי' })}</button>
+            <button onClick={(e) => quickSelect('left', e)}>{t({ en: 'Left', he: 'שמאל' })}</button>
+            <button onClick={(e) => quickSelect('right', e)}>{t({ en: 'Right', he: 'ימין' })}</button>
+            <button onClick={(e) => quickSelect('center', e)}>{t({ en: 'Center', he: 'מרכז' })}</button>
+            <button onClick={(e) => quickSelect('outer', e)}>{t({ en: 'Outer', he: 'חיצוני' })}</button>
           </div>
           <div className="ring-grid">
             {allRings.map(ring => (

@@ -20,6 +20,7 @@ import type { TimeframeMovement } from './movementGenerators'
 import type { PresetMetadata } from './presets'
 import SettingsPanel from './components/SettingsPanel'
 import { tryReuseHandle, grantPermissionAndGetFile, pickAndRememberAudioFile, supportsFileHandles } from './audioFileHandles'
+import { useI18n, LangToggle } from './lib/i18n'
 import './App.css'
 
 const CONTROL_SERVER_URL_STORAGE_KEY = 'kivsee-control-server-url'
@@ -225,6 +226,7 @@ export interface AppProps {
 }
 
 function App({ projectId = 'rings', initialLoad, onExitToSongs }: AppProps = {}) {
+  const { t, dir } = useI18n()
   const snapToBeat = (beat: number): number => {
     return Math.round(beat / 4) * 4
   }
@@ -1064,11 +1066,11 @@ function App({ projectId = 'rings', initialLoad, onExitToSongs }: AppProps = {})
           parsed = JSON.parse(text)
         } catch (parseErr) {
           console.error('Failed to parse JSON', parseErr)
-          alert('Invalid JSON file. Check the console for details.')
+          alert(t({ en: 'Invalid JSON file. Check the console for details.', he: 'קובץ JSON לא תקין. בדוק את הקונסול לפרטים.' }))
           return
         }
         if (!parsed || typeof parsed !== 'object') {
-          alert('Invalid file: expected a JSON object or array.')
+          alert(t({ en: 'Invalid file: expected a JSON object or array.', he: 'קובץ לא תקין: צפוי אובייקט או מערך JSON.' }))
           return
         }
 
@@ -1128,7 +1130,7 @@ function App({ projectId = 'rings', initialLoad, onExitToSongs }: AppProps = {})
           setTimeframes(mapped)
         } else if (!(parsed as { song?: unknown }).song) {
           console.error('Invalid file format: expected array of timeframes or { song, timeframes }')
-          alert('Invalid file format: expected array of timeframes or { song, timeframes }.')
+          alert(t({ en: 'Invalid file format: expected array of timeframes or { song, timeframes }.', he: 'פורמט קובץ לא תקין: צפוי מערך מסגרות זמן או { song, timeframes }.' }))
           return
         }
         // If we have song but no timeframes array, leave timeframes unchanged
@@ -1183,7 +1185,7 @@ function App({ projectId = 'rings', initialLoad, onExitToSongs }: AppProps = {})
         }
       } catch (err) {
         console.error('Failed to load file', err)
-        alert(`Failed to load file: ${err instanceof Error ? err.message : String(err)}`)
+        alert(`${t({ en: 'Failed to load file', he: 'טעינת הקובץ נכשלה' })}: ${err instanceof Error ? err.message : String(err)}`)
       }
     }
     input.click()
@@ -1257,7 +1259,7 @@ function App({ projectId = 'rings', initialLoad, onExitToSongs }: AppProps = {})
         setCurrentTime(0)
       } catch (err) {
         console.error('Failed to import .ts song file', err)
-        alert(`Import failed: ${err instanceof Error ? err.message : err}`)
+        alert(`${t({ en: 'Import failed', he: 'הייבוא נכשל' })}: ${err instanceof Error ? err.message : err}`)
       }
     }
     input.click()
@@ -1573,12 +1575,12 @@ function App({ projectId = 'rings', initialLoad, onExitToSongs }: AppProps = {})
   const recomposeCurrent = async () => {
     // Default: build the song from the whole pattern library, a different pattern per section.
     if (recomposeFromLibrary()) return
-    if (!apiBase) { window.alert('Control server is not running.'); return }
+    if (!apiBase) { window.alert(t({ en: 'Control server is not running.', he: 'שרת הבקרה אינו פועל.' })); return }
     let analysis = lastAnalysisRef.current
     if (!analysis && song.librarySlug) {
       try { analysis = await library.getAnalysis(song.librarySlug, projectId) } catch {}
     }
-    if (!analysis) { window.alert('No analysis yet — open 🎵 Compose and Analyze the song first.'); return }
+    if (!analysis) { window.alert(t({ en: 'No analysis yet — open 🎵 Compose and Analyze the song first.', he: 'אין עדיין ניתוח — פתח 🎵 הלחנה ונתח את השיר תחילה.' })); return }
     const lines = song.sectionLines
     const a = lines && lines.length ? { ...analysis, sections: buildCustomSections(analysis, lines) } : analysis
     try {
@@ -1589,7 +1591,7 @@ function App({ projectId = 'rings', initialLoad, onExitToSongs }: AppProps = {})
       const result = await r.json()
       loadCategoryPreview(result, { librarySlug: song.librarySlug })
     } catch (e) {
-      window.alert('Recompose failed: ' + (e instanceof Error ? e.message : String(e)))
+      window.alert(t({ en: 'Recompose failed: ', he: 'ההרכבה מחדש נכשלה: ' }) + (e instanceof Error ? e.message : String(e)))
     }
   }
 
@@ -1620,7 +1622,7 @@ function App({ projectId = 'rings', initialLoad, onExitToSongs }: AppProps = {})
 
   /** Save the current timeline as a named animation snapshot. */
   const saveCurrentAnimation = async () => {
-    const name = window.prompt('Name this animation:', `${song.name || 'animation'} ${new Date().toTimeString().slice(0, 5)}`)
+    const name = window.prompt(t({ en: 'Name this animation:', he: 'שם לאנימציה:' }), `${song.name || 'animation'} ${new Date().toTimeString().slice(0, 5)}`)
     if (name == null) return
     const trimmed = name.trim()
     if (!trimmed) return
@@ -1639,7 +1641,7 @@ function App({ projectId = 'rings', initialLoad, onExitToSongs }: AppProps = {})
       setLibrarySaveState('saved')
     } catch (e) {
       setLibrarySaveState('error')
-      window.alert('Save animation failed: ' + (e instanceof Error ? e.message : String(e)))
+      window.alert(t({ en: 'Save animation failed: ', he: 'שמירת האנימציה נכשלה: ' }) + (e instanceof Error ? e.message : String(e)))
     }
   }
 
@@ -1715,7 +1717,7 @@ function App({ projectId = 'rings', initialLoad, onExitToSongs }: AppProps = {})
     } catch (e) {
       console.warn('saveVersion failed', e)
       setLibrarySaveState('error')
-      window.alert('Save failed: ' + (e instanceof Error ? e.message : String(e)))
+      window.alert(t({ en: 'Save failed: ', he: 'השמירה נכשלה: ' }) + (e instanceof Error ? e.message : String(e)))
       return null
     }
   }
@@ -1903,7 +1905,7 @@ function App({ projectId = 'rings', initialLoad, onExitToSongs }: AppProps = {})
     loadCompositionFromLibrary(slug, comp)
       .then(markLoaded)
       .catch((e) => {
-        window.alert('Failed to open song: ' + (e instanceof Error ? e.message : String(e)))
+        window.alert(t({ en: 'Failed to open song: ', he: 'פתיחת השיר נכשלה: ' }) + (e instanceof Error ? e.message : String(e)))
         onExitToSongs?.()
       })
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1915,7 +1917,7 @@ function App({ projectId = 'rings', initialLoad, onExitToSongs }: AppProps = {})
   const exitToSongs = () => {
     if (!onExitToSongs) return
     const dirty = timeframes.length > 0 && stableWorkingJson(song, timeframes) !== lastSavedWorkingRef.current
-    if (dirty && !window.confirm('You have unsaved timeline changes. Opening a different song will discard them — use 💾 Save / 🕘 History to keep them. Leave anyway?')) return
+    if (dirty && !window.confirm(t({ en: 'You have unsaved timeline changes. Opening a different song will discard them — use 💾 Save / 🕘 History to keep them. Leave anyway?', he: 'יש שינויים לא שמורים בציר הזמן. פתיחת שיר אחר תמחק אותם — השתמש ב-💾 שמור / 🕘 היסטוריה כדי לשמור. לצאת בכל זאת?' }))) return
     onExitToSongs()
   }
 
@@ -2237,14 +2239,6 @@ function App({ projectId = 'rings', initialLoad, onExitToSongs }: AppProps = {})
     handleSongChange({ beatTimestampsMs: next })
   }, [song.beatTimestampsMs])
 
-  const handleAudioFilePathChange = (value: string) => {
-    if (audioBlobUrlRef.current) {
-      URL.revokeObjectURL(audioBlobUrlRef.current)
-      audioBlobUrlRef.current = null
-    }
-    handleSongChange({ audioFilePath: value || undefined })
-  }
-
   const handleBrowseAudio = async () => {
     setAudioReconnectHandle(null)
     if (supportsFileHandles()) {
@@ -2290,40 +2284,46 @@ function App({ projectId = 'rings', initialLoad, onExitToSongs }: AppProps = {})
   }
 
   return (
-    <div className={`app${resizing ? ' app-resizing' : ''}${resizing === 'spectrogram' ? ' app-resizing-spectrogram' : ''}${resizing === 'header' ? ' app-resizing-header' : ''}${lightTheme ? ' theme-light' : ''}`}>
+    <div dir={dir} className={`app${resizing ? ' app-resizing' : ''}${resizing === 'spectrogram' ? ' app-resizing-spectrogram' : ''}${resizing === 'header' ? ' app-resizing-header' : ''}${lightTheme ? ' theme-light' : ''}`}>
       <div className="app-header" ref={headerRef} style={{ height: headerHeight }}>
         {onExitToSongs && (
-          <button type="button" className="secondary-button" onClick={exitToSongs} title="Back to the song list" style={{ marginRight: 8, whiteSpace: 'nowrap' }}>← Songs</button>
+          <button type="button" className="secondary-button" onClick={exitToSongs} title={t({ en: 'Back to the song list', he: 'חזרה לרשימת השירים' })} style={{ marginInlineEnd: 8, whiteSpace: 'nowrap' }}>{t({ en: '← Songs', he: 'חזרה לשירים' })}</button>
         )}
-        <h1 className="app-header-title">KivSee Time Simulator</h1>
+        <h1 className="app-header-title">{t({ en: 'KivSee Time Simulator', he: 'סימולטור הזמן KivSee' })}</h1>
         <input
           type="text"
           className="song-name-input"
           value={song.name}
           onChange={(e) => handleSongChange({ name: e.target.value })}
-          placeholder="Song name"
+          placeholder={t({ en: 'Song name', he: 'שם השיר' })}
         />
-        <label className="song-meta-field" title="Song = startSong() with offset; Trigger = one-shot trigger()">
-          <span>Type</span>
+        <label className="song-meta-field" title={t({ en: 'Song = startSong() with offset; Trigger = one-shot trigger()', he: 'שיר = startSong() עם היסט; טריגר = trigger() חד-פעמי' })}>
+          <span>{t({ en: 'Type', he: 'סוג' })}</span>
           <select
             className="song-meta-input"
             value={song.animationType ?? 'song'}
             onChange={(e) => handleSongChange({ animationType: e.target.value === 'trigger' ? 'trigger' : 'song' })}
           >
-            <option value="song">Song</option>
-            <option value="trigger">Trigger</option>
+            <option value="song">{t({ en: 'Song', he: 'שיר' })}</option>
+            <option value="trigger">{t({ en: 'Trigger', he: 'טריגר' })}</option>
           </select>
         </label>
         {song.animationType === 'song' && (
-          <label className="song-meta-field song-meta-field-audio" title="Browsers cannot read full disk paths. Use a path relative to the app (e.g. /audio/song.wav) or Browse.">
-            <span>Audio</span>
-            <input
-              type="text"
-              className="song-meta-input song-meta-input-audio"
-              value={song.audioFilePath ?? ''}
-              onChange={(e) => handleAudioFilePathChange(e.target.value)}
-              placeholder="/audio/song.wav"
-            />
+          <label className="song-meta-field song-meta-field-audio" title={t({ en: 'Choose the audio file for this song.', he: 'בחר את קובץ האודיו של השיר.' })}>
+            <span>{t({ en: 'Audio', he: 'אודיו' })}</span>
+            {(() => {
+              const hasAudio = !!song.audioFilePath?.trim()
+              return (
+                <span
+                  className={`song-audio-status${hasAudio ? ' is-set' : ''}`}
+                  title={song.audioFilePath || undefined}
+                >
+                  {hasAudio
+                    ? t({ en: '✓ Selected', he: '✓ נבחר' })
+                    : t({ en: 'No song', he: 'לא נבחר' })}
+                </span>
+              )
+            })()}
             <input
               ref={audioFileInputRef}
               type="file"
@@ -2336,22 +2336,22 @@ function App({ projectId = 'rings', initialLoad, onExitToSongs }: AppProps = {})
               className="secondary-button song-browse-button"
               onClick={handleBrowseAudio}
             >
-              Browse…
+              {t({ en: 'Browse…', he: 'עיון…' })}
             </button>
             {audioReconnectHandle && (
               <button
                 type="button"
                 className="secondary-button song-browse-button song-reconnect-button"
                 onClick={handleReconnectAudio}
-                title="Re-grant access to the previously selected audio file"
+                title={t({ en: 'Re-grant access to the previously selected audio file', he: 'חדש הרשאה לקובץ האודיו שנבחר קודם' })}
               >
-                Reconnect audio
+                {t({ en: 'Reconnect audio', he: 'חבר אודיו מחדש' })}
               </button>
             )}
           </label>
         )}
         <label className="song-meta-field">
-          <span>Length</span>
+          <span>{t({ en: 'Length', he: 'אורך' })}</span>
           <input
             type="number"
             min={0.1}
@@ -2359,7 +2359,7 @@ function App({ projectId = 'rings', initialLoad, onExitToSongs }: AppProps = {})
             className="song-meta-input"
             {...numericInputProps('lengthSeconds', song.lengthSeconds, 1, 0.1, 'float', (n) => handleSongChange({ lengthSeconds: n }))}
           />
-          <span className="song-meta-suffix">sec</span>
+          <span className="song-meta-suffix">{t({ en: 'sec', he: 'שנ׳' })}</span>
         </label>
         <label className="song-meta-field">
           <span>BPM</span>
@@ -2372,7 +2372,7 @@ function App({ projectId = 'rings', initialLoad, onExitToSongs }: AppProps = {})
           />
         </label>
         <label className="song-meta-field">
-          <span>Offset</span>
+          <span>{t({ en: 'Offset', he: 'היסט' })}</span>
           <input
             type="number"
             min={0}
@@ -2380,15 +2380,15 @@ function App({ projectId = 'rings', initialLoad, onExitToSongs }: AppProps = {})
             className="song-meta-input song-meta-input-short"
             {...numericInputProps('startOffsetMs', song.startOffsetMs ?? 0, 0, 0, 'int', (n) => handleSongChange({ startOffsetMs: n }))}
           />
-          <span className="song-meta-suffix">ms</span>
+          <span className="song-meta-suffix">{t({ en: 'ms', he: 'מ״ש' })}</span>
         </label>
         <label className="song-meta-field">
-          <span>Lilum rings</span>
+          <span>{t({ en: 'Lilum rings', he: 'טבעות לילום' })}</span>
           <input
             type="text"
             className="song-meta-input"
-            placeholder="e.g. 1, 2"
-            title="Ring numbers with a lilum pendant. Each N mirrors ring N onto thing lilumN."
+            placeholder={t({ en: 'e.g. 1, 2', he: 'לדוגמה 1, 2' })}
+            title={t({ en: 'Ring numbers with a lilum pendant. Each N mirrors ring N onto thing lilumN.', he: 'מספרי טבעות עם תליון לילום. כל N משקף את טבעת N אל lilumN.' })}
             value={(song.lilumRings ?? []).join(', ')}
             onChange={(e) => {
               const rings = e.target.value
@@ -2400,12 +2400,13 @@ function App({ projectId = 'rings', initialLoad, onExitToSongs }: AppProps = {})
           />
         </label>
         <div className="app-header-actions">
+          <LangToggle />
           <button
             type="button"
             role="switch"
             aria-checked={lightTheme}
-            aria-label={lightTheme ? 'Switch to dark theme' : 'Switch to light theme'}
-            title={lightTheme ? 'Switch to dark theme' : 'Switch to light theme'}
+            aria-label={lightTheme ? t({ en: 'Switch to dark theme', he: 'מעבר למצב כהה' }) : t({ en: 'Switch to light theme', he: 'מעבר למצב בהיר' })}
+            title={lightTheme ? t({ en: 'Switch to dark theme', he: 'מעבר למצב כהה' }) : t({ en: 'Switch to light theme', he: 'מעבר למצב בהיר' })}
             className={`app-theme-switch${lightTheme ? ' is-light' : ''}`}
             onClick={() => {
               const next = !lightTheme
@@ -2422,19 +2423,19 @@ function App({ projectId = 'rings', initialLoad, onExitToSongs }: AppProps = {})
             </svg>
             <span className="app-theme-switch-knob" aria-hidden="true" />
           </button>
-          <button className="secondary-button" onClick={addTimeframe}>+ Add</button>
-          <button className="secondary-button" onClick={handleLoadTimeframes}>Load</button>
-          <button className="secondary-button" onClick={handleImportTs} disabled={!apiBase} title={!apiBase ? 'Set a control server URL in Settings first' : 'Import a .ts song file'}>Import .ts</button>
-          <button className="secondary-button" onClick={handleSaveTimeframes}>Save</button>
-          <button className="secondary-button" onClick={() => void saveCurrentAnimation()} title="Save the current timeline as an animation in the library">💾 Save animation</button>
+          <button className="secondary-button" onClick={addTimeframe}>{t({ en: '+ Add', he: '+ הוסף' })}</button>
+          <button className="secondary-button" onClick={handleLoadTimeframes}>{t({ en: 'Load', he: 'טען' })}</button>
+          <button className="secondary-button" onClick={handleImportTs} disabled={!apiBase} title={!apiBase ? t({ en: 'Set a control server URL in Settings first', he: 'הגדר תחילה כתובת שרת בקרה בהגדרות' }) : t({ en: 'Import a .ts song file', he: 'ייבא קובץ שיר ‎.ts' })}>{t({ en: 'Import .ts', he: 'ייבוא ‎.ts' })}</button>
+          <button className="secondary-button" onClick={handleSaveTimeframes}>{t({ en: 'Save', he: 'שמור' })}</button>
+          <button className="secondary-button" onClick={() => void saveCurrentAnimation()} title={t({ en: 'Save the current timeline as an animation in the library', he: 'שמור את ציר הזמן הנוכחי כאנימציה בספרייה' })}>{t({ en: '💾 Save animation', he: '💾 שמור אנימציה' })}</button>
           <button
             type="button"
             className={`secondary-button app-settings-button${apiBase ? (controlServerAvailable ? ' is-connected' : ' is-disconnected') : ''}`}
             onClick={() => setSettingsOpen(true)}
-            title={!apiBase ? 'No control server configured' : controlServerAvailable ? 'Control server connected' : 'Control server configured but unreachable'}
+            title={!apiBase ? t({ en: 'No control server configured', he: 'לא הוגדר שרת בקרה' }) : controlServerAvailable ? t({ en: 'Control server connected', he: 'שרת הבקרה מחובר' }) : t({ en: 'Control server configured but unreachable', he: 'שרת הבקרה מוגדר אך לא זמין' })}
           >
             {apiBase && <span className="app-settings-dot" aria-hidden="true" />}
-            ⚙ Settings
+            {t({ en: '⚙ Settings', he: '⚙ הגדרות' })}
           </button>
         </div>
       </div>
@@ -2528,10 +2529,10 @@ function App({ projectId = 'rings', initialLoad, onExitToSongs }: AppProps = {})
             border: '1px solid rgba(255,255,255,0.12)', boxShadow: '0 4px 14px rgba(0,0,0,0.35)',
           }}>
             {librarySaveState === 'saving'
-              ? '☁️ Saving…'
+              ? t({ en: '☁️ Saving…', he: '☁️ שומר…' })
               : librarySaveState === 'error'
-                ? '⚠️ Save failed'
-                : `✓ Saved · ${currentBranch}`}
+                ? t({ en: '⚠️ Save failed', he: '⚠️ השמירה נכשלה' })
+                : `${t({ en: '✓ Saved', he: '✓ נשמר' })} · ${currentBranch}`}
           </div>
         )}
         {dockOpen && (
@@ -2539,32 +2540,32 @@ function App({ projectId = 'rings', initialLoad, onExitToSongs }: AppProps = {})
             <button
               type="button"
               onClick={() => void saveVersion()}
-              title={`Save a new version on branch "${currentBranch}"`}
+              title={t({ en: `Save a new version on branch "${currentBranch}"`, he: `שמירת גרסה חדשה בענף "${currentBranch}"` })}
               style={{ ...fabBase, background: 'linear-gradient(135deg,#38bdf8 0%,#0284c7 100%)', boxShadow: '0 4px 14px rgba(2,132,199,0.45)' }}
             >
-              <span style={{ fontSize: 16, lineHeight: 1 }}>💾</span> Save
+              <span style={{ fontSize: 16, lineHeight: 1 }}>💾</span> {t({ en: 'Save', he: 'שמור' })}
             </button>
             <button
               type="button"
               onClick={() => setShowHistory(true)}
-              title="Version history and branches"
+              title={t({ en: 'Version history and branches', he: 'היסטוריית גרסאות וענפים' })}
               style={{ ...fabBase, background: 'linear-gradient(135deg,#fbbf24 0%,#d97706 100%)', boxShadow: '0 4px 14px rgba(217,119,6,0.45)' }}
             >
-              <span style={{ fontSize: 16, lineHeight: 1 }}>🕘</span> History
+              <span style={{ fontSize: 16, lineHeight: 1 }}>🕘</span> {t({ en: 'History', he: 'היסטוריה' })}
             </button>
             <button
               type="button"
               onClick={() => setShowLibrary(true)}
-              title="Song library: saved songs, analyses, and animations"
+              title={t({ en: 'Song library: saved songs, analyses, and animations', he: 'ספריית שירים: שירים שמורים, ניתוחים ואנימציות' })}
               style={{ ...fabBase, background: 'linear-gradient(135deg,#818cf8 0%,#6366f1 100%)', boxShadow: '0 4px 14px rgba(99,102,241,0.45)' }}
             >
-              <span style={{ fontSize: 16, lineHeight: 1 }}>📚</span> Library
+              <span style={{ fontSize: 16, lineHeight: 1 }}>📚</span> {t({ en: 'Library', he: 'ספרייה' })}
             </button>
             <button
               type="button"
               onClick={() => setShowCompose(true)}
               disabled={!apiBase}
-              title={!apiBase ? 'Run the control server (VITE_API_URL)' : 'Compose from a song: analysis + taste rules → timeline'}
+              title={!apiBase ? t({ en: 'Run the control server (VITE_API_URL)', he: 'הפעל את שרת הבקרה (VITE_API_URL)' }) : t({ en: 'Compose from a song: analysis + taste rules → timeline', he: 'הלחנה משיר: ניתוח + חוקי טעם ← ציר זמן' })}
               style={{
                 ...fabBase,
                 background: apiBase ? 'linear-gradient(135deg,#34d399 0%,#10b981 100%)' : '#6b7280',
@@ -2572,37 +2573,38 @@ function App({ projectId = 'rings', initialLoad, onExitToSongs }: AppProps = {})
                 boxShadow: '0 6px 18px rgba(16,185,129,0.5)', fontSize: 15, padding: '0 22px', height: 46,
               }}
             >
-              <span style={{ fontSize: 18, lineHeight: 1 }}>🎵</span> Compose
+              <span style={{ fontSize: 18, lineHeight: 1 }}>🎵</span> {t({ en: 'Compose', he: 'הלחנה' })}
             </button>
           </>
         )}
         <button
           type="button"
           onClick={() => setDockOpen((o) => !o)}
-          title={dockOpen ? 'Close' : 'Actions: Save / History / Library / Compose'}
+          title={dockOpen ? t({ en: 'Close', he: 'סגור' }) : t({ en: 'Actions: Save / History / Library / Compose', he: 'פעולות: שמירה / היסטוריה / ספרייה / הלחנה' })}
           style={{ ...fabBase, background: dockOpen ? 'rgba(15,23,42,0.92)' : 'linear-gradient(135deg,#475569 0%,#1e293b 100%)', boxShadow: '0 4px 14px rgba(0,0,0,0.4)' }}
         >
-          <span style={{ fontSize: 16, lineHeight: 1 }}>{dockOpen ? '✕' : '☰'}</span> {dockOpen ? 'Close' : 'Actions'}
+          <span style={{ fontSize: 16, lineHeight: 1 }}>{dockOpen ? '✕' : '☰'}</span> {dockOpen ? t({ en: 'Close', he: 'סגור' }) : t({ en: 'Actions', he: 'פעולות' })}
         </button>
       </div>
       <div
         className="app-resize-handle app-resize-handle-header"
         onMouseDown={() => setResizing('header')}
-        title="Drag to resize header"
+        title={t({ en: 'Drag to resize header', he: 'גרור לשינוי גובה הכותרת' })}
       />
       {song.animationType === 'song' && !!(song.audioFilePath?.trim()) && (
         <div className="app-spectrogram-bar">
           <button
             className="app-spectrogram-toggle"
             onClick={() => setSpectrogramOpen(o => !o)}
-            title={spectrogramOpen ? 'Collapse spectrogram' : 'Expand spectrogram'}
+            title={spectrogramOpen ? t({ en: 'Collapse spectrogram', he: 'כווץ ספקטרוגרמה' }) : t({ en: 'Expand spectrogram', he: 'הרחב ספקטרוגרמה' })}
           >
-            {spectrogramOpen ? '▾ Spectrogram' : '▸ Spectrogram'}
+            {spectrogramOpen ? t({ en: '▾ Spectrogram', he: '▾ ספקטרוגרמה' }) : t({ en: '▸ Spectrogram', he: '◂ ספקטרוגרמה' })}
           </button>
         </div>
       )}
       {song.animationType === 'song' && !!(song.audioFilePath?.trim()) && (
         <div
+          dir="ltr"
           className="app-spectrogram-full"
           ref={spectrogramContainerRef}
           style={{ height: spectrogramHeight, display: spectrogramOpen ? undefined : 'none' }}
@@ -2648,38 +2650,38 @@ function App({ projectId = 'rings', initialLoad, onExitToSongs }: AppProps = {})
                   }
                   title={
                     !controlServerAvailable
-                      ? 'Control server is not running'
+                      ? t({ en: 'Control server is not running', he: 'שרת הבקרה אינו פועל' })
                       : !song.audioFilePath?.trim()
-                        ? 'Set audio file path first'
+                        ? t({ en: 'Set audio file path first', he: 'בחר תחילה קובץ אודיו' })
                         : detectBeatsScope === 'range' && rangeStartSec >= rangeEndSec
-                          ? 'From time must be less than To time'
-                          : 'Run beat detection (requires Python + librosa)'
+                          ? t({ en: 'From time must be less than To time', he: 'זמן ההתחלה חייב להיות קטן מזמן הסיום' })
+                          : t({ en: 'Run beat detection (requires Python + librosa)', he: 'הרץ זיהוי ביטים (דורש Python + librosa)' })
                   }
                 >
-                  {detectBeatsLoading ? (detectBeatsProgress ?? 'Detecting…') : 'Detect Beats'}
+                  {detectBeatsLoading ? (detectBeatsProgress ?? t({ en: 'Detecting…', he: 'מזהה…' })) : t({ en: 'Detect Beats', he: 'זהה ביטים' })}
                 </button>
                 <div className="spectrogram-beat-detect-row">
                   <select
                     className="spectrogram-beat-detect-select"
                     value={detectBeatsScope}
                     onChange={(e) => setDetectBeatsScope(e.target.value as 'full' | 'range')}
-                    title="Full song or time range"
+                    title={t({ en: 'Full song or time range', he: 'כל השיר או טווח זמן' })}
                   >
-                    <option value="full">Full song</option>
-                    <option value="range">Range</option>
+                    <option value="full">{t({ en: 'Full song', he: 'כל השיר' })}</option>
+                    <option value="range">{t({ en: 'Range', he: 'טווח' })}</option>
                   </select>
                   <select
                     className="spectrogram-beat-detect-select"
                     value={detectBeatsMethod}
                     onChange={(e) => setDetectBeatsMethod(e.target.value as 'onset' | 'beats')}
-                    title="Onset = variable tempo; Beats = constant tempo grid with BPM hint"
+                    title={t({ en: 'Onset = variable tempo; Beats = constant tempo grid with BPM hint', he: 'Onset = טמפו משתנה; Beats = רשת טמפו קבועה עם רמז BPM' })}
                   >
-                    <option value="onset">Onset</option>
-                    <option value="beats">Beats</option>
+                    <option value="onset">{t({ en: 'Onset', he: 'התחלות' })}</option>
+                    <option value="beats">{t({ en: 'Beats', he: 'ביטים' })}</option>
                   </select>
                   {song.beatTimestampsMs && song.beatTimestampsMs.length > 0 && (
-                    <span className="spectrogram-beat-detect-status" title="Click to clear detected beats and revert to fixed BPM">
-                      {song.beatTimestampsMs.length} beats
+                    <span className="spectrogram-beat-detect-status" title={t({ en: 'Click to clear detected beats and revert to fixed BPM', he: 'לחץ כדי לנקות ביטים שזוהו ולחזור ל-BPM קבוע' })}>
+                      {t({ en: `${song.beatTimestampsMs.length} beats`, he: `${song.beatTimestampsMs.length} ביטים` })}
                       <button
                         type="button"
                         className="spectrogram-beat-detect-clear"
@@ -2693,7 +2695,7 @@ function App({ projectId = 'rings', initialLoad, onExitToSongs }: AppProps = {})
                 {detectBeatsScope === 'range' && (
                   <div className="spectrogram-beat-detect-range-row">
                     <label className="spectrogram-beat-detect-label">
-                      <span>From</span>
+                      <span>{t({ en: 'From', he: 'מ־' })}</span>
                       <input
                         type="number"
                         min={0}
@@ -2702,10 +2704,10 @@ function App({ projectId = 'rings', initialLoad, onExitToSongs }: AppProps = {})
                         className="spectrogram-beat-detect-input"
                         {...numericInputProps('rangeStartSec', rangeStartSec, 0, 0, 'float', setRangeStartSec, song.lengthSeconds)}
                       />
-                      <span className="spectrogram-beat-detect-suffix">s</span>
+                      <span className="spectrogram-beat-detect-suffix">{t({ en: 's', he: 'שנ׳' })}</span>
                     </label>
                     <label className="spectrogram-beat-detect-label">
-                      <span>To</span>
+                      <span>{t({ en: 'To', he: 'עד' })}</span>
                       <input
                         type="number"
                         min={0}
@@ -2714,9 +2716,9 @@ function App({ projectId = 'rings', initialLoad, onExitToSongs }: AppProps = {})
                         className="spectrogram-beat-detect-input"
                         {...numericInputProps('rangeEndSec', rangeEndSec, song.lengthSeconds, 0, 'float', setRangeEndSec, song.lengthSeconds)}
                       />
-                      <span className="spectrogram-beat-detect-suffix">s</span>
+                      <span className="spectrogram-beat-detect-suffix">{t({ en: 's', he: 'שנ׳' })}</span>
                     </label>
-                    <label className="spectrogram-beat-detect-label" title="Override BPM for this range (variable-BPM songs). Leave empty to use song BPM.">
+                    <label className="spectrogram-beat-detect-label" title={t({ en: 'Override BPM for this range (variable-BPM songs). Leave empty to use song BPM.', he: 'עקיפת BPM לטווח זה (שירים עם BPM משתנה). השאר ריק לשימוש ב-BPM של השיר.' })}>
                       <span>BPM</span>
                       <input
                         type="number"
@@ -2736,13 +2738,13 @@ function App({ projectId = 'rings', initialLoad, onExitToSongs }: AppProps = {})
                         }}
                       />
                     </label>
-                    <label className="spectrogram-beat-detect-label" title="Build a full beat grid from onsets (fixes detection that only hits every 2nd/3rd beat).">
+                    <label className="spectrogram-beat-detect-label" title={t({ en: 'Build a full beat grid from onsets (fixes detection that only hits every 2nd/3rd beat).', he: 'בנה רשת ביטים מלאה מההתחלות (מתקן זיהוי שתופס רק כל ביט 2/3).' })}>
                       <input
                         type="checkbox"
                         checked={rangeFillGrid}
                         onChange={(e) => setRangeFillGrid(e.target.checked)}
                       />
-                      <span>Fill grid</span>
+                      <span>{t({ en: 'Fill grid', he: 'מילוי רשת' })}</span>
                     </label>
                   </div>
                 )}
@@ -2752,10 +2754,11 @@ function App({ projectId = 'rings', initialLoad, onExitToSongs }: AppProps = {})
         </div>
       )}
       {song.animationType === 'song' && !!(song.audioFilePath?.trim()) && spectrogramOpen && (
-        <div className="app-resize-handle app-resize-handle-spectrogram" onMouseDown={() => setResizing('spectrogram')} title="Drag to resize spectrogram" />
+        <div className="app-resize-handle app-resize-handle-spectrogram" onMouseDown={() => setResizing('spectrogram')} title={t({ en: 'Drag to resize spectrogram', he: 'גרור לשינוי גובה הספקטרוגרמה' })} />
       )}
-      <div className="app-content" ref={appContentRef}>
+      <div dir="ltr" className="app-content" ref={appContentRef}>
         <div
+          dir={dir}
           className="app-playback-wrapper"
           style={{ width: playbackPanelWidth, minWidth: playbackPanelWidth }}
         >
@@ -2819,9 +2822,9 @@ function App({ projectId = 'rings', initialLoad, onExitToSongs }: AppProps = {})
         <div
           className="app-resize-handle app-resize-handle-playback"
           onMouseDown={() => setResizing('playback')}
-          title="Drag to resize Playback panel"
+          title={t({ en: 'Drag to resize Playback panel', he: 'גרור לשינוי רוחב פאנל הנגן' })}
         />
-        <div className="app-main" style={{ flexDirection: 'column' }}>
+        <div dir={dir} className="app-main" style={{ flexDirection: 'column' }}>
           <div className="app-main-view-toggle" style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', borderBottom: '1px solid var(--border)', flexShrink: 0 }}>
             {/* Main-view switch: patterns/settings (Iddo) ↔ inline horizontal timeline (Oren). */}
             <div style={{ display: 'inline-flex', gap: 4, background: 'var(--surface-2, rgba(0,0,0,0.15))', padding: 3, borderRadius: 10 }}>
@@ -2833,7 +2836,7 @@ function App({ projectId = 'rings', initialLoad, onExitToSongs }: AppProps = {})
                   background: mainView === 'patterns' ? 'linear-gradient(135deg,#667eea 0%,#764ba2 100%)' : 'transparent',
                   opacity: mainView === 'patterns' ? 1 : 0.6,
                 }}
-              >⚙ Patterns</button>
+              >{t({ en: '⚙ Patterns', he: '⚙ תבניות' })}</button>
               <button
                 onClick={() => setMainView('timeline')}
                 style={{
@@ -2842,22 +2845,22 @@ function App({ projectId = 'rings', initialLoad, onExitToSongs }: AppProps = {})
                   background: mainView === 'timeline' ? 'linear-gradient(135deg,#0ea5e9 0%,#2563eb 100%)' : 'transparent',
                   opacity: mainView === 'timeline' ? 1 : 0.6,
                 }}
-              >📊 Timeline</button>
+              >{t({ en: '📊 Timeline', he: '📊 ציר זמן' })}</button>
             </div>
             <span style={{ flex: 1 }} />
             {(song.audioFilePath || song.librarySlug || timeframes.length > 0) ? (
               <button
                 onClick={() => setShowLiveConsole(true)}
-                title="Open the fullscreen song editor — timeline, patterns, and live control"
+                title={t({ en: 'Open the fullscreen song editor — timeline, patterns, and live control', he: 'פתח את עורך השיר במסך מלא — ציר זמן, תבניות ושליטה חיה' })}
                 style={{
                   padding: '9px 22px', borderRadius: 10, fontSize: 15, fontWeight: 800, cursor: 'pointer',
                   border: 'none', color: '#fff',
                   background: 'linear-gradient(135deg,#f59e0b 0%,#ef4444 100%)',
                   boxShadow: '0 2px 14px rgba(245,158,11,0.4)',
                 }}
-              >🎬 Song Editor · Fullscreen</button>
+              >{t({ en: '🎬 Song Editor · Fullscreen', he: '🎬 עורך השיר · מסך מלא' })}</button>
             ) : (
-              <span style={{ fontSize: 12, color: 'var(--text-faint)' }}>Load a song from the library to open the song editor</span>
+              <span style={{ fontSize: 12, color: 'var(--text-faint)' }}>{t({ en: 'Load a song from the library to open the song editor', he: 'טען שיר מהספרייה כדי לפתוח את עורך השיר' })}</span>
             )}
           </div>
           {mainView === 'patterns' ? (
@@ -2882,7 +2885,7 @@ function App({ projectId = 'rings', initialLoad, onExitToSongs }: AppProps = {})
               />
             </div>
           ) : (
-            <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'row' }}>
+            <div dir="ltr" style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'row' }}>
               <div className="app-main-timeline-wrap" style={{ flex: 1, minWidth: 0 }}>
                 <Timeline
                   timeframes={timeframes}
@@ -2918,9 +2921,10 @@ function App({ projectId = 'rings', initialLoad, onExitToSongs }: AppProps = {})
                   <div
                     className="app-resize-handle app-resize-handle-details"
                     onMouseDown={() => setResizing('details')}
-                    title="Drag to resize Details panel"
+                    title={t({ en: 'Drag to resize Details panel', he: 'גרור לשינוי רוחב פאנל הפרטים' })}
                   />
                   <div
+                    dir={dir}
                     className="app-details-wrapper"
                     style={{ width: detailsPanelWidth, minWidth: detailsPanelWidth }}
                   >

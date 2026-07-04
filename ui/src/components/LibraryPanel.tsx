@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { library, fileToBase64, DEFAULT_PROJECT, type LibrarySongSummary } from '../lib/library'
+import { useI18n } from '../lib/i18n'
 
 /**
  * Song library: every uploaded MP3 with its analysis, the AI output, the live working
@@ -31,6 +32,7 @@ const methodBadge: Record<string, { label: string; bg: string }> = {
 }
 
 export default function LibraryPanel({ onClose, projectId = DEFAULT_PROJECT, activeSlug, onLoadComposition }: Props) {
+  const { t } = useI18n()
   const [songs, setSongs] = useState<LibrarySongSummary[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -67,7 +69,7 @@ export default function LibraryPanel({ onClose, projectId = DEFAULT_PROJECT, act
     const file = e.target.files?.[0]
     if (e.target) e.target.value = ''
     if (!file) return
-    setBusy(`Uploading ${file.name}…`)
+    setBusy(`${t({ en: 'Uploading', he: 'מעלה' })} ${file.name}…`)
     setError(null)
     try {
       const name = file.name.replace(/\.[^.]+$/, '')
@@ -93,7 +95,7 @@ export default function LibraryPanel({ onClose, projectId = DEFAULT_PROJECT, act
   }
 
   async function load(slug: string, comp: string) {
-    setBusy('Loading into timeline…')
+    setBusy(t({ en: 'Loading into timeline…', he: 'טוען לציר הזמן…' }))
     try {
       await onLoadComposition(slug, comp)
       onClose()
@@ -104,8 +106,8 @@ export default function LibraryPanel({ onClose, projectId = DEFAULT_PROJECT, act
   }
 
   async function del(slug: string, comp?: string, label?: string) {
-    if (!window.confirm(comp ? `Delete animation "${label}"?` : `Delete the whole song "${label}" and all its data?`)) return
-    setBusy('Deleting…')
+    if (!window.confirm(comp ? `${t({ en: 'Delete animation', he: 'למחוק אנימציה' })} "${label}"?` : `${t({ en: 'Delete the whole song', he: 'למחוק את כל השיר' })} "${label}" ${t({ en: 'and all its data?', he: 'ואת כל הנתונים שלו?' })}`)) return
+    setBusy(t({ en: 'Deleting…', he: 'מוחק…' }))
     try {
       await library.remove(slug, comp, projectId)
       refreshSoon()
@@ -120,10 +122,10 @@ export default function LibraryPanel({ onClose, projectId = DEFAULT_PROJECT, act
     <div style={overlay} onClick={onClose}>
       <div style={modal} onClick={(e) => e.stopPropagation()}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-          <h2 style={{ margin: 0, fontSize: 18 }}>📚 Song library</h2>
+          <h2 style={{ margin: 0, fontSize: 18 }}>📚 {t({ en: 'Song library', he: 'ספריית שירים' })}</h2>
           <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-            <button onClick={() => fileRef.current?.click()} style={primaryBtn}>⬆ Upload MP3</button>
-            <button onClick={refresh} style={secondaryBtn} title="Refresh">↻</button>
+            <button onClick={() => fileRef.current?.click()} style={primaryBtn}>⬆ {t({ en: 'Upload MP3', he: 'העלה MP3' })}</button>
+            <button onClick={refresh} style={secondaryBtn} title={t({ en: 'Refresh', he: 'רענן' })}>↻</button>
             <button onClick={onClose} style={{ fontSize: 18, background: 'none', border: 'none', cursor: 'pointer', color: 'inherit' }}>✕</button>
           </div>
         </div>
@@ -137,11 +139,11 @@ export default function LibraryPanel({ onClose, projectId = DEFAULT_PROJECT, act
         )}
 
         {loading ? (
-          <div style={{ color: '#9aa', padding: 24, textAlign: 'center' }}>Loading library…</div>
+          <div style={{ color: '#9aa', padding: 24, textAlign: 'center' }}>{t({ en: 'Loading library…', he: 'טוען ספרייה…' })}</div>
         ) : songs.length === 0 ? (
           <div style={{ color: '#9aa', padding: 32, textAlign: 'center', lineHeight: 1.6 }}>
-            No songs saved yet.<br />
-            Upload an MP3 here, or analyze one in 🎵 Compose — it'll be stored automatically with its analysis.
+            {t({ en: 'No songs saved yet.', he: 'אין עדיין שירים שמורים.' })}<br />
+            {t({ en: 'Upload an MP3 here, or analyze one in', he: 'העלה כאן MP3, או נתח שיר ב־' })} 🎵 {t({ en: "Compose — it'll be stored automatically with its analysis.", he: 'הלחנה — הוא יישמר אוטומטית יחד עם הניתוח שלו.' })}
           </div>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -157,25 +159,25 @@ export default function LibraryPanel({ onClose, projectId = DEFAULT_PROJECT, act
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                         <span style={{ fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{s.name || s.slug}</span>
-                        {isActive && <span style={activePill}>open</span>}
+                        {isActive && <span style={activePill}>{t({ en: 'open', he: 'פתוח' })}</span>}
                       </div>
                       <div style={{ fontSize: 11, color: '#8a93a3', marginTop: 2 }}>
                         {s.bpm ? `${s.bpm} BPM · ` : ''}
                         {fmtTime(s.lengthSeconds || 0)}
                         {s.hasAudio ? ` · 🎵 ${fmtSize(s.audioSize)}` : ''}
-                        {s.hasAnalysis ? ' · 📊 analysis' : ''}
-                        {s.compositions.length ? ` · ${s.compositions.length} saved` : ''}
+                        {s.hasAnalysis ? ` · 📊 ${t({ en: 'analysis', he: 'ניתוח' })}` : ''}
+                        {s.compositions.length ? ` · ${s.compositions.length} ${t({ en: 'saved', he: 'שמורות' })}` : ''}
                         {s.updatedAt ? ` · ${fmtDate(s.updatedAt)}` : ''}
                       </div>
                     </div>
                     <button
                       onClick={() => load(s.slug, s.hasWorking ? 'working' : 'fresh')}
                       style={loadBtn}
-                      title={s.hasWorking ? 'Load the last working timeline' : 'Open this song with an empty timeline to start working'}
+                      title={s.hasWorking ? t({ en: 'Load the last working timeline', he: 'טען את ציר הזמן האחרון שבעבודה' }) : t({ en: 'Open this song with an empty timeline to start working', he: 'פתח שיר זה עם ציר זמן ריק כדי להתחיל לעבוד' })}
                     >
-                      Open ▸
+                      {t({ en: 'Open', he: 'פתח' })} ▸
                     </button>
-                    <button onClick={() => del(s.slug, undefined, s.name || s.slug)} style={trashBtn} title="Delete song">🗑</button>
+                    <button onClick={() => del(s.slug, undefined, s.name || s.slug)} style={trashBtn} title={t({ en: 'Delete song', he: 'מחק שיר' })}>🗑</button>
                   </div>
 
                   {open && (
@@ -183,9 +185,9 @@ export default function LibraryPanel({ onClose, projectId = DEFAULT_PROJECT, act
                       {s.hasWorking && (
                         <div style={compRow}>
                           <span style={{ flex: 1 }}>
-                            <b>Working timeline</b> <span style={{ color: '#8a93a3', fontSize: 11 }}>(auto-saved)</span>
+                            <b>{t({ en: 'Working timeline', he: 'ציר זמן בעבודה' })}</b> <span style={{ color: '#8a93a3', fontSize: 11 }}>{t({ en: '(auto-saved)', he: '(נשמר אוטומטית)' })}</span>
                           </span>
-                          <button onClick={() => load(s.slug, 'working')} style={smallLoadBtn}>Load</button>
+                          <button onClick={() => load(s.slug, 'working')} style={smallLoadBtn}>{t({ en: 'Load', he: 'טען' })}</button>
                         </div>
                       )}
                       {s.compositions.map((c) => {
@@ -195,13 +197,13 @@ export default function LibraryPanel({ onClose, projectId = DEFAULT_PROJECT, act
                             <span style={{ ...badgeStyle, background: badge.bg }}>{badge.label}</span>
                             <span style={{ flex: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{c.name || c.slug}</span>
                             <span style={{ color: '#8a93a3', fontSize: 11 }}>{c.timeframeCount ?? '?'} tf · {fmtDate(c.createdAt)}</span>
-                            <button onClick={() => load(s.slug, c.slug)} style={smallLoadBtn}>Load</button>
+                            <button onClick={() => load(s.slug, c.slug)} style={smallLoadBtn}>{t({ en: 'Load', he: 'טען' })}</button>
                             <button onClick={() => del(s.slug, c.slug, c.name || c.slug)} style={smallTrashBtn}>🗑</button>
                           </div>
                         )
                       })}
                       {!s.hasWorking && s.compositions.length === 0 && (
-                        <div style={{ color: '#8a93a3', fontSize: 12 }}>No saved animations yet. Open this song, compose, then “Save animation”.</div>
+                        <div style={{ color: '#8a93a3', fontSize: 12 }}>{t({ en: 'No saved animations yet. Open this song, compose, then “Save animation”.', he: 'אין עדיין אנימציות שמורות. פתח שיר זה, הלחן, ואז לחץ "שמור אנימציה".' })}</div>
                       )}
                     </div>
                   )}
@@ -211,7 +213,7 @@ export default function LibraryPanel({ onClose, projectId = DEFAULT_PROJECT, act
           </div>
         )}
         <div style={{ fontSize: 11, color: '#6b7280', marginTop: 12, textAlign: 'center' }}>
-          Stored in your Cloudflare library · shared between this machine and kivsee.iddofroom.co.il
+          {t({ en: 'Stored in your Cloudflare library · shared between this machine and', he: 'נשמר בספריית Cloudflare שלך · משותף בין מחשב זה לבין' })} kivsee.iddofroom.co.il
         </div>
       </div>
     </div>

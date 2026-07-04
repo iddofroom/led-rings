@@ -1,4 +1,5 @@
 import React, { useRef, useCallback, useEffect } from 'react'
+import { useI18n } from '../lib/i18n'
 import './HsvColorPicker.css'
 
 interface Hsv { h: number; s: number; v: number }
@@ -37,6 +38,7 @@ const SV_SIZE = 200  // px, square gradient
 const HUE_HEIGHT = 16
 
 const HsvColorPicker = ({ value, onChange }: HsvColorPickerProps) => {
+  const { t } = useI18n()
   const hsv = hexToHsv(value || '#ff0000')
 
   const svCanvasRef = useRef<HTMLCanvasElement>(null)
@@ -194,7 +196,7 @@ const HsvColorPicker = ({ value, onChange }: HsvColorPickerProps) => {
           value={value}
           onChange={(e) => handleHexInput(e.target.value)}
           onFocus={(e) => e.currentTarget.select()}
-          title="Copy or paste hex color (e.g. #ff8800)"
+          title={t({ en: 'Copy or paste hex color (e.g. #ff8800)', he: 'העתק או הדבק צבע hex (למשל #ff8800)' })}
         />
       </label>
     </div>

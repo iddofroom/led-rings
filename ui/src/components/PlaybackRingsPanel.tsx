@@ -4,6 +4,7 @@ import { isRingActiveAtBeat } from '../movementGenerators'
 import RingVisualization from './RingVisualization'
 import RingVisualizationCanvas from './RingVisualizationCanvas'
 import { computeClockColors } from '../clockPreview'
+import { useI18n } from '../lib/i18n'
 import './PlaybackRingsPanel.css'
 
 interface PlaybackRingsPanelProps {
@@ -77,6 +78,7 @@ const PlaybackRingsPanel = ({
   onOpenLiveConsole,
   onClockModeChange,
 }: PlaybackRingsPanelProps) => {
+  const { t } = useI18n()
   const openFullscreen = () => (onOpenLiveConsole ? onOpenLiveConsole() : setFullscreen(true))
   // FPS counter: measure time between renders, keep a rolling window of 30 samples
   const fpsRef = React.useRef<number>(0)
@@ -156,9 +158,9 @@ const PlaybackRingsPanel = ({
     <div className="playback-rings-panel">
       <div className="playback-rings-panel-header">
         <div className="playback-rings-panel-header-top">
-          <h2>Playback</h2>
-          <label className="playback-run-from" title="Timeline position when you press Run. Accepts seconds (153), mm:ss (2:33), or hh:mm:ss (1:02:33).">
-            <span>Run from</span>
+          <h2>{t({ en: 'Playback', he: 'השמעה' })}</h2>
+          <label className="playback-run-from" title={t({ en: 'Timeline position when you press Run. Accepts seconds (153), mm:ss (2:33), or hh:mm:ss (1:02:33).', he: 'מיקום בציר הזמן בעת לחיצה על הפעל. מקבל שניות (153), mm:ss (2:33), או hh:mm:ss (1:02:33).' })}>
+            <span>{t({ en: 'Run from', he: 'הפעל מ־' })}</span>
             <input
               type="text"
               inputMode="decimal"
@@ -178,8 +180,8 @@ const PlaybackRingsPanel = ({
             <button
               type="button"
               className="playback-run-from-reset"
-              title="Reset Run from to 0"
-              aria-label="Reset Run from to 0"
+              title={t({ en: 'Reset Run from to 0', he: 'אפס הפעל מ־ ל־0' })}
+              aria-label={t({ en: 'Reset Run from to 0', he: 'אפס הפעל מ־ ל־0' })}
               onClick={() => { setRunFromInput(null); onResetRunFrom() }}
             >
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -189,8 +191,8 @@ const PlaybackRingsPanel = ({
             </button>
           </label>
           <div className="playback-brightness-group">
-            <span className={`playback-brightness-dot${brightnessConnected ? ' connected' : ''}`} title={brightnessConnected ? 'MQTT broker connected' : 'MQTT broker not connected'} />
-            <span className="playback-brightness-label">Brightness</span>
+            <span className={`playback-brightness-dot${brightnessConnected ? ' connected' : ''}`} title={brightnessConnected ? t({ en: 'MQTT broker connected', he: 'ברוקר MQTT מחובר' }) : t({ en: 'MQTT broker not connected', he: 'ברוקר MQTT לא מחובר' })} />
+            <span className="playback-brightness-label">{t({ en: 'Brightness', he: 'בהירות' })}</span>
             <input
               type="range"
               className="playback-brightness-slider"
@@ -219,18 +221,18 @@ const PlaybackRingsPanel = ({
                 if (e.key === 'Enter') (e.target as HTMLInputElement).blur()
                 if (e.key === 'Escape') setBrightnessInput(null)
               }}
-              title="Global brightness"
+              title={t({ en: 'Global brightness', he: 'בהירות גלובלית' })}
             />
           </div>
           <div className="playback-rings-panel-time">
-            Time: {currentTime.toFixed(1)}b
+            {t({ en: 'Time', he: 'זמן' })}: {currentTime.toFixed(1)}b
           </div>
         </div>
         <div className="playback-rings-panel-controls">
           <button
             className={`playback-mute-btn${muteAudio ? ' muted' : ''}`}
             onClick={() => onMuteAudioChange?.(!muteAudio)}
-            title={muteAudio ? 'Unmute simulator audio' : 'Mute simulator audio (useful in Live mode to avoid echo from device)'}
+            title={muteAudio ? t({ en: 'Unmute simulator audio', he: 'בטל השתקת אודיו הסימולטור' }) : t({ en: 'Mute simulator audio (useful in Live mode to avoid echo from device)', he: 'השתק את אודיו הסימולטור (שימושי במצב לייב כדי למנוע הד מההתקן)' })}
           >
             {muteAudio ? (
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -250,26 +252,26 @@ const PlaybackRingsPanel = ({
             className={`playback-ctrl-btn ${isPlaying && !useSimSpeed ? 'playing' : ''}`}
             onClick={onPlayPause}
           >
-            {isPlaying && !useSimSpeed ? '⏸ Pause' : '▶ Run'}
+            {isPlaying && !useSimSpeed ? `⏸ ${t({ en: 'Pause', he: 'השהה' })}` : `▶ ${t({ en: 'Run', he: 'הפעל' })}`}
           </button>
           <button className="playback-ctrl-btn stop" onClick={onStop}>
-            ⏹ Stop
+            ⏹ {t({ en: 'Stop', he: 'עצור' })}
           </button>
-          <label className="playback-live-mode" title="When on, Run also starts the song on the device; Stop sends stop.">
+          <label className="playback-live-mode" title={t({ en: 'When on, Run also starts the song on the device; Stop sends stop.', he: 'כשפעיל, הפעל מתחיל גם את השיר על ההתקן; עצור שולח עצירה.' })}>
             <input
               type="checkbox"
               checked={liveMode}
               onChange={(e) => onLiveModeChange(e.target.checked)}
             />
-            <span>Live</span>
+            <span>{t({ en: 'Live', he: 'לייב' })}</span>
           </label>
           <button
             className="playback-ctrl-btn send"
             onClick={onSendSequence}
             disabled={sendSequenceLoading || !apiAvailable}
-            title={!apiAvailable ? 'Control server is not running' : 'Send current sequence to LEDs'}
+            title={!apiAvailable ? t({ en: 'Control server is not running', he: 'שרת הבקרה אינו פועל' }) : t({ en: 'Send current sequence to LEDs', he: 'שלח את הרצף הנוכחי ללדים' })}
           >
-            {sendSequenceLoading ? '…' : 'Send to LEDs'}
+            {sendSequenceLoading ? '…' : t({ en: 'Send to LEDs', he: 'שלח ללדים' })}
           </button>
           <button
             className={`playback-mute-btn playback-clock-btn${clockMode ? ' active' : ''}`}
@@ -280,7 +282,7 @@ const PlaybackRingsPanel = ({
                 return next
               })
             }}
-            title="Preview clock mode — shows live time across all 12 rings"
+            title={t({ en: 'Preview clock mode — shows live time across all 12 rings', he: 'תצוגה מקדימה של מצב שעון — מציג זמן חי על כל 12 הטבעות' })}
           >
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <circle cx="12" cy="12" r="10"/>
@@ -290,11 +292,11 @@ const PlaybackRingsPanel = ({
           {!liveMode && (
             <div className="playback-speed-group">
               <div className="playback-speed-divider" />
-              <span className="playback-speed-label">Speed</span>
+              <span className="playback-speed-label">{t({ en: 'Speed', he: 'מהירות' })}</span>
               <button
                 className={`playback-speed-btn ${isPlaying && useSimSpeed ? 'playing' : ''}`}
                 onClick={onSimPlayPause}
-                title="Play/pause at sim speed"
+                title={t({ en: 'Play/pause at sim speed', he: 'הפעל/השהה במהירות הסימולציה' })}
               >
                 {isPlaying && useSimSpeed ? '⏸' : '▶'}
               </button>
@@ -331,7 +333,7 @@ const PlaybackRingsPanel = ({
                   const n = parseFloat(e.target.value)
                   if (!isNaN(n)) onPlaybackSpeedChange(Math.max(SPEED_MIN, Math.min(SPEED_MAX, Math.round(n * 10) / 10)))
                 }}
-                title="Playback speed"
+                title={t({ en: 'Playback speed', he: 'מהירות השמעה' })}
               />
             </div>
           )}
@@ -342,15 +344,15 @@ const PlaybackRingsPanel = ({
           <>
             <div className="playback-rings-panel-segment">
               <span className="playback-rings-panel-segment-label">
-                Clock — {clockNow.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true })}
+                {t({ en: 'Clock', he: 'שעון' })} — {clockNow.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true })}
               </span>
               <div className="playback-zoom-controls">
-                <span className="playback-zoom-label">Zoom</span>
-                <button className="playback-zoom-btn" onClick={() => setZoom(z => clampZoom(z - ZOOM_STEP))} disabled={zoom <= ZOOM_MIN} title="Zoom out">−</button>
-                <span className="playback-zoom-value" title="Ctrl+scroll over visualizer to zoom">{Math.round(zoom * 100)}%</span>
-                <button className="playback-zoom-btn" onClick={() => setZoom(z => clampZoom(z + ZOOM_STEP))} disabled={zoom >= ZOOM_MAX} title="Zoom in">+</button>
-                <button className="playback-zoom-btn" onClick={() => { setZoom(1.0); setResetPanToken(t => t + 1) }} title="Reset zoom" style={{ fontSize: 10 }}>1:1</button>
-                <button className="playback-zoom-btn" onClick={openFullscreen} title="Open live console (fullscreen)" style={{ fontSize: 13 }}>⛶</button>
+                <span className="playback-zoom-label">{t({ en: 'Zoom', he: 'זום' })}</span>
+                <button className="playback-zoom-btn" onClick={() => setZoom(z => clampZoom(z - ZOOM_STEP))} disabled={zoom <= ZOOM_MIN} title={t({ en: 'Zoom out', he: 'הקטן זום' })}>−</button>
+                <span className="playback-zoom-value" title={t({ en: 'Ctrl+scroll over visualizer to zoom', he: 'Ctrl+גלילה מעל התצוגה לזום' })}>{Math.round(zoom * 100)}%</span>
+                <button className="playback-zoom-btn" onClick={() => setZoom(z => clampZoom(z + ZOOM_STEP))} disabled={zoom >= ZOOM_MAX} title={t({ en: 'Zoom in', he: 'הגדל זום' })}>+</button>
+                <button className="playback-zoom-btn" onClick={() => { setZoom(1.0); setResetPanToken(n => n + 1) }} title={t({ en: 'Reset zoom', he: 'אפס זום' })} style={{ fontSize: 10 }}>1:1</button>
+                <button className="playback-zoom-btn" onClick={openFullscreen} title={t({ en: 'Open live console (fullscreen)', he: 'פתח קונסולת לייב (מסך מלא)' })} style={{ fontSize: 13 }}>⛶</button>
               </div>
             </div>
             <div className="playback-rings-panel-visualization">
@@ -366,15 +368,15 @@ const PlaybackRingsPanel = ({
         ) : activeTimeframes.length > 0 ? (
           <>
             <div className="playback-rings-panel-segment">
-              <span className="playback-rings-panel-segment-label">{activeTimeframes.length} active segment{activeTimeframes.length > 1 ? 's' : ''}</span>
-              <span className="playback-rings-panel-segment-range">{activeRings.length} active ring{activeRings.length > 1 ? 's' : ''}</span>
+              <span className="playback-rings-panel-segment-label">{activeTimeframes.length} {t({ en: `active segment${activeTimeframes.length > 1 ? 's' : ''}`, he: activeTimeframes.length > 1 ? 'מקטעים פעילים' : 'מקטע פעיל' })}</span>
+              <span className="playback-rings-panel-segment-range">{activeRings.length} {t({ en: `active ring${activeRings.length > 1 ? 's' : ''}`, he: activeRings.length > 1 ? 'טבעות פעילות' : 'טבעת פעילה' })}</span>
               <div className="playback-zoom-controls">
-                <span className="playback-zoom-label">Zoom</span>
-                <button className="playback-zoom-btn" onClick={() => setZoom(z => clampZoom(z - ZOOM_STEP))} disabled={zoom <= ZOOM_MIN} title="Zoom out">−</button>
-                <span className="playback-zoom-value" title="Ctrl+scroll over visualizer to zoom">{Math.round(zoom * 100)}%</span>
-                <button className="playback-zoom-btn" onClick={() => setZoom(z => clampZoom(z + ZOOM_STEP))} disabled={zoom >= ZOOM_MAX} title="Zoom in">+</button>
-                <button className="playback-zoom-btn" onClick={() => { setZoom(1.0); setResetPanToken(t => t + 1) }} title="Reset zoom" style={{ fontSize: 10 }}>1:1</button>
-                <button className="playback-zoom-btn" onClick={openFullscreen} title="Open live console (fullscreen)" style={{ fontSize: 13 }}>⛶</button>
+                <span className="playback-zoom-label">{t({ en: 'Zoom', he: 'זום' })}</span>
+                <button className="playback-zoom-btn" onClick={() => setZoom(z => clampZoom(z - ZOOM_STEP))} disabled={zoom <= ZOOM_MIN} title={t({ en: 'Zoom out', he: 'הקטן זום' })}>−</button>
+                <span className="playback-zoom-value" title={t({ en: 'Ctrl+scroll over visualizer to zoom', he: 'Ctrl+גלילה מעל התצוגה לזום' })}>{Math.round(zoom * 100)}%</span>
+                <button className="playback-zoom-btn" onClick={() => setZoom(z => clampZoom(z + ZOOM_STEP))} disabled={zoom >= ZOOM_MAX} title={t({ en: 'Zoom in', he: 'הגדל זום' })}>+</button>
+                <button className="playback-zoom-btn" onClick={() => { setZoom(1.0); setResetPanToken(n => n + 1) }} title={t({ en: 'Reset zoom', he: 'אפס זום' })} style={{ fontSize: 10 }}>1:1</button>
+                <button className="playback-zoom-btn" onClick={openFullscreen} title={t({ en: 'Open live console (fullscreen)', he: 'פתח קונסולת לייב (מסך מלא)' })} style={{ fontSize: 13 }}>⛶</button>
               </div>
             </div>
             <div className="playback-rings-panel-visualization">
@@ -392,9 +394,9 @@ const PlaybackRingsPanel = ({
           </>
         ) : (
           <div className="playback-rings-panel-empty">
-            <p>No active segment at {currentTime.toFixed(1)}b</p>
+            <p>{t({ en: 'No active segment at', he: 'אין מקטע פעיל ב־' })} {currentTime.toFixed(1)}b</p>
             <p className="playback-rings-panel-empty-hint">
-                Scrub the timeline or press Run to see rings update
+                {t({ en: 'Scrub the timeline or press Run to see rings update', he: 'גרור בציר הזמן או לחץ הפעל כדי לראות את הטבעות מתעדכנות' })}
             </p>
           </div>
         )}
@@ -403,11 +405,11 @@ const PlaybackRingsPanel = ({
         <div style={{ position: 'fixed', inset: 0, background: '#0a0c10', zIndex: 2000, display: 'flex', flexDirection: 'column' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 18px', color: '#cde3ff', borderBottom: '1px solid #222' }}>
             <span style={{ fontWeight: 600, fontSize: 14 }}>
-              {clockMode ? 'Clock preview' : activeTimeframes.length > 0
-                ? `${activeTimeframes.length} active segment${activeTimeframes.length > 1 ? 's' : ''} · ${activeRings.length} rings · ${currentTime.toFixed(1)}b`
-                : 'No active segment'}
+              {clockMode ? t({ en: 'Clock preview', he: 'תצוגה מקדימה של שעון' }) : activeTimeframes.length > 0
+                ? `${activeTimeframes.length} ${t({ en: `active segment${activeTimeframes.length > 1 ? 's' : ''}`, he: activeTimeframes.length > 1 ? 'מקטעים פעילים' : 'מקטע פעיל' })} · ${activeRings.length} ${t({ en: 'rings', he: 'טבעות' })} · ${currentTime.toFixed(1)}b`
+                : t({ en: 'No active segment', he: 'אין מקטע פעיל' })}
             </span>
-            <button onClick={() => setFullscreen(false)} style={{ background: '#3a3f4b', color: '#fff', border: 'none', borderRadius: 8, padding: '8px 16px', fontSize: 14, fontWeight: 600, cursor: 'pointer' }}>✕ Close (Esc)</button>
+            <button onClick={() => setFullscreen(false)} style={{ background: '#3a3f4b', color: '#fff', border: 'none', borderRadius: 8, padding: '8px 16px', fontSize: 14, fontWeight: 600, cursor: 'pointer' }}>✕ {t({ en: 'Close (Esc)', he: 'סגור (Esc)' })}</button>
           </div>
           <div style={{ flex: 1, minHeight: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
             {clockMode && clockColors ? (
@@ -415,7 +417,7 @@ const PlaybackRingsPanel = ({
             ) : activeTimeframes.length > 0 ? (
               <RingVisualization mapping="all" activeRings={activeRings} timeframes={activeTimeframes} currentTime={currentTime} zoom={zoom} onZoomChange={(z) => setZoom(clampZoom(z))} resetPanToken={resetPanToken} globalBrightness={brightness} />
             ) : (
-              <div style={{ color: '#789' }}>No active segment — scrub the timeline or press Run.</div>
+              <div style={{ color: '#789' }}>{t({ en: 'No active segment — scrub the timeline or press Run.', he: 'אין מקטע פעיל — גרור בציר הזמן או לחץ הפעל.' })}</div>
             )}
           </div>
         </div>

@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react'
 import { Timeframe, TimeframeCycleEntry, getTimeframeEffects } from '../App'
 import { ringsToDisplayLabel } from '../generateSequenceTs'
+import { useI18n } from '../lib/i18n'
 import './Timeline.css'
 
 function formatCyclesLine(cycles: TimeframeCycleEntry[]): string {
@@ -63,6 +64,7 @@ const beatToSeconds = (beat: number, bpm: number, beatTimestampsMs?: number[]): 
 }
 
 const Timeline = ({ timeframes, songLengthBeats, bpm, onUpdate, onUpdateSilent, onUpdateSilentBatch, onCheckpoint, onDelete, onAdd, onCopy, onPaste, hasClipboard, focusedTimeframeId, onFocusedTimeframeChange, selectedTimeframeIds, onSelectedTimeframeIdsChange, currentTime, onCurrentTimeChange, viewStartBeat, beatsPerScreen, onScrollTo, onZoomAt, onPanBy: _onPanBy, onSeekToBeat, beatTimestampsMs }: TimelineProps) => {
+  const { t: tr } = useI18n()
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editingField, setEditingField] = useState<'label' | 'startTime' | 'endTime' | null>(null)
   const [isDragging, setIsDragging] = useState(false)
@@ -720,12 +722,12 @@ const Timeline = ({ timeframes, songLengthBeats, bpm, onUpdate, onUpdateSilent, 
   return (
     <div className="timeline-container">
       <div className="timeline-header">
-        <h2 className="timeline-header-title">Timeline</h2>
+        <h2 className="timeline-header-title">{tr({ en: 'Timeline', he: 'ציר זמן' })}</h2>
         <div className="timeline-zoom-controls">
-          <span className="timeline-zoom-label">Zoom</span>
-          <button onClick={handleZoomIn} disabled={beatsPerScreen <= 4} title="Zoom in">+</button>
+          <span className="timeline-zoom-label">{tr({ en: 'Zoom', he: 'זום' })}</span>
+          <button onClick={handleZoomIn} disabled={beatsPerScreen <= 4} title={tr({ en: 'Zoom in', he: 'הגדל' })}>+</button>
           <span className="timeline-zoom-beats">{beatsPerScreen}b</span>
-          <button onClick={handleZoomOut} disabled={beatsPerScreen >= songLengthBeats} title="Zoom out">−</button>
+          <button onClick={handleZoomOut} disabled={beatsPerScreen >= songLengthBeats} title={tr({ en: 'Zoom out', he: 'הקטן' })}>−</button>
         </div>
       </div>
       <div className="timeline-scroll-view" ref={timelineScrollViewRef}>
@@ -776,8 +778,8 @@ const Timeline = ({ timeframes, songLengthBeats, bpm, onUpdate, onUpdateSilent, 
                   ...typographyVars,
                 }}
               >
-                <div className="resize-handle resize-handle-top" title="Drag to resize start"></div>
-                <div className="resize-handle resize-handle-bottom" title="Drag to resize end"></div>
+                <div className="resize-handle resize-handle-top" title={tr({ en: 'Drag to resize start', he: 'גרור לשינוי ההתחלה' })}></div>
+                <div className="resize-handle resize-handle-bottom" title={tr({ en: 'Drag to resize end', he: 'גרור לשינוי הסוף' })}></div>
                 <div className="timeframe-content">
                   <div className="timeframe-header">
                     {isEditing && editingField === 'label' ? (
@@ -802,7 +804,7 @@ const Timeline = ({ timeframes, songLengthBeats, bpm, onUpdate, onUpdateSilent, 
                       <button
                         className="copy-button"
                         onClick={() => onCopy(timeframe.id)}
-                        title="Copy timeframe"
+                        title={tr({ en: 'Copy timeframe', he: 'העתק מסגרת זמן' })}
                       >
                         ⎘
                       </button>
@@ -810,7 +812,7 @@ const Timeline = ({ timeframes, songLengthBeats, bpm, onUpdate, onUpdateSilent, 
                     <button
                       className="delete-button"
                       onClick={() => onDelete(timeframe.id)}
-                      title="Delete timeframe"
+                      title={tr({ en: 'Delete timeframe', he: 'מחק מסגרת זמן' })}
                     >
                       ×
                     </button>
@@ -861,18 +863,18 @@ const Timeline = ({ timeframes, songLengthBeats, bpm, onUpdate, onUpdateSilent, 
                       </span>
                     )}
                     <span className="timeframe-rings-inline">
-                      , Rings: {ringsToDisplayLabel(timeframe.rings)}
+                      , {tr({ en: 'Rings', he: 'טבעות' })}: {ringsToDisplayLabel(timeframe.rings)}
                     </span>
                     <span className="timeframe-mapping-inline">
-                      , Mapping: {timeframe.mapping ?? 'all'}
+                      , {tr({ en: 'Mapping', he: 'מיפוי' })}: {timeframe.mapping ?? 'all'}
                     </span>
                     {timeframe.movement && (
                       <span className="timeframe-movement-inline">
-                        , Movement: {timeframe.movement.type} {timeframe.movement.direction}
+                        , {tr({ en: 'Movement', he: 'תנועה' })}: {timeframe.movement.type} {timeframe.movement.direction}
                       </span>
                     )}
                     <span className="timeframe-effects-inline">
-                      , Effects: {getTimeframeEffects(timeframe).map(e => e.effectKey).join(', ') || '—'}
+                      , {tr({ en: 'Effects', he: 'אפקטים' })}: {getTimeframeEffects(timeframe).map(e => e.effectKey).join(', ') || '—'}
                     </span>
                   </div>
                 </div>
@@ -892,7 +894,7 @@ const Timeline = ({ timeframes, songLengthBeats, bpm, onUpdate, onUpdateSilent, 
           >
             <div className="timeframe-content">
               <div className="timeframe-header">
-                <span className="timeframe-label">New Segment</span>
+                <span className="timeframe-label">{tr({ en: 'New Segment', he: 'מקטע חדש' })}</span>
               </div>
               <div className="timeframe-times">
                 <span className="timeframe-time">{dragStartPos}b</span>
