@@ -1,8 +1,13 @@
-# LED Rings — one-click Raspberry Pi image
+# LED Rings — one-click Raspberry Pi image (optional / advanced)
 
-Goal (step 3 of the onboarding flow): a non-technical user writes a downloadable `.img` with
-Raspberry Pi Imager / balenaEtcher, edits one text file, and boots — no terminal. This replaces
-running `led-rings-host.sh` by hand.
+> **The recommended install is now the one-command script — see [`INSTALL.md`](./INSTALL.md).** It
+> also installs the **KivSee backend** (the LED services via `docker compose`), which this image path
+> does **not** (its first-boot runs only `led-rings-host.sh`). Keep this `.img` route as an optional
+> "flash-and-go, no terminal" alternative; to make it complete, point the first-boot provisioner at
+> `rpi-install.sh` instead of `led-rings-host.sh`.
+
+Goal: a non-technical user writes a downloadable `.img` with Raspberry Pi Imager / balenaEtcher,
+edits one text file, and boots — no terminal.
 
 > Status: the image **build pipeline and first-boot provisioner are authored here but have not been
 > run yet** — the first real validation is a CI build (`.github/workflows/build-image.yml`). pi-gen

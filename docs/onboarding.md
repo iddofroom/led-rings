@@ -8,7 +8,7 @@ beat-synced light sculpture. Each step is a stage on the project home screen
 |---|------|-------|-------|
 | 1 | Sign in | Clerk | ✅ built |
 | 2 | Install & configure controllers (ESP32) | `onboard` view | ✅ registry + flasher scaffold built; ⏳ flashing waits on firmware binaries |
-| 3 | Set up the Raspberry Pi (image) | download / image | ✅ script bundle today; ⏳ one-click `.img` designed, not built |
+| 3 | Set up the Raspberry Pi | one-command install | ✅ one-command installer (backend + host); `.img` optional |
 | 4 | Map the LEDs with the camera | `mapping` view | ✅ built |
 | 5 | Pick a song | `songs` view | ✅ built |
 | 6 | Generate the first animation (AI) | editor | ✅ built |
@@ -35,11 +35,16 @@ The declaration is stored per project (device-registry KV routes in `cf-worker/l
 = one "controller" whose pins concatenate into a single flat LED buffer.
 
 ## 3 · Set up the Raspberry Pi
-The Pi runs the control-server + tunnel that the website reaches. **Today:** download the host bundle
-and run `bash led-rings-host.sh` (see `remote-deploy/FRIEND-SETUP.md`). **Planned:** a downloadable
-`.img` you write with Raspberry Pi Imager / balenaEtcher and boot headless, with the tunnel token
-injected securely at first boot (never baked into the shared image). Build pipeline designed in the
-architecture notes; pi-gen stage + first-boot provisioner are the next host-side work.
+The Pi runs the KivSee LED services **and** the control-server + tunnel the website reaches. The
+**simplest path** (recommended) is one command on a fresh Raspberry Pi OS — it installs Docker, the
+KivSee backend (`docker compose` from [KivSee/raspberry-installation](https://github.com/KivSee/raspberry-installation)),
+and the LED Rings host, and enables start-on-boot. See **`remote-deploy/INSTALL.md`**:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/iddofroom/led-rings/iddo_AI/remote-deploy/rpi-install.sh | bash
+```
+
+A prebuilt one-flash **`.img`** (`remote-deploy/IMAGE.md`) is an optional advanced alternative.
 
 ## 4 · Map the LEDs
 Aim the computer camera at the installation. The tool lights each LED one at a time (through the Pi →
