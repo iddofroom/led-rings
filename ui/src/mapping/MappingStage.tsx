@@ -398,7 +398,7 @@ function Field({ label, value, onChange, min, max }: { label: string; value: num
 
 const S: Record<string, React.CSSProperties> = {
   wrap: { minHeight: '100vh', background: '#0f1218', color: '#e8eaed', display: 'flex', flexDirection: 'column' },
-  header: { display: 'flex', alignItems: 'center', gap: 14, padding: '12px 20px', borderBottom: '1px solid #1e232c', background: '#12161d' },
+  header: { display: 'flex', alignItems: 'center', gap: 14, padding: '12px 20px', borderBottom: '1px solid #1e232c', background: '#12161d', position: 'sticky', top: 0, zIndex: 10, flexWrap: 'wrap' },
   backBtn: { background: 'transparent', color: '#8fb4ff', border: '1px solid #2a3140', borderRadius: 8, padding: '6px 12px', cursor: 'pointer' },
   body: { flex: 1, display: 'flex', gap: 16, padding: 16, minHeight: 0 },
   cameraCol: { flex: '1 1 60%', display: 'flex', flexDirection: 'column', gap: 10, minWidth: 0 },
