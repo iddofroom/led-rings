@@ -312,6 +312,26 @@ export const GUIDE_HTML = `<!doctype html>
   .calc-note { font-size: 13px; color: var(--ink-faint); margin: 16px 0 0; }
   a.calc-link { display: inline-flex; align-items: center; gap: 6px; font-weight: 700; }
 
+  /* BOM cost estimator */
+  .calc-rec { display: grid; grid-template-columns: repeat(auto-fit, minmax(118px, 1fr)); gap: 10px; margin: 4px 0 4px; }
+  .rec-supplier { margin: 12px 0 2px; font-size: 14.5px; }
+  .rec-supplier a { font-weight: 700; }
+  .disclosure { font-size: 12.5px; color: var(--ink-faint); font-style: italic; margin: 4px 0 0; }
+  .bom { margin: 8px 0 0; overflow-x: auto; }
+  .bom-inner { min-width: 440px; display: flex; flex-direction: column; gap: 7px; }
+  .bom-row { display: grid; grid-template-columns: 1.5fr 0.9fr 0.9fr 0.75fr; gap: 8px; align-items: center; }
+  .bom-row.head { font-size: 11px; text-transform: uppercase; letter-spacing: .05em; color: var(--ink-faint); font-weight: 700; }
+  .bom-row .lbl { display: flex; flex-direction: column; gap: 5px; font-weight: 600; font-size: 14px; }
+  .bom-row input, .bom-row select { width: 100%; padding: 7px 9px; border-radius: 8px; border: 1px solid var(--border-2); background: var(--bg); color: var(--ink); font: inherit; font-size: 13.5px; font-variant-numeric: tabular-nums; }
+  .bom-row input:focus, .bom-row select:focus { outline: none; border-color: var(--brand); }
+  .bom-row .tot { font: 700 14px/1.2 ui-monospace, monospace; text-align: end; font-variant-numeric: tabular-nums; }
+  .bom-grand { display: flex; justify-content: space-between; align-items: baseline; margin-top: 14px; padding-top: 12px; border-top: 2px solid var(--border-2); }
+  .bom-grand .gl { font-weight: 800; font-size: 15px; }
+  .bom-grand .g { font: 800 24px/1 ui-monospace, monospace; color: var(--brand); font-variant-numeric: tabular-nums; }
+  .calc details { margin: 14px 0 0; border: 1px solid var(--border); border-radius: 10px; padding: 0 14px; background: var(--panel-2); }
+  .calc summary { cursor: pointer; font-weight: 700; font-size: 13.5px; padding: 11px 2px; color: var(--ink-soft); }
+  .calc details .tbl { margin: 0 0 12px; }
+
   /* coming-soon stub */
   .stub {
     border: 1px dashed var(--border-2); border-radius: var(--radius);
@@ -372,8 +392,8 @@ export const GUIDE_HTML = `<!doctype html>
         <p class="eyebrow" data-l="en">The Build Guide</p>
         <h1 data-l="he">בונים אור פועם</h1>
         <h1 data-l="en">Build light that beats</h1>
-        <p data-l="he">מדריך פרקטי לבניית מיצבי לדים מכותבים ומסונכרנים לאודיו (WS2812 ודומיהם): איזה לדים בוחרים, איזה שנאי מתאים, כבלים של חשמל, מחברים, תוכנה — ויצירה.</p>
-        <p data-l="en">A hands-on guide to building addressable, audio‑synced LED installations (WS2812 &amp; friends): which LEDs to pick, which power supply fits, power cables, connectors, software — and the art.</p>
+        <p data-l="he">מדריך פרקטי לבניית מיצבי לדים מכותבים (WS2812 ודומיהם): איזה לדים בוחרים, איזה שנאי מתאים, כבלים של חשמל, מחברים, תוכנה — ויצירה.</p>
+        <p data-l="en">A hands-on guide to building addressable LED installations (WS2812 &amp; friends): which LEDs to pick, which power supply fits, power cables, connectors, software — and the art.</p>
       </div>
 
       <!-- ============ 01 · OVERVIEW ============ -->
@@ -397,12 +417,6 @@ export const GUIDE_HTML = `<!doctype html>
           <li data-l="en"><strong>Design &amp; material</strong> — diffuser, structure, ruggedness — what turns raw light into a piece.</li>
         </ul>
 
-        <div class="call tip">
-          <div class="ct" data-l="he">💡 מאיפה מתחילים</div>
-          <div class="ct" data-l="en">💡 Where to start</div>
-          <p data-l="he">אם זה המיצב הראשון שלך — מומלץ להתחיל לעבוד קודם עם <a href="https://kivsee.iddofroom.co.il/guide/wled" target="_blank" rel="noopener">WLED</a>, ולחלק את הלימוד לשני פרויקטים.</p>
-          <p data-l="en">First build? We recommend starting with <a href="https://kivsee.iddofroom.co.il/guide/wled" target="_blank" rel="noopener">WLED</a> first, and splitting the learning into two projects.</p>
-        </div>
       </section>
 
       <!-- ============ 02 · CHOOSING LEDS ============ -->
@@ -477,9 +491,6 @@ export const GUIDE_HTML = `<!doctype html>
             </ul>
           </div>
         </div>
-        <p data-l="he">למדריך הזה נשארים ב־<strong>5V</strong>. אם המיצב שלך גדול מאוד או דורש ריצות ארוכות — שווה ללמוד 12V (למשל WS2815, בהמשך).</p>
-        <p data-l="en">For this guide we stay on <strong>5V</strong>. If your piece is very large or needs long runs — 12V is worth learning (e.g. WS2815, next).</p>
-
         <!-- the chip -->
         <h3><span class="h3n">C</span><span data-l="he">הצ׳יפ — WS2812B מול WS2815</span><span data-l="en">The chip — WS2812B vs WS2815</span></h3>
         <p data-l="he">אלה שני הסוגים העיקריים. שניהם ״כתובתיים״ (כל נורה נשלטת בנפרד); ההבדל הגדול הוא מתח ואמינות.</p>
@@ -545,8 +556,8 @@ export const GUIDE_HTML = `<!doctype html>
         <div class="buycard">
           <p data-l="he"><strong>אליאקספרס</strong> הוא המקור העיקרי ללדים ומחברים. מומלץ (אך יקר יותר): <a class="store" href="https://www.aliexpress.com/store/701799" target="_blank" rel="noopener">🏪 החנות של Ray Wu ↗</a> — אמינה מאוד, משלוחים מהירים, בשימוש נרחב של ברנרים בארץ ובברנינגמן. הדברים מגיעים תקינים ועובדים.</p>
           <p data-l="en"><strong>AliExpress</strong> is the main source for LEDs and connectors. Recommended (but pricier): <a class="store" href="https://www.aliexpress.com/store/701799" target="_blank" rel="noopener">🏪 Ray Wu's store ↗</a> — very reliable, fast shipping, widely used by Burners in Israel and at Burning Man. Things arrive correct and working.</p>
-          <p style="margin-bottom:0" data-l="he">האמת? כמעט כל מוכר באליאקספרס עם דירוג טוב זה בסדר גמור לחתיכת אמנות. רק ודא: <strong>5V, WS2812B, הצפיפות וה־IP שרצית</strong>. סימני אזהרה: צפיפות מזויפת, מתח לא נכון, נחושת דקה (נפילת מתח), או IC מזויף. בארץ אני משלים ציוד ובקרים מ־<a href="https://www.4project.co.il/" target="_blank" rel="noopener">4project</a> ו־<a href="https://hackstore.co.il/" target="_blank" rel="noopener">hackstore</a>.</p>
-          <p style="margin-bottom:0" data-l="en">Honestly? Almost any well-rated AliExpress seller is fine for an art build. Just confirm: <strong>5V, WS2812B, the density and IP you wanted</strong>. Red flags: fake density, wrong voltage, thin copper (voltage drop), or clone ICs. In Israel I top up gear and controllers from <a href="https://www.4project.co.il/" target="_blank" rel="noopener">4project</a> and <a href="https://hackstore.co.il/" target="_blank" rel="noopener">hackstore</a>.</p>
+          <p style="margin-bottom:0" data-l="he">האמת? כמעט כל מוכר באליאקספרס עם דירוג טוב זה בסדר גמור.</p>
+          <p style="margin-bottom:0" data-l="en">Honestly? Almost any well-rated AliExpress seller is fine.</p>
         </div>
         <div class="call warn">
           <div class="ct" data-l="he">📦 מכס בישראל — שים לב לפני שמזמינים</div>
@@ -558,8 +569,6 @@ export const GUIDE_HTML = `<!doctype html>
             <li data-l="en">Under <strong>$75</strong> — no duty, no VAT. Between $75 and $500 — VAT only.</li>
             <li data-l="he"><strong>אל תזמין יותר מ־30 יחידות</strong> של אותו פריט בהזמנה אחת — זה נחשב אוטומטית ליבוא מסחרי. (100 מטר כ״חבילה אחת״ זה בסדר; 100 פריטים נפרדים — לא.)</li>
             <li data-l="en"><strong>Don't order more than 30 units</strong> of one item in a single order — it's automatically treated as commercial import. (100m as "one package" is fine; 100 separate items — not.)</li>
-            <li data-l="he">אלקטרוניקה מעל <strong>9V</strong> דורשת תו תקן — עדיף לקנות ציוד כזה בארץ.</li>
-            <li data-l="en">Electronics above <strong>9V</strong> need a standards mark — better to buy such gear locally.</li>
             <li data-l="he">פצל משלוחים כדי לא לעבור את המכסות.</li>
             <li data-l="en">Split shipments so you don't cross the thresholds.</li>
           </ul>
@@ -571,8 +580,8 @@ export const GUIDE_HTML = `<!doctype html>
         <span class="chapter-tag">03</span>
         <h2 data-l="he">אלקטרוניקה וחשמל</h2>
         <h2 data-l="en">Electronics &amp; Power</h2>
-        <p class="dek" data-l="he">אתה לא צריך להיות אלקטרונאי. עם הקיט הנכון מחברים כמעט הכל עם מחברי־תקע (בלי הלחמות), ויש רק <strong>הלחמה אחת</strong> בכל הפרק. הנה כל הצד החשמלי — פשוט.</p>
-        <p class="dek" data-l="en">You don't need to be an electronics wizard. With the right kit you connect almost everything with plug-in connectors (no soldering), and there's just <strong>one solder joint</strong> in the whole chapter. Here's the electrical side — kept simple.</p>
+        <p class="dek" data-l="he">אתה לא צריך להיות אלקטרונאי. עם הקיט הנכון מחברים כמעט הכל עם מחברי־תקע (בלי הלחמות).</p>
+        <p class="dek" data-l="en">You don't need to be an electronics wizard. With the right kit you connect almost everything with plug-in connectors (no soldering).</p>
         <p style="font-size:14px;color:var(--ink-faint);margin:-14px 0 26px" data-l="he">מבוסס על <a href="https://www.facebook.com/yossi.naar" target="_blank" rel="noopener">״מדריך הלדים האולטימטיבי לברנרים״ מאת יוסי נער</a> — הגישה, הקיט ורוב כללי האצבע כאן הם שלו.</p>
         <p style="font-size:14px;color:var(--ink-faint);margin:-14px 0 26px" data-l="en">Based on <a href="https://www.facebook.com/yossi.naar" target="_blank" rel="noopener">Yossi Naar's "Ultimate LED Guide for Burners"</a> — the approach, the kit and most rules of thumb here are his.</p>
 
@@ -1157,80 +1166,167 @@ export const GUIDE_HTML = `<!doctype html>
       <!-- ============ 09 · POWER CALCULATOR ============ -->
       <section id="calc">
         <span class="chapter-tag">09</span>
-        <h2 data-l="he">מחשבון חשמל</h2>
-        <h2 data-l="en">Power calculator</h2>
-        <p class="dek" data-l="he">כמה חשמל צריך המיצב שלכם, ואיזה שנאי לקנות? הזינו את המספרים.</p>
-        <p class="dek" data-l="en">How much power does your piece need, and which supply to buy? Punch in the numbers.</p>
+        <h2 data-l="he">מחשבון ספקים ועלויות</h2>
+        <h2 data-l="en">Supply &amp; cost calculator</h2>
+        <p class="dek" data-l="he">כמה ספקים צריך, איזה, וכמה זה יעלה? הזינו את הפרטים — ואז ערכו את רשימת העלויות כרצונכם.</p>
+        <p class="dek" data-l="en">How many supplies, which one, and what will it cost? Enter the details — then edit the cost list however you like.</p>
         <div class="calc">
           <div class="calc-inputs">
             <div class="calc-field">
-              <label data-l="he">מטרים של רצועה</label><label data-l="en">Metres of strip</label>
-              <input id="c-m" type="number" min="0" step="1" value="20" inputmode="numeric">
-            </div>
-            <div class="calc-field">
-              <label data-l="he">צפיפות (לד/מ׳)</label><label data-l="en">Density (LED/m)</label>
-              <select id="c-d"><option value="30">30</option><option value="60" selected>60</option><option value="144">144</option></select>
-            </div>
-            <div class="calc-field">
-              <label data-l="he">בהירות</label><label data-l="en">Brightness</label>
-              <div class="calc-seg" id="c-b" role="group" aria-label="brightness">
-                <button type="button" data-f="1" aria-pressed="false"><span data-l="he">לבן מלא</span><span data-l="en">Full white</span></button>
-                <button type="button" data-f="0.4" aria-pressed="true"><span data-l="he">אנימציה</span><span data-l="en">Animation</span></button>
-                <button type="button" data-f="0.15" aria-pressed="false"><span data-l="he">רגוע</span><span data-l="en">Chill</span></button>
+              <label data-l="he">סוג רצועה</label><label data-l="en">Strip type</label>
+              <div class="calc-seg" id="c-type" role="group" aria-label="strip type">
+                <button type="button" data-v="5" aria-pressed="true">5V · WS2812B</button>
+                <button type="button" data-v="12" aria-pressed="false">12V · WS2815</button>
               </div>
             </div>
+            <div class="calc-field"><label data-l="he">סה״כ מטרים</label><label data-l="en">Total metres</label><input id="c-m" type="number" min="0" step="1" value="20"></div>
+            <div class="calc-field"><label data-l="he">צפיפות (לד/מ׳)</label><label data-l="en">Density (LED/m)</label>
+              <select id="c-d"><option value="30">30</option><option value="60" selected>60</option><option value="144">144</option></select></div>
+            <div class="calc-field"><label data-l="he">דירוג IP</label><label data-l="en">IP rating</label>
+              <select id="c-ip"><option value="IP30">IP30</option><option value="IP65" selected>IP65</option><option value="IP67">IP67</option></select></div>
+            <div class="calc-field"><label data-l="he">מקטעי לדים</label><label data-l="en">LED segments</label><input id="c-seg" type="number" min="0" step="1" value="4"></div>
+            <div class="calc-field"><label data-l="he">מרחק בין מקטעים (מ׳)</label><label data-l="en">Gap between segments (m)</label><input id="c-dist" type="number" min="0" step="1" value="5"></div>
           </div>
-          <div class="calc-out" id="c-out"></div>
-          <p class="calc-note" data-l="he">הערכה ל־5V. ״לבן מלא״ הוא התקרה המוחלטת; אנימציה אמיתית מושכת הרבה פחות. ספק מומלץ = MEAN WELL 5V/60A (300W), עם מרווח של 20%. הזרקת מתח: הערכה של כל ~1.5 מ׳.</p>
-          <p class="calc-note" data-l="en">A 5V estimate. "Full white" is the absolute ceiling; real animation draws far less. Recommended supply = MEAN WELL 5V/60A (300W), with 20% headroom. Injection: estimated every ~1.5m.</p>
+
+          <div id="c-rec"></div>
+
+          <p class="sub-lead" data-l="he">רשימת עלויות מוערכת — ערכו כל שדה</p>
+          <p class="sub-lead" data-l="en">Estimated cost list — edit any field</p>
+          <div class="bom"><div class="bom-inner">
+            <div class="bom-row head">
+              <span></span>
+              <span><span data-l="he">כמות</span><span data-l="en">Qty</span></span>
+              <span><span data-l="he">₪ ליחידה</span><span data-l="en">₪ each</span></span>
+              <span style="text-align:end"><span data-l="he">סה״כ</span><span data-l="en">Total</span></span>
+            </div>
+            <div class="bom-row">
+              <span class="lbl"><span data-l="he">ספקים (350W, +ספייר)</span><span data-l="en">Supplies (350W, +spare)</span></span>
+              <input id="q-sup" type="number" min="0" value="0"><input id="p-sup" type="number" min="0" value="140"><span class="tot" id="t-sup">₪0</span>
+            </div>
+            <div class="bom-row">
+              <span class="lbl"><span data-l="he">לדים · מטר</span><span data-l="en">LED strip · m</span></span>
+              <input id="q-led" type="number" min="0" value="0"><input id="p-led" type="number" min="0" value="12"><span class="tot" id="t-led">₪0</span>
+            </div>
+            <div class="bom-row">
+              <span class="lbl"><span data-l="he">בקר</span><span data-l="en">Controller</span>
+                <select id="c-ctrl">
+                  <option value="30">ESP32 · ~₪30</option>
+                  <option value="12">Arduino Nano · ~₪12</option>
+                  <option value="25">Arduino Uno · ~₪25</option>
+                  <option value="150">Teensy 3.5 · ~₪150</option>
+                  <option value="200">Teensy 3.6 · ~₪200</option>
+                  <option value="200">Raspberry Pi 3 · ~₪200</option>
+                  <option value="320">Raspberry Pi 4 · ~₪320</option>
+                  <option value="450">Raspberry Pi 5 · ~₪450</option>
+                  <option value="0">— אחר / other —</option>
+                </select></span>
+              <input id="q-ctrl" type="number" min="0" value="1"><input id="p-ctrl" type="number" min="0" value="30"><span class="tot" id="t-ctrl">₪30</span>
+            </div>
+            <div class="bom-row">
+              <span class="lbl"><span data-l="he">מחברים (JST)</span><span data-l="en">Connectors (JST)</span></span>
+              <input id="q-con" type="number" min="0" value="0"><input id="p-con" type="number" min="0" step="0.5" value="1.5"><span class="tot" id="t-con">₪0</span>
+            </div>
+            <div class="bom-row">
+              <span class="lbl"><span data-l="he">שרינק · מטר</span><span data-l="en">Heat-shrink · m</span></span>
+              <input id="q-shr" type="number" min="0" step="0.1" value="0"><input id="p-shr" type="number" min="0" value="4"><span class="tot" id="t-shr">₪0</span>
+            </div>
+            <div class="bom-row">
+              <span class="lbl"><span data-l="he">כבל חשמל · מטר</span><span data-l="en">Power cable · m</span></span>
+              <input id="q-cab" type="number" min="0" step="0.1" value="0"><input id="p-cab" type="number" min="0" value="4"><span class="tot" id="t-cab">₪0</span>
+            </div>
+            <div class="bom-row">
+              <span class="lbl"><span data-l="he">ארון חשמל</span><span data-l="en">Enclosure</span></span>
+              <input id="q-cbn" type="number" min="0" value="1"><input id="p-cbn" type="number" min="0" value="120"><span class="tot" id="t-cbn">₪120</span>
+            </div>
+            <div class="bom-grand">
+              <span class="gl"><span data-l="he">סה״כ מוערך</span><span data-l="en">Estimated total</span></span>
+              <span class="g" id="c-grand">₪0</span>
+            </div>
+          </div></div>
+
+          <details>
+            <summary><span data-l="he">טבלת מחירי לדים מוערכים (₪ למטר)</span><span data-l="en">Estimated LED prices (₪ per metre)</span></summary>
+            <div class="tbl"><table>
+              <thead><tr><th><span data-l="he">לד/מ׳</span><span data-l="en">LED/m</span></th><th>IP30</th><th>IP65</th><th>IP67</th></tr></thead>
+              <tbody>
+                <tr><th>30</th><td>~6</td><td>~8</td><td>~12</td></tr>
+                <tr><th>60</th><td>~10</td><td>~12</td><td>~16</td></tr>
+                <tr><th>144</th><td>~24</td><td>~26</td><td>~30</td></tr>
+              </tbody>
+            </table></div>
+            <p class="calc-note" data-l="he">טווחים בלבד — העלות עולה בעיקר עם הצפיפות. מחירי בקרים הם הערכות גסות; עדכנו לפי המחיר בפועל.</p>
+            <p class="calc-note" data-l="en">Ranges only — cost rises mostly with density. Controller prices are rough estimates; update to the real price.</p>
+          </details>
         </div>
       </section>
 
       <script>
         (function () {
-          var m = document.getElementById('c-m'), d = document.getElementById('c-d'),
-              bseg = document.getElementById('c-b'), out = document.getElementById('c-out');
-          if (!m || !out) return;
-          var factor = 0.4;
-          function fmt(n) { return Math.round(n).toLocaleString('en-US'); }
-          function tile(he, en, v, unit, hi) {
-            return '<div class="calc-tile' + (hi ? ' hi' : '') + '"><p class="k"><span data-l="he">' + he +
-              '</span><span data-l="en">' + en + '</span></p><p class="v">' + v +
-              (unit ? ' <small>' + unit + '</small>' : '') + '</p></div>';
-          }
-          function upd() {
-            var metres = Math.max(0, parseFloat(m.value) || 0);
-            var dens = parseInt(d.value, 10) || 60;
+          function $(id) { return document.getElementById(id); }
+          var typeSeg = $('c-type'), m = $('c-m'), d = $('c-d'), ip = $('c-ip'), seg = $('c-seg'),
+              dist = $('c-dist'), rec = $('c-rec'), grand = $('c-grand'), ctrl = $('c-ctrl'), bom = $('c-bom');
+          if (!m || !rec) return;
+          var stype = '5';
+          var DBASE = { 30: 6, 60: 10, 144: 24 }, IPADD = { IP30: 0, IP65: 2, IP67: 6 };
+          var SUP = { '5': 'https://advice.co.il/products/lrs-350-5', '12': 'https://advice.co.il/products/lrs-350-12' };
+          function num(el) { return Math.max(0, parseFloat(el.value) || 0); }
+          function nis(n) { return '₪' + Math.round(n).toLocaleString('en-US'); }
+          function up100(x) { return x > 0 ? Math.ceil(x / 100) * 100 : 0; }
+          function r1(x) { return Math.round(x * 10) / 10; }
+
+          function derive() {
+            var metres = num(m), dens = parseInt(d.value, 10) || 60, segs = Math.max(0, parseInt(seg.value, 10) || 0), gap = num(dist);
             var leds = Math.round(metres * dens);
-            var peakW = leds * 0.3;
-            var tgtW = peakW * factor;
-            var tgtA = tgtW / 5;
-            var supplies = leds ? Math.max(1, Math.ceil(tgtW / 240)) : 0;
-            var inj = leds ? Math.max(2, Math.ceil(metres / 1.5)) : 0;
-            out.innerHTML =
-              tile('לדים סה״כ', 'Total LEDs', fmt(leds), '', false) +
-              tile('לבן מלא', 'Full white', fmt(peakW), 'W', false) +
-              tile('הצריכה שלכם', 'Your draw', fmt(tgtW), 'W · ' + fmt(tgtA) + 'A', true) +
-              tile('ספקים 5V/60A', '5V/60A supplies', supplies, '×', true) +
-              tile('נקודות הזרקה', 'Injection pts', inj, '', false);
+            var need = leds ? Math.ceil(leds / 1000) : 0;
+            $('q-sup').value = leds ? need + 1 : 0;
+            $('q-led').value = metres;
+            var con = up100(Math.max(0, segs * 2 - 2 * (metres / 5)));
+            $('q-con').value = con;
+            $('q-shr').value = r1(con * 0.1);
+            $('q-cab').value = r1(gap + (leds ? 5 * (leds / 1000) : 0));
+            $('p-led').value = (DBASE[dens] || 10) + (IPADD[ip.value] || 0);
           }
-          if (bseg) bseg.querySelectorAll('button').forEach(function (b) {
+          function updateRec() {
+            var metres = num(m), dens = parseInt(d.value, 10) || 60;
+            var leds = Math.round(metres * dens);
+            var animW = leds * 0.3, fullW = leds * 0.6;
+            var need = leds ? Math.ceil(leds / 1000) : 0, buy = leds ? need + 1 : 0;
+            var inj = leds ? Math.max(2, Math.ceil(metres / 1.5)) : 0;
+            function t(he, en, val, u) { return '<div class="calc-tile hi"><p class="k"><span data-l="he">' + he + '</span><span data-l="en">' + en + '</span></p><p class="v">' + val + (u ? ' <small>' + u + '</small>' : '') + '</p></div>'; }
+            rec.innerHTML =
+              '<div class="calc-rec">' +
+                t('לדים סה״כ', 'Total LEDs', leds.toLocaleString('en-US'), '') +
+                t('אנימציה', 'Animation', Math.round(animW).toLocaleString('en-US'), 'W') +
+                t('לבן מלא', 'Full white', Math.round(fullW).toLocaleString('en-US'), 'W') +
+                t('ספקים לקנייה', 'Supplies', buy, '× (' + need + '+1)') +
+                t('נקודות הזרקה', 'Injection', inj, '') +
+              '</div>' +
+              '<p class="rec-supplier"><span data-l="he">ספק ישראלי מומלץ: </span><span data-l="en">Recommended Israeli supplier: </span>' +
+                '<a href="' + SUP[stype] + '" target="_blank" rel="noopener nofollow">MEAN WELL LRS-350-' + stype + ' · advice.co.il ↗</a></p>' +
+              '<p class="disclosure"><span data-l="he">גילוי נאות: איני מרוויח דבר מההפניות בעמוד הזה.</span><span data-l="en">Disclosure: I earn nothing from any links on this page.</span></p>';
+          }
+          function recalc() {
+            var rows = [['q-sup','p-sup','t-sup'],['q-led','p-led','t-led'],['q-ctrl','p-ctrl','t-ctrl'],['q-con','p-con','t-con'],['q-shr','p-shr','t-shr'],['q-cab','p-cab','t-cab'],['q-cbn','p-cbn','t-cbn']];
+            var total = 0;
+            rows.forEach(function (r) { var lt = num($(r[0])) * num($(r[1])); total += lt; $(r[2]).textContent = nis(lt); });
+            grand.textContent = nis(total);
+            updateRec();
+          }
+          typeSeg.querySelectorAll('button').forEach(function (b) {
             b.addEventListener('click', function () {
-              factor = parseFloat(b.dataset.f);
-              bseg.querySelectorAll('button').forEach(function (x) { x.setAttribute('aria-pressed', x === b ? 'true' : 'false'); });
-              upd();
+              stype = b.dataset.v;
+              typeSeg.querySelectorAll('button').forEach(function (x) { x.setAttribute('aria-pressed', x === b ? 'true' : 'false'); });
+              recalc();
             });
           });
-          m.addEventListener('input', upd);
-          d.addEventListener('change', upd);
-          upd();
+          ctrl.addEventListener('change', function () { if (ctrl.value !== '0') $('p-ctrl').value = ctrl.value; recalc(); });
+          [m, seg, dist].forEach(function (el) { el.addEventListener('input', function () { derive(); recalc(); }); });
+          [d, ip].forEach(function (el) { el.addEventListener('change', function () { derive(); recalc(); }); });
+          bom.addEventListener('input', recalc);
+          derive(); recalc();
         })();
       </script>
 
-      <footer>
-        <span data-l="he">מדריך הבנייה של LED Studio · פתוח וחופשי לקריאה · נבנה עם ❤️ לקהילת האור</span>
-        <span data-l="en">The LED Studio Build Guide · free and open to read · built with ❤️ for the light community</span>
-      </footer>
     </main>
   </div>
 </div>
