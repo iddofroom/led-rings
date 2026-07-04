@@ -138,6 +138,29 @@ export interface SaveCompositionBody {
   timeframes: unknown[]
 }
 
+/** One LED's detected position (camera-derived). x,y normalized 0..1; b = peak brightness. */
+export interface MappedLed {
+  index: number
+  x: number
+  y: number
+  b: number
+}
+
+/** One controller's LED position map, all in the same (fixed camera) image frame. */
+export interface MappedController {
+  thing: string
+  numPixels: number
+  imageWidth: number
+  imageHeight: number
+  capturedAt: number
+  leds: MappedLed[]
+}
+
+export interface MappingBlob {
+  controllers: MappedController[]
+  updatedAt: number
+}
+
 function post(body: unknown): RequestInit {
   return { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }
 }
@@ -232,6 +255,12 @@ export const library = {
 
   removeVersion: (slug: string, id: string, projectId: string = DEFAULT_PROJECT) =>
     call<{ ok: true }>(scoped(`/api/library/delete`, projectId), post({ slug, version: id })),
+
+  // ── Installation mapping (camera-derived LED positions, one blob per project) ──
+  getMapping: (projectId: string = DEFAULT_PROJECT) =>
+    call<{ mapping: MappingBlob | null }>(scoped(`/api/library/mapping`, projectId)).then((d) => d.mapping),
+  saveMapping: (controllers: MappedController[], projectId: string = DEFAULT_PROJECT) =>
+    call<{ ok: true; updatedAt: number }>(scoped(`/api/library/mapping`, projectId), post({ controllers })),
 }
 
 /** Reachable only if a library base is configured or we're served through the Worker. */

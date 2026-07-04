@@ -4,6 +4,7 @@ import App from '../App'
 import { library } from '../lib/library'
 import ProjectPicker from './ProjectPicker'
 import SongPicker from './SongPicker'
+import MappingStage from '../mapping/MappingStage'
 
 /**
  * Top-level navigation shell: Clerk sign-in → Project picker → Song picker → Editor.
@@ -11,7 +12,7 @@ import SongPicker from './SongPicker'
  * per-request at the Worker against KV membership records keyed by the verified email.
  */
 
-type View = 'projects' | 'songs' | 'editor'
+type View = 'projects' | 'songs' | 'editor' | 'mapping'
 type PendingLoad = { slug: string; comp: string } | 'new' | null
 
 interface ShellState {
@@ -31,7 +32,7 @@ function loadShellState(): ShellState {
       const p = JSON.parse(raw) as Partial<ShellState>
       if (p && typeof p.view === 'string') {
         return {
-          view: p.view === 'editor' || p.view === 'songs' ? p.view : 'projects',
+          view: p.view === 'editor' || p.view === 'songs' || p.view === 'mapping' ? p.view : 'projects',
           projectId: typeof p.projectId === 'string' ? p.projectId : 'rings',
           projectName: typeof p.projectName === 'string' ? p.projectName : 'Rings',
           projectRole: p.projectRole === 'admin' || p.projectRole === 'member' ? p.projectRole : null,
@@ -103,10 +104,23 @@ function ShellInner() {
     )
   }
 
+  if (view === 'mapping') {
+    return <MappingStage projectId={projectId} projectName={projectName} onBack={() => patch({ view: 'songs' })} />
+  }
+
   return (
     <div style={shell}>
       <div style={topbar}>
         <span style={{ fontWeight: 700, letterSpacing: '0.02em' }}>🎛️ LED Studio</span>
+        {view === 'songs' && (
+          <button
+            onClick={() => patch({ view: 'mapping' })}
+            style={{ background: 'transparent', color: '#8fb4ff', border: '1px solid #2a3140', borderRadius: 8, padding: '5px 12px', cursor: 'pointer', fontSize: 13 }}
+            title="Map the physical positions of this installation's LEDs"
+          >
+            🎯 Mapping
+          </button>
+        )}
         <span style={{ flex: 1 }} />
         {email && <span style={{ color: '#9aa7bd', fontSize: 13 }}>{email}</span>}
         <UserButton afterSignOutUrl="/" />

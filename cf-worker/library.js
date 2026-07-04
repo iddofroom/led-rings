@@ -63,6 +63,10 @@ const compPrefix = (pid, slug) => `${songListPrefix(pid)}${slug}:comp:`;
 const verKey = (pid, slug, id) => `${songListPrefix(pid)}${slug}:ver:${id}`;
 const verPrefix = (pid, slug) => `${songListPrefix(pid)}${slug}:ver:`;
 
+// Camera-derived LED position map for the installation (one blob per project). KivSee's
+// geometry schema is 1-D (index+relPos), so the (x,y) map lives here, not in led-object-service.
+const mappingKey = (pid) => `${projectPrefix(pid)}mapping`;
+
 // Registry of non-default projects. "rings" is implicit/built-in and always listed first.
 const PROJECTS_INDEX = 'projects:index';
 
@@ -202,6 +206,9 @@ export async function handleLibrary(request, env, url, auth) {
       const v = await KV.get(key);
       return v == null ? err('Composition not found', 404) : rawJson(v);
     }
+
+    if (request.method === 'GET' && p === '/api/library/mapping') return await getMapping(KV, pid);
+    if (request.method === 'POST' && p === '/api/library/mapping') return await saveMapping(KV, pid, request);
 
     if (request.method === 'GET' && p === '/api/library/versions') return await listVersions(KV, pid, url.searchParams.get('slug'));
     if (request.method === 'GET' && p === '/api/library/version')
@@ -391,6 +398,26 @@ async function upsertComposition(KV, pid, request) {
   if (full.length > MAX_JSON_BYTES) return err('Composition too large', 413);
   await KV.put(compKey(pid, slug, compSlug), full, { metadata: metaSummary });
   return json({ ok: true, slug, comp: compSlug, meta: metaSummary });
+}
+
+// ── Installation mapping (camera-derived LED positions) ──────────────────────
+// One blob per project: { controllers:[ { thing, numPixels, imageWidth, imageHeight,
+// capturedAt, leds:[ {index, x, y, b} ] } ], updatedAt }. x,y normalized 0..1.
+async function getMapping(KV, pid) {
+  const v = await KV.get(mappingKey(pid), 'json');
+  return json({ mapping: v ?? null });
+}
+
+async function saveMapping(KV, pid, request) {
+  const body = await readJson(request);
+  if (!body) return err('Invalid JSON');
+  if (!Array.isArray(body.controllers)) return err('Missing controllers[]');
+  const now = Date.now();
+  const blob = { controllers: body.controllers, updatedAt: now };
+  const str = JSON.stringify(blob);
+  if (str.length > MAX_JSON_BYTES) return err('Mapping too large', 413);
+  await KV.put(mappingKey(pid), str, { metadata: { updatedAt: now, controllerCount: body.controllers.length } });
+  return json({ ok: true, updatedAt: now });
 }
 
 // ── Version history (git-like) ───────────────────────────────────────────────
