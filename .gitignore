@@ -178,3 +178,6 @@ dist
 
 # Local audio test fixtures (large binaries; canonical copies live in the cloud KV library)
 /src/audio/
+
+# flow engine runtime state (applied rules)
+.flow-rules.json

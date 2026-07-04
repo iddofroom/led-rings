@@ -16,12 +16,13 @@ interface Props {
   onCompose: () => void
   onMapping: () => void
   onSetupControllers: () => void
+  onFlow: () => void
   onBack: () => void
 }
 
 type StageState = 'unknown' | 'checking' | 'ok' | 'todo'
 
-export default function ProjectHome({ projectId, projectName, projectRole, onCompose, onMapping, onSetupControllers, onBack }: Props) {
+export default function ProjectHome({ projectId, projectName, projectRole, onCompose, onMapping, onSetupControllers, onFlow, onBack }: Props) {
   const [pi, setPi] = useState<StageState>('unknown')
   const [controllers, setControllers] = useState<{ state: StageState; count: number }>({ state: 'unknown', count: 0 })
   const [declared, setDeclared] = useState(0)
@@ -115,6 +116,15 @@ export default function ProjectHome({ projectId, projectName, projectRole, onCom
       state: 'unknown' as StageState,
       status: 'Ready',
       action: <button style={S.primary} onClick={onCompose}>Open songs →</button>,
+    },
+    {
+      key: 'flow',
+      badge: '5',
+      title: 'Installation flow',
+      desc: 'Wire buttons / RFID to actions — scan a tag to play a song or fire a pattern.',
+      state: 'unknown' as StageState,
+      status: 'Optional',
+      action: <button style={S.ghost} onClick={onFlow}>Open flow →</button>,
     },
   ]
 

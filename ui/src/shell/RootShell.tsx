@@ -7,6 +7,7 @@ import ProjectHome from './ProjectHome'
 import SongPicker from './SongPicker'
 import MappingStage from '../mapping/MappingStage'
 import ControllerSetup from '../onboard/ControllerSetup'
+import FlowBuilder from '../onboard/FlowBuilder'
 
 /**
  * Top-level navigation shell: Clerk sign-in → Project picker → Song picker → Editor.
@@ -14,7 +15,7 @@ import ControllerSetup from '../onboard/ControllerSetup'
  * per-request at the Worker against KV membership records keyed by the verified email.
  */
 
-type View = 'projects' | 'home' | 'songs' | 'editor' | 'mapping' | 'onboard'
+type View = 'projects' | 'home' | 'songs' | 'editor' | 'mapping' | 'onboard' | 'flow'
 type PendingLoad = { slug: string; comp: string } | 'new' | null
 
 interface ShellState {
@@ -34,7 +35,7 @@ function loadShellState(): ShellState {
       const p = JSON.parse(raw) as Partial<ShellState>
       if (p && typeof p.view === 'string') {
         return {
-          view: ['editor', 'songs', 'mapping', 'home', 'onboard'].includes(p.view as string) ? (p.view as View) : 'projects',
+          view: ['editor', 'songs', 'mapping', 'home', 'onboard', 'flow'].includes(p.view as string) ? (p.view as View) : 'projects',
           projectId: typeof p.projectId === 'string' ? p.projectId : 'rings',
           projectName: typeof p.projectName === 'string' ? p.projectName : 'Rings',
           projectRole: p.projectRole === 'admin' || p.projectRole === 'member' ? p.projectRole : null,
@@ -114,6 +115,10 @@ function ShellInner() {
     return <ControllerSetup projectId={projectId} projectName={projectName} onBack={() => patch({ view: 'home' })} />
   }
 
+  if (view === 'flow') {
+    return <FlowBuilder projectId={projectId} projectName={projectName} onBack={() => patch({ view: 'home' })} />
+  }
+
   return (
     <div style={shell}>
       <div style={topbar}>
@@ -147,6 +152,7 @@ function ShellInner() {
           onCompose={() => patch({ view: 'songs' })}
           onMapping={() => patch({ view: 'mapping' })}
           onSetupControllers={() => patch({ view: 'onboard' })}
+          onFlow={() => patch({ view: 'flow' })}
           onBack={() => patch({ view: 'projects', pendingLoad: null })}
         />
       )}

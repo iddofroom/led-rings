@@ -15,6 +15,7 @@ import { initMqttTrigger, publishTrigger } from "./mqtt-trigger";
 import { initMqttThings, getThingsState } from "./mqtt-things";
 import { getThingConfig } from "./services/object";
 import * as mapping from "./mapping";
+import { initFlowEngine, applyFlow, getRules, getFlowState } from "./flow/engine";
 
 const PORT = parseInt(process.env.CONTROL_SERVER_PORT || "3080", 10);
 const ROOT = process.cwd();
@@ -431,6 +432,29 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
+  // ── Installation flow: RFID → action rules, run by the flow engine (src/flow/engine.ts) ──
+  if (req.method === "GET" && pathname === "/api/flow") {
+    send(res, 200, JSON.stringify({ rules: getRules(), ...getFlowState() }));
+    return;
+  }
+  if (req.method === "POST" && pathname === "/api/flow/apply") {
+    const body = await parseBody(req);
+    let payload: { rules?: unknown };
+    try {
+      payload = JSON.parse(body);
+    } catch {
+      send(res, 400, JSON.stringify({ error: "Invalid JSON" }));
+      return;
+    }
+    if (!Array.isArray(payload.rules)) {
+      send(res, 400, JSON.stringify({ error: "Missing rules[]" }));
+      return;
+    }
+    applyFlow(payload.rules as any);
+    send(res, 200, JSON.stringify({ ok: true, ruleCount: (payload.rules as any[]).length }));
+    return;
+  }
+
   // POST /api/mapping/finish {thing, action:'restore'|'publish', config?, simulate?}
   if (req.method === "POST" && pathname === "/api/mapping/finish") {
     const body = await parseBody(req);
@@ -763,6 +787,7 @@ server.on("clientError", (_err, socket) => { try { socket.destroy(); } catch {} 
 initMqttBrightness();
 initMqttTrigger();
 initMqttThings();
+initFlowEngine();
 
 server.listen(PORT, () => {
   console.log(`Control server listening on http://localhost:${PORT}`);

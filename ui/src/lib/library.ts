@@ -178,6 +178,29 @@ export interface Device {
   updatedAt?: number
 }
 
+/** One installation-flow rule: a physical input (RFID) → an action. */
+export interface FlowWhen {
+  /** RFID box id, e.g. "box1". Empty = any box. */
+  box?: string
+  /** RFID tag colour/value. Empty = any tag. */
+  color?: string
+}
+export interface FlowThen {
+  action: 'playSong' | 'trigger' | 'brightness' | 'stop'
+  song?: string
+  trigger?: string
+  brightness?: number
+}
+export interface FlowRule {
+  id: string
+  when: FlowWhen
+  then: FlowThen
+}
+export interface FlowBlob {
+  rules: FlowRule[]
+  updatedAt: number
+}
+
 function post(body: unknown): RequestInit {
   return { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }
 }
@@ -286,6 +309,12 @@ export const library = {
     call<{ ok: true; device: Device }>(scoped(`/api/library/device`, projectId), post(device)).then((d) => d.device),
   removeDevice: (thing: string, projectId: string = DEFAULT_PROJECT) =>
     call<{ ok: true }>(scoped(`/api/library/device/remove`, projectId), post({ thing })),
+
+  // ── Installation flow rules (RFID → action) ──
+  getFlow: (projectId: string = DEFAULT_PROJECT) =>
+    call<{ flow: FlowBlob | null }>(scoped(`/api/library/flow`, projectId)).then((d) => d.flow),
+  saveFlow: (rules: FlowRule[], projectId: string = DEFAULT_PROJECT) =>
+    call<{ ok: true; updatedAt: number }>(scoped(`/api/library/flow`, projectId), post({ rules })),
 }
 
 /** Reachable only if a library base is configured or we're served through the Worker. */

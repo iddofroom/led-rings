@@ -71,6 +71,10 @@ const mappingKey = (pid) => `${projectPrefix(pid)}mapping`;
 // and lists its LED output GPIO pins — NO led count (that's discovered by the camera mapping).
 const devicesKey = (pid) => `${projectPrefix(pid)}devices`;
 
+// Installation flow rules (one blob per project): map physical inputs (RFID scans) to actions
+// (play a song, fire a trigger, set brightness). Interpreted on the Pi by the flow engine.
+const flowKey = (pid) => `${projectPrefix(pid)}flow`;
+
 // Registry of non-default projects. "rings" is implicit/built-in and always listed first.
 const PROJECTS_INDEX = 'projects:index';
 
@@ -217,6 +221,9 @@ export async function handleLibrary(request, env, url, auth) {
     if (request.method === 'GET' && p === '/api/library/devices') return await getDevices(KV, pid);
     if (request.method === 'POST' && p === '/api/library/device') return await upsertDevice(KV, pid, request, email);
     if (request.method === 'POST' && p === '/api/library/device/remove') return await removeDevice(KV, pid, request);
+
+    if (request.method === 'GET' && p === '/api/library/flow') return await getFlow(KV, pid);
+    if (request.method === 'POST' && p === '/api/library/flow') return await saveFlow(KV, pid, request);
 
     if (request.method === 'GET' && p === '/api/library/versions') return await listVersions(KV, pid, url.searchParams.get('slug'));
     if (request.method === 'GET' && p === '/api/library/version')
@@ -486,6 +493,25 @@ async function removeDevice(KV, pid, request) {
   const now = Date.now();
   await KV.put(devicesKey(pid), JSON.stringify({ devices: next, updatedAt: now }), { metadata: { count: next.length, updatedAt: now } });
   return json({ ok: true });
+}
+
+// ── Installation flow rules ───────────────────────────────────────────────────
+// Blob per project: { rules:[ { id, when:{box?,color?}, then:{action, song?, trigger?, brightness?} } ], updatedAt }.
+async function getFlow(KV, pid) {
+  const v = await KV.get(flowKey(pid), 'json');
+  return json({ flow: v ?? null });
+}
+
+async function saveFlow(KV, pid, request) {
+  const body = await readJson(request);
+  if (!body) return err('Invalid JSON');
+  if (!Array.isArray(body.rules)) return err('Missing rules[]');
+  const now = Date.now();
+  const blob = { rules: body.rules, updatedAt: now };
+  const str = JSON.stringify(blob);
+  if (str.length > MAX_JSON_BYTES) return err('Flow too large', 413);
+  await KV.put(flowKey(pid), str, { metadata: { updatedAt: now, ruleCount: body.rules.length } });
+  return json({ ok: true, updatedAt: now });
 }
 
 // ── Version history (git-like) ───────────────────────────────────────────────
