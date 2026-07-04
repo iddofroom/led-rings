@@ -1,14 +1,14 @@
 import React, { useEffect, useState } from 'react'
+import { SignedIn, SignedOut, SignIn, UserButton, useAuth, useUser } from '@clerk/clerk-react'
 import App from '../App'
 import { library } from '../lib/library'
 import ProjectPicker from './ProjectPicker'
 import SongPicker from './SongPicker'
 
 /**
- * Top-level navigation shell wrapping the editor: Login (enforced at the Worker) →
- * Project picker → Song picker → Editor. The whole leds subdomain is already behind a Google
- * sign-in (the front-door Worker), so reaching this code means the user is authenticated; the
- * shell just shows who's logged in and lets them pick an installation + song before editing.
+ * Top-level navigation shell: Clerk sign-in → Project picker → Song picker → Editor.
+ * Auth (identity) is Clerk; authorization (which projects you see, admin vs member) is enforced
+ * per-request at the Worker against KV membership records keyed by the verified email.
  */
 
 type View = 'projects' | 'songs' | 'editor'
@@ -18,6 +18,7 @@ interface ShellState {
   view: View
   projectId: string
   projectName: string
+  projectRole: 'admin' | 'member' | null
   pendingLoad: PendingLoad
 }
 
@@ -33,44 +34,55 @@ function loadShellState(): ShellState {
           view: p.view === 'editor' || p.view === 'songs' ? p.view : 'projects',
           projectId: typeof p.projectId === 'string' ? p.projectId : 'rings',
           projectName: typeof p.projectName === 'string' ? p.projectName : 'Rings',
+          projectRole: p.projectRole === 'admin' || p.projectRole === 'member' ? p.projectRole : null,
           pendingLoad: (p.pendingLoad as PendingLoad) ?? null,
         }
       }
     }
   } catch {}
-  return { view: 'projects', projectId: 'rings', projectName: 'Rings', pendingLoad: null }
+  return { view: 'projects', projectId: 'rings', projectName: 'Rings', projectRole: null, pendingLoad: null }
 }
 
 export default function RootShell() {
+  return (
+    <>
+      <SignedOut>
+        <div style={signInWrap}>
+          <SignIn routing="hash" />
+        </div>
+      </SignedOut>
+      <SignedIn>
+        <ShellInner />
+      </SignedIn>
+    </>
+  )
+}
+
+function ShellInner() {
+  const { getToken } = useAuth()
+  const { user } = useUser()
+  const email = user?.primaryEmailAddress?.emailAddress ?? null
+
+  // Wire the Clerk session token into the library client BEFORE the pickers' data effects fire
+  // (child effects run before parent effects, so set it during render, not in a useEffect).
+  library.setTokenGetter(() => getToken())
+
   const [state, setState] = useState<ShellState>(loadShellState)
   // Bumped on every "open song" so the keyed <App> remounts fresh and runs its initial-load.
   const [editorNonce, setEditorNonce] = useState(0)
-  const [email, setEmail] = useState<string | null>(null)
 
-  const { view, projectId, projectName, pendingLoad } = state
+  const { view, projectId, projectName, projectRole, pendingLoad } = state
   const patch = (p: Partial<ShellState>) => setState((s) => ({ ...s, ...p }))
 
   useEffect(() => {
     try { localStorage.setItem(SHELL_KEY, JSON.stringify(state)) } catch {}
   }, [state])
 
-  // Who's logged in (best-effort; same-origin in prod, may CORS-fail in local dev → null).
-  useEffect(() => {
-    let cancelled = false
-    ;(async () => {
-      try {
-        const r = await fetch(`${library.base}/auth/me`, { credentials: 'include' })
-        if (!r.ok) return
-        const j = await r.json()
-        if (!cancelled && j && j.email) setEmail(j.email)
-      } catch {}
-    })()
-    return () => { cancelled = true }
-  }, [])
+  // Detach the token supplier on unmount (e.g. after sign-out) so no stale getToken lingers.
+  useEffect(() => () => { library.setTokenGetter(null) }, [])
 
-  // Clear pendingLoad when changing installations so the persisted shell state never carries a
-  // song slug from a different project than projectId.
-  const openProject = (id: string, name: string) => patch({ projectId: id, projectName: name, view: 'songs', pendingLoad: null })
+  const openProject = (id: string, name: string, role: 'admin' | 'member' | null) =>
+    patch({ projectId: id, projectName: name, projectRole: role, view: 'songs', pendingLoad: null })
   const openSong = (slug: string, comp: string) => {
     setEditorNonce((n) => n + 1)
     patch({ pendingLoad: { slug, comp }, view: 'editor' })
@@ -97,7 +109,7 @@ export default function RootShell() {
         <span style={{ fontWeight: 700, letterSpacing: '0.02em' }}>🎛️ LED Studio</span>
         <span style={{ flex: 1 }} />
         {email && <span style={{ color: '#9aa7bd', fontSize: 13 }}>{email}</span>}
-        <a href={`${library.base}/auth/logout`} style={logoutLink}>Logout</a>
+        <UserButton afterSignOutUrl="/" />
       </div>
       {view === 'projects' ? (
         <ProjectPicker onOpen={openProject} />
@@ -105,6 +117,7 @@ export default function RootShell() {
         <SongPicker
           projectId={projectId}
           projectName={projectName}
+          projectRole={projectRole}
           onOpenSong={openSong}
           onNewSong={newSong}
           onBack={() => patch({ view: 'projects', pendingLoad: null })}
@@ -116,4 +129,4 @@ export default function RootShell() {
 
 const shell: React.CSSProperties = { minHeight: '100vh', background: '#0f1218', color: '#e8eaed', display: 'flex', flexDirection: 'column' }
 const topbar: React.CSSProperties = { display: 'flex', alignItems: 'center', gap: 12, padding: '12px 20px', borderBottom: '1px solid #1e232c', background: '#12161d' }
-const logoutLink: React.CSSProperties = { color: '#9aa7bd', fontSize: 13, textDecoration: 'none', border: '1px solid #2a303b', borderRadius: 6, padding: '4px 12px' }
+const signInWrap: React.CSSProperties = { minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#0f1218', padding: 24 }

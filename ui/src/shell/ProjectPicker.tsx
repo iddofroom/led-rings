@@ -9,7 +9,7 @@ import { library, type LibraryProject } from '../lib/library'
  */
 
 interface Props {
-  onOpen: (id: string, name: string) => void
+  onOpen: (id: string, name: string, role: 'admin' | 'member' | null) => void
 }
 
 const icon = (p: LibraryProject) => (p.builtin ? '💍' : '🎨')
@@ -41,7 +41,7 @@ export default function ProjectPicker({ onOpen }: Props) {
     try {
       const p = await library.createProject(name.trim())
       await refresh()
-      onOpen(p.id, p.name)
+      onOpen(p.id, p.name, p.role ?? 'admin')
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e))
     } finally {
@@ -62,10 +62,10 @@ export default function ProjectPicker({ onOpen }: Props) {
         ) : (
           <div style={grid}>
             {projects.map((p) => (
-              <button key={p.id} style={card} onClick={() => onOpen(p.id, p.name)} disabled={busy}>
+              <button key={p.id} style={card} onClick={() => onOpen(p.id, p.name, p.role ?? null)} disabled={busy}>
                 <span style={{ fontSize: 40 }}>{icon(p)}</span>
                 <span style={{ fontWeight: 700, fontSize: 18 }}>{p.name}</span>
-                <span style={{ color: '#8a93a3', fontSize: 12 }}>{p.builtin ? 'Built-in' : 'Installation'}</span>
+                {p.role && <span style={{ ...roleBadge, ...(p.role === 'admin' ? adminBadge : {}) }}>{p.role}</span>}
               </button>
             ))}
             <button style={{ ...card, ...addCard }} onClick={createProject} disabled={busy}>
@@ -87,4 +87,6 @@ const card: React.CSSProperties = {
   cursor: 'pointer', padding: 20, transition: 'border-color .15s, transform .05s',
 }
 const addCard: React.CSSProperties = { background: 'transparent', borderStyle: 'dashed', color: '#9aa7bd' }
+const roleBadge: React.CSSProperties = { fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em', color: '#9aa7bd', background: '#2a303b', borderRadius: 4, padding: '1px 7px' }
+const adminBadge: React.CSSProperties = { color: '#04150f', background: '#34d399' }
 const errorBox: React.CSSProperties = { background: '#c0222a', color: '#fff', padding: 10, borderRadius: 8, marginBottom: 16, fontSize: 13 }

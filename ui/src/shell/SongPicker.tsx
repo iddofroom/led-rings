@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { library, fileToBase64, type LibrarySongSummary } from '../lib/library'
+import MembersPanel from './MembersPanel'
 
 /**
  * Second screen: pick a song within the chosen installation (or start a new one). Scoped to
@@ -10,6 +11,8 @@ import { library, fileToBase64, type LibrarySongSummary } from '../lib/library'
 interface Props {
   projectId: string
   projectName: string
+  /** The caller's role in this project (admins can manage members). */
+  projectRole: 'admin' | 'member' | null
   /** Open a song: comp = 'working' | 'fresh' | an animation slug. */
   onOpenSong: (slug: string, comp: string) => void
   /** Start a brand-new blank song (no library entry yet). */
@@ -31,12 +34,13 @@ const methodBadge: Record<string, { label: string; bg: string }> = {
   manual: { label: 'manual', bg: '#4b5563' },
 }
 
-export default function SongPicker({ projectId, projectName, onOpenSong, onNewSong, onBack }: Props) {
+export default function SongPicker({ projectId, projectName, projectRole, onOpenSong, onNewSong, onBack }: Props) {
   const [songs, setSongs] = useState<LibrarySongSummary[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState<string | null>(null)
   const [expanded, setExpanded] = useState<Record<string, boolean>>({})
+  const [showMembers, setShowMembers] = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
 
   const refresh = useCallback(async () => {
@@ -102,6 +106,7 @@ export default function SongPicker({ projectId, projectName, onOpenSong, onNewSo
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 4 }}>
           <button onClick={onBack} style={backBtn}>← Installations</button>
           <h1 style={{ fontSize: 24, margin: 0, flex: 1 }}>{projectName}</h1>
+          {projectRole === 'admin' && <button onClick={() => setShowMembers(true)} style={secondaryBtn}>👥 Members</button>}
           <button onClick={() => fileRef.current?.click()} style={secondaryBtn}>⬆ Upload MP3</button>
           <button onClick={onNewSong} style={primaryBtn}>＋ New song</button>
         </div>
@@ -178,6 +183,9 @@ export default function SongPicker({ projectId, projectName, onOpenSong, onNewSo
           </div>
         )}
       </div>
+      {showMembers && (
+        <MembersPanel projectId={projectId} projectName={projectName} onClose={() => setShowMembers(false)} />
+      )}
     </div>
   )
 }

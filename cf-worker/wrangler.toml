@@ -3,14 +3,15 @@ main = "worker.js"
 compatibility_date = "2024-11-01"
 workers_dev = false
 
-# Auth gate (auth.js) — set these as SECRETS, never here (this repo is PUBLIC):
-#   wrangler secret put GOOGLE_CLIENT_ID       # OAuth 2.0 Web client id
-#   wrangler secret put GOOGLE_CLIENT_SECRET   # OAuth 2.0 Web client secret
-#   wrangler secret put SESSION_SECRET         # random string (HMAC key for session cookies)
-#   wrangler secret put ALLOWED_EMAILS         # comma-separated allowlist, e.g. a@x.com,b@y.com
-#   wrangler secret put LIBRARY_API_KEY        # random key; lets local dev reach /api/library/* w/o a cookie
-# Google Cloud OAuth client: authorized redirect URI https://leds.iddofroom.co.il/auth/callback,
-# JS origin https://leds.iddofroom.co.il. Deploy the Worker AFTER the secrets are set (fail-closed).
+# Auth = Clerk (auth.js verifies the Clerk session JWT via the instance JWKS). Set these as
+# SECRETS, never here (this repo is PUBLIC):
+#   wrangler secret put CLERK_ISSUER      # instance Frontend API URL = the JWT `iss`, e.g.
+#                                         #   https://<slug>.clerk.accounts.dev  (JWKS at $ISSUER/.well-known/jwks.json)
+#   wrangler secret put OWNER_EMAIL       # bootstrap owner, admin of the built-in "rings" project (iddofroom@gmail.com)
+#   wrangler secret put LIBRARY_API_KEY   # random key; local-dev superuser bypass for /api/library/*
+# One-time in the Clerk dashboard: Sessions → customize the session token to include
+#   "email": "{{user.primary_email_address}}"  (the Worker reads email from the verified JWT).
+# The publishable key lives in the UI build env (VITE_CLERK_PUBLISHABLE_KEY), not here.
 
 [[routes]]
 pattern = "leds.iddofroom.co.il/*"

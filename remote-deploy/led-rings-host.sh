@@ -218,7 +218,14 @@ ensure_swap_for_build() {
 # ---- Build the UI against the public URL (when missing, when the URL changed, or after an update) ----
 # You can skip building on the Pi entirely by shipping a prebuilt ui/dist from a beefier machine
 # and creating ui/.prebuilt — then the Pi just serves it. See FRIEND-SETUP.md ("Build on your PC").
-printf 'VITE_API_URL=%s\n' "$PUBLIC_URL" > ui/.env
+# The UI needs the Clerk publishable key at build time (public, but configured per-deploy). Pull
+# it from the untracked secrets file (or the environment) and write it alongside VITE_API_URL.
+[ -f "$BASE/.led-rings-secrets" ] && . "$BASE/.led-rings-secrets"
+{
+  printf 'VITE_API_URL=%s\n' "$PUBLIC_URL"
+  [ -n "${VITE_CLERK_PUBLISHABLE_KEY:-}" ] && printf 'VITE_CLERK_PUBLISHABLE_KEY=%s\n' "$VITE_CLERK_PUBLISHABLE_KEY"
+} > ui/.env
+[ -z "${VITE_CLERK_PUBLISHABLE_KEY:-}" ] && warn "VITE_CLERK_PUBLISHABLE_KEY not set (add it to .led-rings-secrets) — the app will show 'Auth not configured'."
 if [ -f ui/.prebuilt ] && [ -f ui/dist/index.html ]; then
   info "Using prebuilt UI (ui/.prebuilt present) — skipping the on-Pi build."
 elif [ "$CODE_CHANGED" -eq 1 ] \

@@ -78,6 +78,42 @@ function normProject(p) {
   return s || 'rings';
 }
 
+// ── Per-project membership (roles) ────────────────────────────────────────────
+// `project:<id>:members` → { "<email-lc>": { role:'admin'|'member', addedAt, addedBy } }.
+// Separate from the song data keys; authorization is by the caller's verified email.
+const membersKey = (pid) => `project:${pid}:members`;
+
+async function readMembers(KV, pid) {
+  try {
+    const raw = await KV.get(membersKey(pid), 'json');
+    return raw && typeof raw === 'object' ? raw : {};
+  } catch {
+    return {}; // corrupt/non-JSON members blob → treat as empty (fail closed, no crash)
+  }
+}
+function writeMembers(KV, pid, members) {
+  return KV.put(membersKey(pid), JSON.stringify(members));
+}
+
+/**
+ * The caller's role in a project: 'admin' | 'member' | null. The built-in "rings" project is
+ * owned by OWNER_EMAIL, seeded as its admin on first access so the owner always retains control.
+ * Exported for the Worker's LED-control gate.
+ */
+export async function roleOf(KV, pidRaw, email, ownerEmail) {
+  if (!KV || !email) return null;
+  const pid = normProject(pidRaw);
+  const members = await readMembers(KV, pid);
+  const m = members[email];
+  if (m && (m.role === 'admin' || m.role === 'member')) return m.role;
+  if (pid === 'rings' && ownerEmail && email === ownerEmail && !members[email]) {
+    members[email] = { role: 'admin', addedAt: Date.now(), addedBy: 'system' };
+    try { await writeMembers(KV, pid, members); } catch {}
+    return 'admin';
+  }
+  return null;
+}
+
 async function readJson(request) {
   try {
     return await request.json();
@@ -108,7 +144,7 @@ function base64ToBytes(b64) {
   return bytes;
 }
 
-export async function handleLibrary(request, env, url) {
+export async function handleLibrary(request, env, url, auth) {
   const p = url.pathname;
   if (!p.startsWith('/api/library')) return null;
   if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: CORS });
@@ -118,11 +154,35 @@ export async function handleLibrary(request, env, url) {
 
   // Which installation/project this request targets (defaults to the built-in "rings").
   const pid = normProject(url.searchParams.get('project'));
+  const isPost = request.method === 'POST';
+
+  // ── Authorization ──
+  // The local-dev library key is a superuser and skips membership. Otherwise a verified email is
+  // required, and every project-scoped route needs membership in `pid` (admin for member mgmt).
+  const a = auth || {};
+  const email = a.email || '';
+  const ownerEmail = a.ownerEmail || '';
+  const superuser = !!a.isSuperuser;
+  if (!superuser) {
+    if (!email) return err('Unauthorized', 401);
+    const selfScoped = p === '/api/library/projects' || (p === '/api/library/project' && isPost);
+    if (!selfScoped) {
+      const role = await roleOf(KV, pid, email, ownerEmail);
+      if (!role) return err('Not a member of this project', 403);
+      const adminOnly = p === '/api/library/member' || p === '/api/library/member/remove';
+      if (adminOnly && role !== 'admin') return err('Admin only', 403);
+    }
+  }
 
   try {
-    // Project registry (installations). List always includes the built-in "rings" first.
-    if (request.method === 'GET' && p === '/api/library/projects') return await listProjects(KV);
-    if (request.method === 'POST' && p === '/api/library/project') return await createProject(KV, request);
+    // Project registry — the list is user-scoped; creating one makes the caller its admin.
+    if (request.method === 'GET' && p === '/api/library/projects') return await listProjects(KV, email, ownerEmail, superuser);
+    if (isPost && p === '/api/library/project') return await createProject(KV, request, email);
+
+    // Per-project membership management.
+    if (request.method === 'GET' && p === '/api/library/members') return await listMembersRoute(KV, pid);
+    if (isPost && p === '/api/library/member') return await addMemberRoute(KV, pid, request, email);
+    if (isPost && p === '/api/library/member/remove') return await removeMemberRoute(KV, pid, request);
 
     if (request.method === 'GET' && p === '/api/library/songs') return await listSongs(KV, pid);
     if (request.method === 'GET' && p === '/api/library/song') return await getSong(KV, pid, url.searchParams.get('slug'));
@@ -239,7 +299,9 @@ async function getAudio(KV, pid, slugRaw, headOnly) {
       'Content-Type': ct,
       'Content-Length': String(value.byteLength),
       'Accept-Ranges': 'bytes',
-      'Cache-Control': 'public, max-age=3600',
+      // Access-controlled per project — must NOT be shared/edge-cacheable, or a cached URL could
+      // serve one project's audio to a non-member. `private` = the user's own browser only.
+      'Cache-Control': 'private, max-age=3600',
       'Access-Control-Allow-Origin': '*',
     },
   });
@@ -430,13 +492,22 @@ async function readProjectsIndex(KV) {
   return Array.isArray(raw) ? raw : [];
 }
 
-async function listProjects(KV) {
+// User-scoped: return only projects the caller is a member of (rings included via the owner
+// bootstrap), each annotated with their role. The local-dev superuser sees all, unannotated.
+async function listProjects(KV, email, ownerEmail, superuser) {
   const extra = (await readProjectsIndex(KV)).filter((p) => p && p.id && p.id !== 'rings');
-  extra.sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
-  return json({ projects: [BUILTIN_RINGS, ...extra] });
+  const all = [BUILTIN_RINGS, ...extra];
+  const out = [];
+  for (const proj of all) {
+    if (superuser) { out.push({ ...proj }); continue; }
+    const role = await roleOf(KV, proj.id, email, ownerEmail);
+    if (role) out.push({ ...proj, role });
+  }
+  out.sort((a, b) => (a.builtin ? -1 : b.builtin ? 1 : (a.createdAt || 0) - (b.createdAt || 0)));
+  return json({ projects: out });
 }
 
-async function createProject(KV, request) {
+async function createProject(KV, request, email) {
   const body = await readJson(request);
   if (!body) return err('Invalid JSON');
   const name = String(body.name || '').trim();
@@ -446,8 +517,52 @@ async function createProject(KV, request) {
 
   const list = await readProjectsIndex(KV);
   if (list.some((p) => p && p.id === id)) return err('A project with that id already exists', 409);
-  const project = { id, name, createdAt: Date.now() };
+  const project = { id, name, createdAt: Date.now(), createdBy: email || 'unknown' };
   list.push(project);
-  await KV.put(PROJECTS_INDEX, JSON.stringify(list));
-  return json({ ok: true, project });
+  // The creator becomes the project's first admin.
+  const members = {};
+  if (email) members[email] = { role: 'admin', addedAt: Date.now(), addedBy: 'system' };
+  await Promise.all([KV.put(PROJECTS_INDEX, JSON.stringify(list)), writeMembers(KV, id, members)]);
+  return json({ ok: true, project: { ...project, role: 'admin' } });
+}
+
+// ── Membership routes (authorization already enforced in handleLibrary) ────────
+async function listMembersRoute(KV, pid) {
+  const members = await readMembers(KV, pid);
+  const arr = Object.entries(members).map(([email, m]) => ({ email, role: m.role, addedAt: m.addedAt, addedBy: m.addedBy }));
+  arr.sort((x, y) => (x.addedAt || 0) - (y.addedAt || 0));
+  return json({ members: arr });
+}
+
+async function addMemberRoute(KV, pid, request, actorEmail) {
+  const body = await readJson(request);
+  if (!body) return err('Invalid JSON');
+  const email = String(body.email || '').trim().toLowerCase();
+  if (!email || !email.includes('@')) return err('Valid email required');
+  const role = body.role === 'admin' ? 'admin' : 'member';
+  const members = await readMembers(KV, pid);
+  const existing = members[email];
+  // Demoting the last admin would orphan the project (member management is admin-only) — refuse.
+  if (existing && existing.role === 'admin' && role !== 'admin') {
+    const admins = Object.values(members).filter((m) => m.role === 'admin');
+    if (admins.length <= 1) return err('Cannot demote the last admin', 409);
+  }
+  members[email] = { role, addedAt: (existing && existing.addedAt) || Date.now(), addedBy: (existing && existing.addedBy) || actorEmail || 'unknown' };
+  await writeMembers(KV, pid, members);
+  return json({ ok: true, email, role });
+}
+
+async function removeMemberRoute(KV, pid, request) {
+  const body = await readJson(request);
+  if (!body) return err('Invalid JSON');
+  const email = String(body.email || '').trim().toLowerCase();
+  if (!email) return err('Missing email');
+  const members = await readMembers(KV, pid);
+  if (!members[email]) return json({ ok: true }); // already gone
+  // Never remove the last admin — it would orphan the project.
+  const admins = Object.values(members).filter((m) => m.role === 'admin');
+  if (members[email].role === 'admin' && admins.length <= 1) return err('Cannot remove the last admin', 409);
+  delete members[email];
+  await writeMembers(KV, pid, members);
+  return json({ ok: true });
 }

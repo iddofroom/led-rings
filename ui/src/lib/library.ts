@@ -32,6 +32,16 @@ export interface LibraryProject {
   name: string
   builtin?: boolean
   createdAt?: number
+  createdBy?: string
+  /** The calling user's role in this project (from the Worker). */
+  role?: 'admin' | 'member'
+}
+
+export interface LibraryMember {
+  email: string
+  role: 'admin' | 'member'
+  addedAt?: number
+  addedBy?: string
 }
 
 export interface LibraryCompSummary {
@@ -132,14 +142,26 @@ function post(body: unknown): RequestInit {
   return { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }
 }
 
-/** Merge the library-key header (local dev only) into a request's headers. */
-function withKey(init?: RequestInit): RequestInit | undefined {
-  if (!LIBRARY_KEY) return init
-  return { ...(init || {}), headers: { ...(init?.headers as Record<string, string> | undefined), 'X-Library-Key': LIBRARY_KEY } }
+/** Supplies the current Clerk session token (wired by the shell). The Worker verifies it and
+ *  derives the user's email for authorization. Same-origin requests also carry Clerk's session
+ *  cookie automatically, which covers <audio>/media that can't set headers. */
+let tokenGetter: (() => Promise<string | null>) | null = null
+
+/** Build request init with the auth headers: X-Library-Key (local dev) + Bearer (Clerk). */
+async function authInit(init?: RequestInit): Promise<RequestInit> {
+  const headers: Record<string, string> = { ...(init?.headers as Record<string, string> | undefined) }
+  if (LIBRARY_KEY) headers['X-Library-Key'] = LIBRARY_KEY
+  if (tokenGetter) {
+    try {
+      const t = await tokenGetter()
+      if (t) headers['Authorization'] = `Bearer ${t}`
+    } catch {}
+  }
+  return { ...(init || {}), headers }
 }
 
 async function call<T>(path: string, init?: RequestInit): Promise<T> {
-  const r = await fetch(`${LIBRARY_BASE}${path}`, withKey(init))
+  const r = await fetch(`${LIBRARY_BASE}${path}`, await authInit(init))
   if (!r.ok) {
     const j = await r.json().catch(() => ({}))
     throw new Error((j as any).error || `${path} failed (${r.status})`)
@@ -160,12 +182,22 @@ export async function fileToBase64(file: Blob): Promise<string> {
 
 export const library = {
   base: LIBRARY_BASE,
+  /** Wire a Clerk session-token supplier so authenticated calls carry a Bearer token. */
+  setTokenGetter: (fn: (() => Promise<string | null>) | null) => { tokenGetter = fn },
   audioUrl: (slug: string, projectId: string = DEFAULT_PROJECT) =>
     `${LIBRARY_BASE}${scoped(`/api/library/audio?slug=${encodeURIComponent(slug)}`, projectId)}`,
 
   // ── Projects (installations) ──
   listProjects: () => call<{ projects: LibraryProject[] }>(`/api/library/projects`).then((d) => d.projects || []),
   createProject: (name: string) => call<{ ok: true; project: LibraryProject }>(`/api/library/project`, post({ name })).then((d) => d.project),
+
+  // ── Membership (per-project roles) ──
+  listMembers: (projectId: string) =>
+    call<{ members: LibraryMember[] }>(scoped(`/api/library/members`, projectId)).then((d) => d.members || []),
+  addMember: (email: string, role: 'admin' | 'member', projectId: string) =>
+    call<{ ok: true }>(scoped(`/api/library/member`, projectId), post({ email, role })),
+  removeMember: (email: string, projectId: string) =>
+    call<{ ok: true }>(scoped(`/api/library/member/remove`, projectId), post({ email })),
 
   listSongs: (projectId: string = DEFAULT_PROJECT) =>
     call<{ songs: LibrarySongSummary[] }>(scoped(`/api/library/songs`, projectId)).then((d) => d.songs || []),

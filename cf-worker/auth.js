@@ -1,56 +1,30 @@
-// Google OAuth gate for leds.iddofroom.co.il — built into the front-door Worker.
+// Clerk auth for the front-door Worker.
 //
-// The whole subdomain sits behind a Google sign-in restricted to an email allowlist.
-// Sessions are stateless: a signed (HMAC-SHA256) cookie carrying { email, exp }. No KV,
-// no external session store. The OAuth endpoints live under /auth/* and are the only
-// routes served BEFORE the auth check (see worker.js).
+// The app authenticates with Clerk (the shared iddofroom.co.il instance). The Worker verifies
+// the Clerk session JWT — from the `__session` cookie or an `Authorization: Bearer` header —
+// against the instance's public JWKS, and reads the user's verified `email` for authorization.
+// Per-project membership/roles live in cf-worker/library.js. No Clerk SECRET key is needed
+// (JWKS is public); the `email` claim must be added to the instance session token (dashboard).
 //
-// Config (all via `wrangler secret put`, never committed — this repo is PUBLIC):
-//   GOOGLE_CLIENT_ID      OAuth 2.0 Web client id
-//   GOOGLE_CLIENT_SECRET  OAuth 2.0 Web client secret
-//   SESSION_SECRET        random string, HMAC key for the session + state cookies
-//   ALLOWED_EMAILS        comma-separated allowlist (case-insensitive)
-//   LIBRARY_API_KEY       shared key that lets local dev reach /api/library/* w/o a cookie
+// Config (Worker vars/secrets — never in git, repo is PUBLIC):
+//   CLERK_ISSUER     instance Frontend API URL = the JWT `iss`, e.g. https://xxx.clerk.accounts.dev
+//                    (JWKS at ${CLERK_ISSUER}/.well-known/jwks.json)
+//   LIBRARY_API_KEY  shared key letting local dev reach /api/library/* without a Clerk session
 
-const SESSION_COOKIE = 'leds_session';
-const STATE_COOKIE = 'leds_oauth_state';
-const SESSION_TTL_SEC = 30 * 24 * 60 * 60; // 30 days
-const STATE_TTL_SEC = 10 * 60; // 10 minutes
-
-const GOOGLE_AUTH = 'https://accounts.google.com/o/oauth2/v2/auth';
-const GOOGLE_TOKEN = 'https://oauth2.googleapis.com/token';
-
-// ── base64url helpers ─────────────────────────────────────────────────────────
-function bytesToB64url(bytes) {
-  let bin = '';
-  for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
-  return btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
-}
-function strToB64url(str) {
-  return bytesToB64url(new TextEncoder().encode(str));
-}
-function b64urlToStr(s) {
+// ── base64url ───────────────────────────────────────────────────────────────
+function b64urlToBytes(s) {
   const pad = s.length % 4 === 0 ? '' : '='.repeat(4 - (s.length % 4));
   const b64 = s.replace(/-/g, '+').replace(/_/g, '/') + pad;
   const bin = atob(b64);
   const bytes = new Uint8Array(bin.length);
   for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
-  return new TextDecoder().decode(bytes);
+  return bytes;
+}
+function b64urlToStr(s) {
+  return new TextDecoder().decode(b64urlToBytes(s));
 }
 
-// ── HMAC signing ──────────────────────────────────────────────────────────────
-async function hmacSign(secret, data) {
-  const key = await crypto.subtle.importKey(
-    'raw',
-    new TextEncoder().encode(secret),
-    { name: 'HMAC', hash: 'SHA-256' },
-    false,
-    ['sign'],
-  );
-  const sig = await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(data));
-  return bytesToB64url(new Uint8Array(sig));
-}
-// Constant-time-ish string compare (avoids early-exit timing leak on the signature).
+// Constant-time-ish compare (avoids early-exit timing leak on the library key).
 function safeEqual(a, b) {
   if (typeof a !== 'string' || typeof b !== 'string' || a.length !== b.length) return false;
   let diff = 0;
@@ -58,34 +32,6 @@ function safeEqual(a, b) {
   return diff === 0;
 }
 
-/** Build a signed token `<b64url(payloadJson)>.<b64url(hmac)>`. */
-async function signToken(secret, payload) {
-  const body = strToB64url(JSON.stringify(payload));
-  const sig = await hmacSign(secret, body);
-  return `${body}.${sig}`;
-}
-/** Verify a signed token; returns the payload object or null (bad sig / expired / malformed). */
-async function verifyToken(secret, token) {
-  if (!token || typeof token !== 'string') return null;
-  const dot = token.lastIndexOf('.');
-  if (dot < 0) return null;
-  const body = token.slice(0, dot);
-  const sig = token.slice(dot + 1);
-  const expected = await hmacSign(secret, body);
-  if (!safeEqual(sig, expected)) return null;
-  let payload;
-  try {
-    payload = JSON.parse(b64urlToStr(body));
-  } catch {
-    return null;
-  }
-  // Require a numeric, unexpired exp: a signed token missing/with a non-numeric exp is rejected
-  // (never treated as valid forever), even if the signing code ever changes.
-  if (!payload || typeof payload.exp !== 'number' || Date.now() / 1000 > payload.exp) return null;
-  return payload;
-}
-
-// ── cookies ───────────────────────────────────────────────────────────────────
 function parseCookies(request) {
   const out = {};
   const raw = request.headers.get('Cookie') || '';
@@ -98,53 +44,98 @@ function parseCookies(request) {
   }
   return out;
 }
-function setCookie(name, value, maxAgeSec) {
-  const parts = [
-    `${name}=${encodeURIComponent(value)}`,
-    'Path=/',
-    'HttpOnly',
-    'Secure',
-    'SameSite=Lax',
-    `Max-Age=${maxAgeSec}`,
-  ];
-  return parts.join('; ');
+
+// ── JWKS (cached per Worker isolate; refreshed on TTL or a kid miss) ───────────
+let _jwks = { iss: null, keys: null, at: 0 };
+const JWKS_TTL_MS = 60 * 60 * 1000;
+
+async function getJwks(issuer, force) {
+  const now = Date.now();
+  if (!force && _jwks.keys && _jwks.iss === issuer && now - _jwks.at < JWKS_TTL_MS) return _jwks.keys;
+  const resp = await fetch(`${issuer}/.well-known/jwks.json`, { cf: { cacheTtl: 3600 } });
+  if (!resp.ok) throw new Error('JWKS fetch failed: ' + resp.status);
+  const data = await resp.json();
+  const keys = (data && data.keys) || [];
+  // Don't clobber a good cache with an empty/degraded response (transient origin issue).
+  if (keys.length || !_jwks.keys) _jwks = { iss: issuer, keys, at: now };
+  return _jwks.keys;
 }
 
-function html(body, status = 200) {
-  return new Response(body, {
-    status,
-    headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' },
-  });
+async function importRsaKey(jwk) {
+  return crypto.subtle.importKey('jwk', jwk, { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' }, false, ['verify']);
 }
 
-function allowedSet(env) {
-  return new Set(
-    String((env && env.ALLOWED_EMAILS) || '')
-      .split(',')
-      .map((e) => e.trim().toLowerCase())
-      .filter(Boolean),
-  );
+/** Verify a Clerk RS256 JWT against the instance JWKS. Returns the payload, or null. */
+async function verifyJwt(token, issuer) {
+  if (!token || typeof token !== 'string') return null;
+  const parts = token.split('.');
+  if (parts.length !== 3) return null;
+  let header, payload;
+  try {
+    header = JSON.parse(b64urlToStr(parts[0]));
+    payload = JSON.parse(b64urlToStr(parts[1]));
+  } catch {
+    return null;
+  }
+  if (header.alg !== 'RS256' || !header.kid) return null;
+
+  let keys;
+  try {
+    keys = await getJwks(issuer, false);
+  } catch {
+    return null;
+  }
+  let jwk = keys.find((k) => k.kid === header.kid);
+  if (!jwk) {
+    // Signing key rotated — force one refresh before giving up.
+    try {
+      keys = await getJwks(issuer, true);
+    } catch {
+      return null;
+    }
+    jwk = keys.find((k) => k.kid === header.kid);
+  }
+  if (!jwk) return null;
+
+  let ok = false;
+  try {
+    const key = await importRsaKey(jwk);
+    const data = new TextEncoder().encode(`${parts[0]}.${parts[1]}`);
+    ok = await crypto.subtle.verify('RSASSA-PKCS1-v1_5', key, b64urlToBytes(parts[2]), data);
+  } catch {
+    return null;
+  }
+  if (!ok) return null;
+
+  const now = Math.floor(Date.now() / 1000);
+  // Fail closed: require a numeric, unexpired exp and an issuer that matches exactly.
+  if (typeof payload.exp !== 'number' || now > payload.exp) return null;
+  if (typeof payload.nbf === 'number' && now + 5 < payload.nbf) return null;
+  if (payload.iss !== issuer) return null;
+  return payload;
 }
 
 /**
- * Read + verify the session cookie. Returns { email } for a valid, unexpired, allowlisted
- * session, else null. (Re-checks the allowlist on every request so revoking access is
- * immediate — remove the email from ALLOWED_EMAILS and the next request is rejected.)
+ * Verify the caller's Clerk session (Bearer header or __session cookie). Returns { email, sub }
+ * on success, else null. `email` requires the instance session token to include the email claim.
  */
-export async function requireAuth(request, env) {
-  const secret = env && env.SESSION_SECRET;
-  if (!secret) return null;
-  const token = parseCookies(request)[SESSION_COOKIE];
-  const payload = await verifyToken(secret, token);
-  if (!payload || !payload.email) return null;
-  if (!allowedSet(env).has(String(payload.email).toLowerCase())) return null;
-  return { email: payload.email };
+export async function verifyClerkRequest(request, env) {
+  const issuer = env && env.CLERK_ISSUER;
+  if (!issuer) return null;
+  let token = '';
+  const auth = request.headers.get('Authorization') || '';
+  if (auth.startsWith('Bearer ')) token = auth.slice(7).trim();
+  if (!token) token = parseCookies(request)['__session'] || '';
+  if (!token) return null;
+  const payload = await verifyJwt(token, issuer);
+  if (!payload) return null;
+  return { email: String(payload.email || '').toLowerCase(), sub: payload.sub || '' };
 }
 
 /**
- * True for a machine caller presenting the shared library key (local dev bypass). Accepts the
- * key in the `X-Library-Key` header (fetch calls) OR a `libkey` query param (media/audio URLs,
- * where a <audio>/spectrogram element cannot set a custom header).
+ * True for a machine caller presenting the shared library key (local-dev superuser bypass on
+ * /api/library/* only). Accepts the key in the `X-Library-Key` header (fetch) OR a `libkey` query
+ * param (media/audio URLs, where an <audio>/spectrogram element cannot set a custom header).
  */
 export function hasLibraryKey(request, env) {
   const key = env && env.LIBRARY_API_KEY;
@@ -156,129 +147,4 @@ export function hasLibraryKey(request, env) {
     } catch {}
   }
   return safeEqual(provided, key);
-}
-
-// ── /auth/* routes (served before the auth gate) ────────────────────────────────
-export async function handleAuth(request, env, url) {
-  const p = url.pathname;
-  const secret = env && env.SESSION_SECRET;
-  const clientId = env && env.GOOGLE_CLIENT_ID;
-  const clientSecret = env && env.GOOGLE_CLIENT_SECRET;
-  const redirectUri = `${url.origin}/auth/callback`;
-
-  if (p === '/auth/me') {
-    const session = await requireAuth(request, env);
-    return new Response(JSON.stringify(session ? { email: session.email } : { email: null }), {
-      status: session ? 200 : 401,
-      headers: { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' },
-    });
-  }
-
-  if (p === '/auth/logout') {
-    return new Response(null, {
-      status: 302,
-      headers: { Location: '/auth/login', 'Set-Cookie': `${SESSION_COOKIE}=; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=0`, 'Cache-Control': 'no-store' },
-    });
-  }
-
-  if (p === '/auth/login') {
-    if (!clientId || !secret) return html('<h1>Auth not configured</h1><p>Worker secrets GOOGLE_CLIENT_ID / SESSION_SECRET are missing.</p>', 500);
-    const state = bytesToB64url(crypto.getRandomValues(new Uint8Array(16)));
-    const stateToken = await signToken(secret, { state, exp: Math.floor(Date.now() / 1000) + STATE_TTL_SEC });
-    const auth = new URL(GOOGLE_AUTH);
-    auth.searchParams.set('client_id', clientId);
-    auth.searchParams.set('redirect_uri', redirectUri);
-    auth.searchParams.set('response_type', 'code');
-    auth.searchParams.set('scope', 'openid email profile');
-    auth.searchParams.set('prompt', 'select_account');
-    auth.searchParams.set('state', state);
-    return new Response(null, {
-      status: 302,
-      headers: { Location: auth.toString(), 'Set-Cookie': setCookie(STATE_COOKIE, stateToken, STATE_TTL_SEC), 'Cache-Control': 'no-store' },
-    });
-  }
-
-  if (p === '/auth/callback') {
-    if (!clientId || !clientSecret || !secret) return html('<h1>Auth not configured</h1>', 500);
-    const code = url.searchParams.get('code');
-    const state = url.searchParams.get('state');
-    if (!code) return html('<h1>Sign-in failed</h1><p>Missing authorization code.</p>', 400);
-
-    // CSRF: the state must match the value we signed into the short-lived state cookie.
-    const stateToken = parseCookies(request)[STATE_COOKIE];
-    const statePayload = await verifyToken(secret, stateToken);
-    if (!statePayload || !state || statePayload.state !== state) {
-      return html('<h1>Sign-in failed</h1><p>Invalid or expired state. <a href="/auth/login">Try again</a>.</p>', 400);
-    }
-
-    // Exchange the code for tokens (server-to-server, over TLS).
-    let tokenJson;
-    try {
-      const resp = await fetch(GOOGLE_TOKEN, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: new URLSearchParams({ code, client_id: clientId, client_secret: clientSecret, redirect_uri: redirectUri, grant_type: 'authorization_code' }),
-      });
-      tokenJson = await resp.json();
-      if (!resp.ok) return html(`<h1>Sign-in failed</h1><pre>${escapeHtml(JSON.stringify(tokenJson))}</pre>`, 400);
-    } catch (e) {
-      return html('<h1>Sign-in failed</h1><p>Token exchange error.</p>', 502);
-    }
-
-    // The id_token came straight from Google's token endpoint over TLS, so reading its
-    // payload (no JWKS signature re-check) is sufficient to trust the email claim.
-    const idToken = tokenJson && tokenJson.id_token;
-    let claims = {};
-    try {
-      const mid = String(idToken || '').split('.')[1];
-      claims = JSON.parse(b64urlToStr(mid));
-    } catch {
-      return html('<h1>Sign-in failed</h1><p>Could not read identity token.</p>', 400);
-    }
-    const email = String(claims.email || '').toLowerCase();
-    const verified = claims.email_verified === true || claims.email_verified === 'true';
-    // Defense-in-depth: the token came from a client-secret-keyed exchange, but also require it
-    // to be minted for THIS client (aud) so a misconfigured/reused secret can't grant access.
-    const audOk = claims.aud === clientId;
-
-    if (!email || !verified || !audOk || !allowedSet(env).has(email)) {
-      const body = accessDeniedHtml(claims.email || '(unknown)');
-      // Clear the state cookie; do NOT set a session.
-      return new Response(body, { status: 403, headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store', 'Set-Cookie': `${STATE_COOKIE}=; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=0` } });
-    }
-
-    const session = await signToken(secret, { email, exp: Math.floor(Date.now() / 1000) + SESSION_TTL_SEC });
-    const headers = new Headers({ Location: '/', 'Cache-Control': 'no-store' });
-    headers.append('Set-Cookie', setCookie(SESSION_COOKIE, session, SESSION_TTL_SEC));
-    headers.append('Set-Cookie', `${STATE_COOKIE}=; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=0`);
-    return new Response(null, { status: 302, headers });
-  }
-
-  return html('<h1>Not found</h1>', 404);
-}
-
-function escapeHtml(s) {
-  return String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-}
-
-function accessDeniedHtml(email) {
-  return `<!doctype html>
-<html lang="he" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<title>אין הרשאה</title>
-<style>
-  :root{color-scheme:dark}*{box-sizing:border-box}
-  body{margin:0;min-height:100vh;font-family:system-ui,"Segoe UI",Arial,sans-serif;
-    background:radial-gradient(1200px 600px at 50% -10%,#3a1f2a,#0b0f1a 60%);color:#e7ecf5;
-    display:flex;align-items:center;justify-content:center;padding:24px}
-  .card{width:100%;max-width:460px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);
-    border-radius:20px;padding:32px;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,.4)}
-  h1{margin:0 0 10px;font-size:24px}p{color:#c3b0b8;line-height:1.6;margin:0 0 20px}
-  code{background:rgba(255,255,255,.08);padding:2px 6px;border-radius:6px}
-  a{display:inline-block;background:linear-gradient(135deg,#5b8cff,#7a5cff);color:#fff;font-weight:700;
-    text-decoration:none;padding:12px 22px;border-radius:12px}
-</style></head><body><div class="card">
-  <h1>🔒 אין הרשאת גישה</h1>
-  <p>החשבון <code>${escapeHtml(email)}</code> אינו מורשה לגשת לכלי הזה.</p>
-  <a href="/auth/login">התחבר עם חשבון אחר</a>
-</div></body></html>`;
 }

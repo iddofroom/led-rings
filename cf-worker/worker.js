@@ -3,8 +3,12 @@
 // - Host UP                  -> transparently proxy the live app (same URL = the bridge)
 // The Worker reaches the host via an internal hostname (ORIGIN) that the tunnel serves.
 import { BUNDLE_B64 } from './bundle.js';
-import { handleLibrary } from './library.js';
-import { handleAuth, requireAuth, hasLibraryKey } from './auth.js';
+import { handleLibrary, roleOf } from './library.js';
+import { verifyClerkRequest, hasLibraryKey } from './auth.js';
+
+const noStore = { 'Cache-Control': 'no-store' };
+const unauthorized = () => new Response('Unauthorized', { status: 401, headers: noStore });
+const forbidden = () => new Response('Forbidden', { status: 403, headers: noStore });
 
 const ORIGIN = 'https://o.iddofroom.co.il'; // internal tunnel hostname (not user-facing)
 const BUNDLE_NAME = 'led-rings-host-bundle.zip';
@@ -21,31 +25,52 @@ function isDown(resp) {
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
+    const ownerEmail = String((env && env.OWNER_EMAIL) || '').toLowerCase();
 
-    // OAuth endpoints are the ONLY routes served before the auth gate.
-    if (url.pathname.startsWith('/auth/')) {
-      return handleAuth(request, env, url);
-    }
-
-    // Auth gate — the whole leds.iddofroom.co.il subdomain requires a signed Google session
-    // cookie. Exceptions: a CORS preflight (carries no cookie/header by spec), and machine
-    // callers (local dev) presenting the shared library key on /api/library/* only.
+    // Clerk gates the API surface only. Static app assets (everything not under /api/* and not
+    // /download) proxy through UNAUTHENTICATED so the React app + Clerk sign-in page can load;
+    // the app then renders nothing until signed in. Per-project authorization is enforced below.
     const isLibraryPath = url.pathname.startsWith('/api/library');
+    const isApi = url.pathname.startsWith('/api/');
     const isPreflight = request.method === 'OPTIONS' && isLibraryPath;
-    const session = isPreflight ? true : await requireAuth(request, env);
     const libKeyOk = isLibraryPath && hasLibraryKey(request, env);
-    if (!session && !libKeyOk) {
-      const accept = request.headers.get('Accept') || '';
-      if (request.method === 'GET' && (url.pathname === '/' || accept.includes('text/html'))) {
-        return new Response(null, { status: 302, headers: { Location: '/auth/login', 'Cache-Control': 'no-store' } });
+
+    // CSRF defense-in-depth: reject cross-site state-changing API calls. The app is same-origin
+    // (Origin host === this host); local dev is cross-origin but authenticates with the library
+    // key (exempt, since a browser can't attach it cross-site). Clerk's SameSite=Lax cookie
+    // already blocks this, but a browser can never forge the Origin header, so this is a hard gate.
+    if (isApi && !isPreflight && !libKeyOk && request.method !== 'GET' && request.method !== 'HEAD') {
+      const origin = request.headers.get('Origin');
+      if (origin) {
+        let crossSite = true;
+        try { crossSite = new URL(origin).host !== url.host; } catch {}
+        if (crossSite) return forbidden();
       }
-      return new Response('Unauthorized', { status: 401, headers: { 'Cache-Control': 'no-store' } });
     }
 
-    // Song library (KV-backed): list/upload/save MP3s, analysis, AI output and saved
-    // animations. Handled at the edge — never proxied to the host PC. Returns null for
-    // non-library routes so the normal proxy below still runs.
-    const lib = await handleLibrary(request, env, url);
+    let session = null; // { email, sub } | null
+    if (isApi && !isPreflight) {
+      // Liveness probe used by the (pre-login) landing page to detect the host coming up.
+      const isLiveness = (request.method === 'GET' || request.method === 'HEAD') && url.pathname === '/api/brightness';
+      if (isLibraryPath) {
+        if (!libKeyOk) {
+          session = await verifyClerkRequest(request, env);
+          if (!session) return unauthorized();
+        }
+      } else if (!isLiveness) {
+        // LED control / host-compute API → require a member of the rings project (the hardware).
+        session = await verifyClerkRequest(request, env);
+        if (!session) return unauthorized();
+        const role = await roleOf(env && env.LED_LIBRARY, 'rings', session.email, ownerEmail);
+        if (!role) return forbidden();
+      }
+    }
+
+    // Song library (KV-backed): list/upload/save MP3s, analysis, AI output and saved animations.
+    // Handled at the edge — never proxied to the host PC. Per-project membership enforced inside
+    // handleLibrary using `auth`. Returns null for non-library routes so the proxy below runs.
+    const auth = { email: session ? session.email : '', isSuperuser: libKeyOk, ownerEmail };
+    const lib = await handleLibrary(request, env, url, auth);
     if (lib) return lib;
 
     // Password-gated download of the host bundle (served from the edge, even when host is down).
