@@ -1445,6 +1445,10 @@ function App({ projectId = 'rings', initialLoad, onExitToSongs }: AppProps = {})
     }
   }
 
+  /** The reason the last ensureSongInLibrary call failed — callers surface it instead of a
+   *  generic message (fire-and-forget callers just ignore it). */
+  const ensureSongErrorRef = useRef<Error | null>(null)
+
   /** Ensure a song exists in the library (creating + uploading audio on first save).
    *  Returns its slug. Reads from `songOverride` when given so it isn't bitten by stale state. */
   const ensureSongInLibrary = async (opts?: {
@@ -1460,6 +1464,17 @@ function App({ projectId = 'rings', initialLoad, onExitToSongs }: AppProps = {})
       const existingSlug = s.librarySlug
       let audio: { base64: string; contentType: string } | null = null
       if (!existingSlug || opts?.forceAudio) audio = await fetchAudioBase64(opts?.audioUrl)
+      // Fail fast on oversize audio instead of uploading megabytes just to get the server's 413.
+      // The Worker caps audio at 20MB (KV value limit is 25MB); base64 is ~4/3 of raw bytes.
+      if (audio) {
+        const rawMb = (audio.base64.length * 3) / 4 / (1024 * 1024)
+        if (rawMb > 20) {
+          throw new Error(
+            `Audio file is ~${Math.round(rawMb)}MB — the library accepts up to 20MB. ` +
+            'Convert the WAV to MP3 (a 4-minute MP3 is ~5MB) and reload it.',
+          )
+        }
+      }
       const res = await library.saveSong({
         slug: existingSlug,
         name,
@@ -1477,9 +1492,11 @@ function App({ projectId = 'rings', initialLoad, onExitToSongs }: AppProps = {})
       if (slug !== existingSlug) setSong((prev) => ({ ...prev, librarySlug: slug }))
       lastSavedMetaRef.current = metaSnapshot({ ...s, librarySlug: slug })
       setLibrarySaveState('saved')
+      ensureSongErrorRef.current = null
       return slug
     } catch (e) {
       console.warn('ensureSongInLibrary failed', e)
+      ensureSongErrorRef.current = e instanceof Error ? e : new Error(String(e))
       setLibrarySaveState('error')
       return null
     }
@@ -1633,7 +1650,7 @@ function App({ projectId = 'rings', initialLoad, onExitToSongs }: AppProps = {})
     try {
       let slug = song.librarySlug
       if (!slug) slug = (await ensureSongInLibrary({ forceAudio: true })) || undefined
-      if (!slug) throw new Error('Could not create the song entry')
+      if (!slug) throw ensureSongErrorRef.current ?? new Error('Could not create the song entry')
       await library.saveComposition({
         slug,
         name: trimmed,
@@ -1706,7 +1723,7 @@ function App({ projectId = 'rings', initialLoad, onExitToSongs }: AppProps = {})
     try {
       let slug = song.librarySlug
       if (!slug) slug = (await ensureSongInLibrary({ forceAudio: true })) || undefined
-      if (!slug) throw new Error('Could not create the song entry')
+      if (!slug) throw ensureSongErrorRef.current ?? new Error('Could not create the song entry')
       const res = await library.saveVersion({
         slug, song: cleanSongForLibrary(song), timeframes,
         parentId: headVerId, branch: currentBranch, label: label?.trim() || undefined,
