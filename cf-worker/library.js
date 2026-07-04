@@ -67,6 +67,10 @@ const verPrefix = (pid, slug) => `${songListPrefix(pid)}${slug}:ver:`;
 // geometry schema is 1-D (index+relPos), so the (x,y) map lives here, not in led-object-service.
 const mappingKey = (pid) => `${projectPrefix(pid)}mapping`;
 
+// Declared controllers for the installation (one blob per project): the user names each ESP
+// and lists its LED output GPIO pins — NO led count (that's discovered by the camera mapping).
+const devicesKey = (pid) => `${projectPrefix(pid)}devices`;
+
 // Registry of non-default projects. "rings" is implicit/built-in and always listed first.
 const PROJECTS_INDEX = 'projects:index';
 
@@ -209,6 +213,10 @@ export async function handleLibrary(request, env, url, auth) {
 
     if (request.method === 'GET' && p === '/api/library/mapping') return await getMapping(KV, pid);
     if (request.method === 'POST' && p === '/api/library/mapping') return await saveMapping(KV, pid, request);
+
+    if (request.method === 'GET' && p === '/api/library/devices') return await getDevices(KV, pid);
+    if (request.method === 'POST' && p === '/api/library/device') return await upsertDevice(KV, pid, request, email);
+    if (request.method === 'POST' && p === '/api/library/device/remove') return await removeDevice(KV, pid, request);
 
     if (request.method === 'GET' && p === '/api/library/versions') return await listVersions(KV, pid, url.searchParams.get('slug'));
     if (request.method === 'GET' && p === '/api/library/version')
@@ -418,6 +426,61 @@ async function saveMapping(KV, pid, request) {
   if (str.length > MAX_JSON_BYTES) return err('Mapping too large', 413);
   await KV.put(mappingKey(pid), str, { metadata: { updatedAt: now, controllerCount: body.controllers.length } });
   return json({ ok: true, updatedAt: now });
+}
+
+// ── Device registry (declared controllers: name + LED output pins, NO count) ──
+// Blob per project: { devices:[ { thing, chip, mac, pins:[{gpio,label}], addedBy, addedAt, updatedAt } ], updatedAt }.
+// One ESP = one "thing" whose declared pins concatenate into its flat LED buffer; the pixel
+// count per pin is learned later by the camera mapping, so it is intentionally absent here.
+const THING_MAX = 16; // firmware thing_name limit
+
+async function getDevices(KV, pid) {
+  const v = await KV.get(devicesKey(pid), 'json');
+  return json({ devices: v && Array.isArray(v.devices) ? v.devices : [] });
+}
+
+async function upsertDevice(KV, pid, request, email) {
+  const body = await readJson(request);
+  if (!body) return err('Invalid JSON');
+  const thing = String(body.thing || '').trim();
+  if (!thing) return err('Missing controller name');
+  if (thing.length > THING_MAX) return err(`Controller name too long (max ${THING_MAX})`);
+  if (!/^[A-Za-z0-9_-]+$/.test(thing)) return err('Controller name: letters, digits, - or _ only');
+
+  const pins = Array.isArray(body.pins)
+    ? body.pins
+        .map((p) => ({ gpio: Number(p && p.gpio), label: p && p.label ? String(p.label).slice(0, 40) : undefined }))
+        .filter((p) => Number.isInteger(p.gpio) && p.gpio >= 0 && p.gpio <= 48)
+    : [];
+
+  const v = await KV.get(devicesKey(pid), 'json');
+  const devices = v && Array.isArray(v.devices) ? v.devices : [];
+  const now = Date.now();
+  const existing = devices.find((d) => d.thing === thing);
+  const rec = {
+    thing,
+    chip: body.chip ? String(body.chip).slice(0, 24) : existing ? existing.chip : null,
+    mac: body.mac ? String(body.mac).slice(0, 32) : existing ? existing.mac : null,
+    pins,
+    addedBy: existing ? existing.addedBy : email || 'unknown',
+    addedAt: existing ? existing.addedAt : now,
+    updatedAt: now,
+  };
+  const next = existing ? devices.map((d) => (d.thing === thing ? rec : d)) : [...devices, rec];
+  await KV.put(devicesKey(pid), JSON.stringify({ devices: next, updatedAt: now }), { metadata: { count: next.length, updatedAt: now } });
+  return json({ ok: true, device: rec });
+}
+
+async function removeDevice(KV, pid, request) {
+  const body = await readJson(request);
+  if (!body) return err('Invalid JSON');
+  const thing = String(body.thing || '').trim();
+  if (!thing) return err('Missing thing');
+  const v = await KV.get(devicesKey(pid), 'json');
+  const devices = v && Array.isArray(v.devices) ? v.devices : [];
+  const next = devices.filter((d) => d.thing !== thing);
+  await KV.put(devicesKey(pid), JSON.stringify({ devices: next, updatedAt: Date.now() }));
+  return json({ ok: true });
 }
 
 // ── Version history (git-like) ───────────────────────────────────────────────

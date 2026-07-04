@@ -161,6 +161,23 @@ export interface MappingBlob {
   updatedAt: number
 }
 
+/** One declared LED output pin on a controller (no pixel count — mapping discovers it). */
+export interface DevicePin {
+  gpio: number
+  label?: string
+}
+
+/** A declared ESP controller: a name (thing) + its LED output pins. */
+export interface Device {
+  thing: string
+  chip?: string | null
+  mac?: string | null
+  pins: DevicePin[]
+  addedBy?: string
+  addedAt?: number
+  updatedAt?: number
+}
+
 function post(body: unknown): RequestInit {
   return { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }
 }
@@ -261,6 +278,14 @@ export const library = {
     call<{ mapping: MappingBlob | null }>(scoped(`/api/library/mapping`, projectId)).then((d) => d.mapping),
   saveMapping: (controllers: MappedController[], projectId: string = DEFAULT_PROJECT) =>
     call<{ ok: true; updatedAt: number }>(scoped(`/api/library/mapping`, projectId), post({ controllers })),
+
+  // ── Device registry (declared controllers: name + LED output pins) ──
+  listDevices: (projectId: string = DEFAULT_PROJECT) =>
+    call<{ devices: Device[] }>(scoped(`/api/library/devices`, projectId)).then((d) => d.devices || []),
+  saveDevice: (device: Device, projectId: string = DEFAULT_PROJECT) =>
+    call<{ ok: true; device: Device }>(scoped(`/api/library/device`, projectId), post(device)).then((d) => d.device),
+  removeDevice: (thing: string, projectId: string = DEFAULT_PROJECT) =>
+    call<{ ok: true }>(scoped(`/api/library/device/remove`, projectId), post({ thing })),
 }
 
 /** Reachable only if a library base is configured or we're served through the Worker. */

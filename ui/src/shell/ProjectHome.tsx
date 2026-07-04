@@ -14,12 +14,13 @@ interface Props {
   projectRole: 'admin' | 'member' | null
   onCompose: () => void
   onMapping: () => void
+  onSetupControllers: () => void
   onBack: () => void
 }
 
 type StageState = 'unknown' | 'checking' | 'ok' | 'todo'
 
-export default function ProjectHome({ projectId, projectName, projectRole, onCompose, onMapping, onBack }: Props) {
+export default function ProjectHome({ projectId, projectName, projectRole, onCompose, onMapping, onSetupControllers, onBack }: Props) {
   const [pi, setPi] = useState<StageState>('unknown')
   const [controllers, setControllers] = useState<{ state: StageState; count: number }>({ state: 'unknown', count: 0 })
   const [mapInfo, setMapInfo] = useState<{ state: StageState; leds: number; controllers: number }>({ state: 'unknown', leds: 0, controllers: 0 })
@@ -74,7 +75,12 @@ export default function ProjectHome({ projectId, projectName, projectRole, onCom
       state: controllers.state,
       status:
         controllers.state === 'ok' ? `${controllers.count} online` : controllers.state === 'checking' ? 'Scanning…' : 'None found',
-      action: <button style={S.ghost} onClick={refresh}>Refresh</button>,
+      action: (
+        <>
+          <button style={S.primary} onClick={onSetupControllers}>Set up controllers →</button>
+          <button style={S.ghost} onClick={refresh}>Refresh</button>
+        </>
+      ),
     },
     {
       key: 'map',
