@@ -323,10 +323,11 @@
         <li><a href="#overview" class="toclink"><span class="n">01</span><span data-l="he">סקירה כללית</span><span data-l="en">Overview</span></a></li>
         <li><a href="#leds" class="toclink"><span class="n">02</span><span data-l="he">בחירת לדים</span><span data-l="en">Choosing LEDs</span></a></li>
         <li><a href="#power" class="toclink"><span class="n">03</span><span data-l="he">אלקטרוניקה וחשמל</span><span data-l="en">Electronics &amp; Power</span></a></li>
-        <li><a href="#diffusers" class="toclink soon" data-soon="בקרוב"><span class="n">04</span><span data-l="he">דיפיוזרים</span><span data-l="en">Diffusers</span></a></li>
-        <li><a href="#story" class="toclink soon" data-soon="בקרוב"><span class="n">05</span><span data-l="he">סיפוריות</span><span data-l="en">Storytelling</span></a></li>
-        <li><a href="#addons" class="toclink soon" data-soon="בקרוב"><span class="n">06</span><span data-l="he">רכיבים נוספים</span><span data-l="en">Add-ons</span></a></li>
-        <li><a href="#burn" class="toclink soon" data-soon="בקרוב"><span class="n">07</span><span data-l="he">מיצבי ברן</span><span data-l="en">Burn installs</span></a></li>
+        <li><a href="#software" class="toclink"><span class="n">04</span><span data-l="he">בקר ותוכנה</span><span data-l="en">Controller &amp; Software</span></a></li>
+        <li><a href="#diffusers" class="toclink"><span class="n">05</span><span data-l="he">דיפיוזרים</span><span data-l="en">Diffusers</span></a></li>
+        <li><a href="#story" class="toclink"><span class="n">06</span><span data-l="he">סיפוריות</span><span data-l="en">Storytelling</span></a></li>
+        <li><a href="#addons" class="toclink"><span class="n">07</span><span data-l="he">רכיבים נוספים</span><span data-l="en">Add-ons</span></a></li>
+        <li><a href="#burn" class="toclink"><span class="n">08</span><span data-l="he">מיצבי ברן</span><span data-l="en">Burn installs</span></a></li>
       </ol>
     </aside>
 
@@ -550,8 +551,8 @@
         <ul>
           <li data-l="he"><strong>לדים</strong> — רצועות <span class="mono">WS2812B</span> ב־5V. כמה שיותר.</li>
           <li data-l="en"><strong>LEDs</strong> — <span class="mono">WS2812B</span> strips at 5V. As many as you like.</li>
-          <li data-l="he"><strong>בקר (״המוח״)</strong> — <span class="mono">ESP32</span> קטן שמריץ את התוכנה החינמית <a href="https://kno.wled.ge/" target="_blank" rel="noopener">WLED</a>: עשרות אפקטים, שליטה מהטלפון דרך וויי־פיי, בלי לכתוב שורת קוד.</li>
-          <li data-l="en"><strong>Controller (the "brain")</strong> — a small <span class="mono">ESP32</span> running the free <a href="https://kno.wled.ge/" target="_blank" rel="noopener">WLED</a> software: dozens of effects, phone control over Wi‑Fi, no coding at all.</li>
+          <li data-l="he"><strong>בקר (״המוח״)</strong> — <span class="mono">ESP32</span> קטן. הוא מריץ את המופע; איזו תוכנה תרוץ עליו — מסונכרן למוזיקה (LED Studio) או שליטה פשוטה (WLED) — זה כל הפרק <a href="#software">בקר ותוכנה</a>.</li>
+          <li data-l="en"><strong>Controller (the "brain")</strong> — a small <span class="mono">ESP32</span>. It runs the show; which software runs on it — music‑synced (LED Studio) or simple control (WLED) — is the whole <a href="#software">Controller &amp; Software</a> chapter.</li>
           <li data-l="he"><strong>ספק כוח</strong> — <span class="mono">MEAN WELL 5V 60A</span>. מחזיק בערך 20–60 רצועות של 5 מטר (תלוי בבהירות).</li>
           <li data-l="en"><strong>Power supply</strong> — a <span class="mono">MEAN WELL 5V 60A</span>. Runs roughly 20–60 strips of 5m (depends on brightness).</li>
           <li data-l="he"><strong>מחברים</strong> — <span class="mono">JST‑3</span> (דאטה: בקר↔רצועה ורצועה↔רצועה), <span class="mono">JST‑2</span> (הזרקת מתח), ומתאמי הזרקה בלי הלחמה. אלה שהופכים את הכל ל״תקע והפעל״.</li>
@@ -838,8 +839,8 @@
 
         <!-- scaling -->
         <h3><span class="h3n">I</span><span data-l="he">יותר מ־500 לדים? עוד קו דאטה</span><span data-l="en">More than 500 LEDs? Add a data line</span></h3>
-        <p data-l="he">הפרוטוקול של הלדים איטי, אז בקר יחיד מרענן בנוחות עד בערך <strong>500–600 לדים</strong> על קו דאטה אחד (בקצב של ~60 תמונות בשנייה — חלק). רוצה יותר — עד ~<strong>3000 לדים</strong> מבקר אחד — פשוט מוסיפים קווי דאטה: מלחימים חוט לעוד פין (כל פין עם סימן <span class="mono">PWM</span> מתאים), מחברים לאותה אדמה, ומגדירים ב־WLED. זהו.</p>
-        <p data-l="en">The LED protocol is slow, so a single controller comfortably refreshes up to about <strong>500–600 LEDs</strong> on one data line (~60 frames per second — smooth). Want more — up to ~<strong>3000 LEDs</strong> from one controller — just add data lines: solder a wire to another pin (any pin marked <span class="mono">PWM</span> works), tie it to the same ground, and set it up in WLED. Done.</p>
+        <p data-l="he">הפרוטוקול של הלדים איטי, אז בקר יחיד מרענן בנוחות עד בערך <strong>500–600 לדים</strong> על קו דאטה אחד (בקצב של ~60 תמונות בשנייה — חלק). רוצה יותר — עד ~<strong>3000 לדים</strong> מבקר אחד — פשוט מוסיפים קווי דאטה: מלחימים חוט לעוד פין (כל פין עם סימן <span class="mono">PWM</span> מתאים), מחברים לאותה אדמה, ומגדירים בתוכנת הבקר. זהו.</p>
+        <p data-l="en">The LED protocol is slow, so a single controller comfortably refreshes up to about <strong>500–600 LEDs</strong> on one data line (~60 frames per second — smooth). Want more — up to ~<strong>3000 LEDs</strong> from one controller — just add data lines: solder a wire to another pin (any pin marked <span class="mono">PWM</span> works), tie it to the same ground, and set it up in your controller software. Done.</p>
 
         <!-- first power-on -->
         <h3><span class="h3n">J</span><span data-l="he">לפני ההדלקה הראשונה</span><span data-l="en">Before you switch on</span></h3>
@@ -864,51 +865,186 @@
         </div>
       </section>
 
-      <!-- ============ 04 · DIFFUSERS (stub) ============ -->
+      <!-- ============ 04 · CONTROLLER & SOFTWARE ============ -->
+      <section id="software">
+        <span class="chapter-tag">04</span>
+        <h2 data-l="he">בקר ותוכנה</h2>
+        <h2 data-l="en">Controller &amp; Software</h2>
+        <p class="dek" data-l="he">הבקר הוא החומרה; התוכנה היא מה שהופך אותו למופע. יש שני מסלולים — בחר לפי מה שאתה בונה.</p>
+        <p class="dek" data-l="en">The controller is the hardware; the software is what turns it into a show. Two paths — pick by what you're building.</p>
+
+        <div class="proscons">
+          <div class="pc pro">
+            <h4 data-l="he">🎵 מסונכרן למוזיקה — LED Studio</h4>
+            <h4 data-l="en">🎵 Music-synced — LED Studio</h4>
+            <ul>
+              <li data-l="he">מלחין שיר → הלדים רוקדים איתו: ביט, דרופ, מבנה.</li>
+              <li data-l="en">Compose a song → the LEDs move with it: beat, drops, structure.</li>
+              <li data-l="he">זה מה שכל המדריך והכלי הזה נבנו בשבילו.</li>
+              <li data-l="en">This is what this whole guide and tool are built for.</li>
+              <li data-l="he">איך: בקר KivSee + אפליקציית LED Studio (הדף שאתה בו).</li>
+              <li data-l="en">How: a KivSee controller + the LED Studio app (the site you're on).</li>
+            </ul>
+          </div>
+          <div class="pc con" style="border-color:var(--border)">
+            <h4 style="color:var(--brand)" data-l="he">💡 רק אורות — WLED</h4>
+            <h4 style="color:var(--brand)" data-l="en">💡 Just lights — WLED</h4>
+            <ul>
+              <li data-l="he">לא צריך סנכרון למוזיקה? רק אפקטים, צבעים ותבניות מהטלפון?</li>
+              <li data-l="en">Don't need music sync? Just effects, colors and patterns from your phone?</li>
+              <li data-l="he"><strong>WLED</strong> היא הדרך הקלה, החינמית והנפוצה. רצה על אותו ESP32.</li>
+              <li data-l="en"><strong>WLED</strong> is the easy, free, popular way. Runs on the same ESP32.</li>
+              <li data-l="he">התקנה תוך דקות מהדפדפן — ההוראות למטה.</li>
+              <li data-l="en">Installs in minutes from the browser — steps below.</li>
+            </ul>
+          </div>
+        </div>
+
+        <h3><span class="h3n">A</span><span data-l="he">התקנת WLED — הדרך המהירה</span><span data-l="en">Installing WLED — the fast way</span></h3>
+        <p data-l="he">בחרת ב־WLED (בלי סנכרון מוזיקלי)? כל ההתקנה מהדפדפן, בלי כלים מיוחדים:</p>
+        <p data-l="en">Chose WLED (no music sync)? The whole install is from your browser, no special tools:</p>
+        <ol class="body">
+          <li data-l="he">התקן דרייבר: <a href="https://www.wemos.cc/en/latest/ch340_driver.html" target="_blank" rel="noopener">CH340 ל־Windows</a> או <a href="https://www.silabs.com/developers/usb-to-uart-bridge-vcp-drivers" target="_blank" rel="noopener">הדרייבר ל־Mac</a>.</li>
+          <li data-l="en">Install a driver: <a href="https://www.wemos.cc/en/latest/ch340_driver.html" target="_blank" rel="noopener">CH340 for Windows</a> or <a href="https://www.silabs.com/developers/usb-to-uart-bridge-vcp-drivers" target="_blank" rel="noopener">the Mac driver</a>.</li>
+          <li data-l="he">חבר את ה־ESP32 בכבל micro‑USB ופתח את <a href="https://install.wled.me" target="_blank" rel="noopener">install.wled.me</a> — הצריבה רצה מתוך הדפדפן.</li>
+          <li data-l="en">Plug the ESP32 in with a micro‑USB cable and open <a href="https://install.wled.me" target="_blank" rel="noopener">install.wled.me</a> — it flashes straight from the browser.</li>
+          <li data-l="he">אתחל את הבקר, חפש רשת וויי־פיי <span class="mono">wled-ap</span> והתחבר (סיסמה <span class="mono">wled1234</span>).</li>
+          <li data-l="en">Restart the controller, find the Wi‑Fi network <span class="mono">wled-ap</span> and connect (password <span class="mono">wled1234</span>).</li>
+          <li data-l="he">בהגדרות → <span class="mono">LED settings</span>: קבע את <strong>מספר הלדים</strong> ואת <strong>data pin = 16</strong>. שמור. זהו — שליטה מלאה מהטלפון.</li>
+          <li data-l="en">In settings → <span class="mono">LED settings</span>: set the <strong>LED count</strong> and <strong>data pin = 16</strong>. Save. That's it — full control from your phone.</li>
+        </ol>
+        <p data-l="he">להעמקה: <a href="https://kno.wled.ge/" target="_blank" rel="noopener">פרויקט WLED</a> · <a href="https://kno.wled.ge/basics/tutorials/" target="_blank" rel="noopener">מדריכים</a>.</p>
+        <p data-l="en">Go deeper: <a href="https://kno.wled.ge/" target="_blank" rel="noopener">the WLED project</a> · <a href="https://kno.wled.ge/basics/tutorials/" target="_blank" rel="noopener">tutorials</a>.</p>
+
+        <div class="call tip">
+          <div class="ct" data-l="he">🎵 רוצה שהלדים ירקדו למוזיקה?</div>
+          <div class="ct" data-l="en">🎵 Want the LEDs to dance to music?</div>
+          <p data-l="he">זה כבר לא WLED — זה LED Studio. קפוץ לפרק <a href="#story">סיפוריות</a> לראות איך הופכים שיר למופע אור עם נרטיב.</p>
+          <p data-l="en">That's not WLED anymore — that's LED Studio. Jump to <a href="#story">Storytelling</a> to see how a song becomes a light show with a narrative.</p>
+        </div>
+      </section>
+
+      <!-- ============ 05 · DIFFUSERS ============ -->
       <section id="diffusers">
-        <div class="stub">
-          <span class="soon-badge">· בקרוב · coming soon ·</span>
-          <span class="chapter-tag" style="display:block;margin-top:6px">04</span>
-          <h2 data-l="he">דיפיוזרים</h2>
-          <h2 data-l="en">Diffusers</h2>
-          <p data-l="he">איך הופכים נקודות אור חדות למשטח זוהר ורך: חומרים (אקריל אופל, פוליקרבונט, סיליקון, בד), מרחק הפיזור מהלד, יחס בין צפיפות נורות לעובי הדיפיוזר, ומתי ״נקודות״ זו דווקא האסתטיקה שרוצים.</p>
-          <p data-l="en">Turning sharp points of light into a soft glowing surface: materials (opal acrylic, polycarbonate, silicone, fabric), diffuser-to-LED distance, the balance between LED density and diffuser thickness, and when visible "dots" are actually the look you want.</p>
+        <span class="chapter-tag">05</span>
+        <h2 data-l="he">דיפיוזרים</h2>
+        <h2 data-l="en">Diffusers</h2>
+        <p class="dek" data-l="he">דיפיוזר = דבר שמפזר אור. האור של לד הוא נקודתי מאוד; בלי פיזור מקבלים אוסף נקודות. לפעמים זה מה שרוצים — לרוב לא.</p>
+        <p class="dek" data-l="en">A diffuser is anything that spreads light. LED light is very focused; without diffusing you get a cluster of dots. Sometimes that's the look — usually not.</p>
+
+        <p data-l="he">הרעיון פשוט: מעבירים את האור הממוקד של הלד דרך חומר שמפזר אותו כמה שיותר, וכמה שיותר ״ניטרלי״ (בלי לצבוע אותו). <strong>לכל דיפיוזר יש מחיר</strong>: הוא בולע חלק מהאור, אז התאורה תמיד קצת יורדת.</p>
+        <p data-l="en">The idea is simple: pass the LED's focused light through a material that scatters it as much — and as neutrally (without tinting) — as possible. <strong>Every diffuser has a cost</strong>: it absorbs some light, so the output always drops a little.</p>
+
+        <div class="call rule">
+          <div class="ct" data-l="he">📏 הכלל הכי חשוב — מרחק</div>
+          <div class="ct" data-l="en">📏 The most important rule — distance</div>
+          <p data-l="he">צריך <strong>מרחק בין הלד לדיפיוזר</strong>. צמוד מדי — הדיפיוזר כמעט לא עובד ורואים נקודות. רחוק מדי — הנקודות נעלמות אבל גם הפרטים והחדות. אין נוסחה: <strong>שחק ונסה</strong> עד שזה נראה טוב.</p>
+          <p data-l="en">You need a <strong>gap between the LED and the diffuser</strong>. Too close — it barely works and you still see dots. Too far — the dots vanish but so does detail and sharpness. There's no formula: <strong>play and test</strong> until it looks right.</p>
         </div>
+
+        <p class="lead-in" data-l="he">חומרים שעובדים טוב כדיפיוזר:</p>
+        <p class="lead-in" data-l="en">Materials that work well as a diffuser:</p>
+        <ul>
+          <li data-l="he"><strong>בד לבן</strong> — זמין, זול, מתוח יפה על מסגרת.</li>
+          <li data-l="en"><strong>White fabric</strong> — available, cheap, stretches nicely over a frame.</li>
+          <li data-l="he"><strong>נייר אורז</strong> — פיזור רך ויפה.</li>
+          <li data-l="en"><strong>Rice paper</strong> — a soft, pretty scatter.</li>
+          <li data-l="he"><strong>ספריי לבן / מט</strong> — לרסס על משטח שקוף והופך אותו למפזר.</li>
+          <li data-l="en"><strong>White / frosted spray</strong> — sprayed on a clear surface turns it into a diffuser.</li>
+          <li data-l="he"><strong>אקריל אופל / פוליקרבונט חלבי, שרוול סיליקון</strong> — עמידים יותר, למראה נקי.</li>
+          <li data-l="en"><strong>Opal acrylic / milky polycarbonate, silicone sleeve</strong> — more durable, for a clean look.</li>
+        </ul>
+        <p data-l="he">טיפ: צפיפות לדים גבוהה יותר מקלה על הדיפיוזר לתת קו אור רציף. COB (בלי נקודות מלכתחילה) כמעט לא צריך פיזור. חזרה לזה בפרק <a href="#leds">בחירת לדים</a>.</p>
+        <p data-l="en">Tip: a higher LED density makes it easier for the diffuser to give a continuous line of light. COB (no dots to begin with) barely needs diffusing. Back to that in <a href="#leds">Choosing LEDs</a>.</p>
       </section>
 
-      <!-- ============ 05 · STORYTELLING (stub) ============ -->
+      <!-- ============ 06 · STORYTELLING ============ -->
       <section id="story">
-        <div class="stub">
-          <span class="soon-badge">· בקרוב · coming soon ·</span>
-          <span class="chapter-tag" style="display:block;margin-top:6px">05</span>
-          <h2 data-l="he">סיפוריות</h2>
-          <h2 data-l="en">Storytelling</h2>
-          <p data-l="he">מ״אורות מהבהבים״ ל״חוויה״: איך בונים קשת רגשית לאורך שיר, מסנכרנים אנימציה לביט ולמבנה, ומעצבים רגעים שמובילים את הצופה דרך המופע. הפרק יתחבר ישירות ל־LED Studio — הכלי שהופך שיר לרצף אנימציות שמספר סיפור.</p>
-          <p data-l="en">From "blinking lights" to "an experience": building an emotional arc across a track, syncing animation to beat and structure, and designing moments that lead the viewer through the show. This chapter ties straight into LED Studio — the tool that turns a song into a sequence that tells a story.</p>
+        <span class="chapter-tag">06</span>
+        <h2 data-l="he">סיפוריות</h2>
+        <h2 data-l="en">Storytelling</h2>
+        <p class="dek" data-l="he">מ״אורות מהבהבים״ ל״חוויה״. מיצב מסונכרן טוב לא סתם מהבהב — הוא מספר סיפור לאורך השיר: בונה מתח, משחרר, מפתיע. כאן נכנס LED Studio.</p>
+        <p class="dek" data-l="en">From "blinking lights" to "an experience". A good synced piece doesn't just flash — it tells a story across the song: it builds tension, releases, surprises. This is where LED Studio comes in.</p>
+
+        <h3><span class="h3n">A</span><span data-l="he">להיצמד למוזיקה</span><span data-l="en">Ride the music</span></h3>
+        <p data-l="he">שיר בנוי משכבות: ביט, מקטעים (פתיחה, בנייה, דרופ, שקט), ועוצמה שעולה ויורדת. LED Studio מנתח את השיר בשבילך ונותן לך לשים אפקטים על ציר הזמן — כך שהאור נושם יחד עם המוזיקה במקום להתעלם ממנה.</p>
+        <p data-l="en">A song is built from layers: the beat, its sections (intro, build, drop, breakdown), and energy that rises and falls. LED Studio analyzes the track for you and lets you place effects on a timeline — so the light breathes with the music instead of ignoring it.</p>
+
+        <h3><span class="h3n">B</span><span data-l="he">לעצב רגעים</span><span data-l="en">Design moments</span></h3>
+        <p data-l="he">הקסם הוא ברגעים: הדרופ שמפוצץ את הכל בבת אחת, השקט שלפניו, ההפתעה באמצע. תכנן אותם. רגע חתימה אחד חזק שווה יותר מכאוס מתמיד — <strong>פחות זה יותר</strong>. תן למקטעים לנשום.</p>
+        <p data-l="en">The magic is in the moments: the drop that bursts everything at once, the quiet before it, the surprise in the middle. Design them. One strong signature moment beats constant chaos — <strong>less is more</strong>. Let sections breathe.</p>
+
+        <div class="call tip">
+          <div class="ct" data-l="he">🎛️ עושים את זה ב־LED Studio</div>
+          <div class="ct" data-l="en">🎛️ Do it in LED Studio</div>
+          <p data-l="he">הכלי הזה (הדף שאתה בו) הוא בדיוק לזה: מעלים שיר, הוא מנותח, ואתה בונה רצף אנימציות שמסונכרן לביט ולמבנה — בלי לכתוב קוד. זה הלב של מיצב אור מוזיקלי.</p>
+          <p data-l="en">This tool (the site you're on) is exactly for this: upload a song, it gets analyzed, and you build a beat‑ and structure‑synced animation sequence — no code. It's the heart of a musical light installation.</p>
         </div>
       </section>
 
-      <!-- ============ 06 · ADD-ONS (stub) ============ -->
+      <!-- ============ 07 · ADD-ONS ============ -->
       <section id="addons">
-        <div class="stub">
-          <span class="soon-badge">· בקרוב · coming soon ·</span>
-          <span class="chapter-tag" style="display:block;margin-top:6px">06</span>
-          <h2 data-l="he">רכיבים נוספים שאפשר לחבר</h2>
-          <h2 data-l="en">Add-on components</h2>
-          <p data-l="he">מה עוד אפשר לחבר למיצב: מיקרופון/כניסת אודיו לתגובה לצליל, חיישני תנועה/מגע/מרחק, כפתורים ופוטנציומטרים, בקרת בהירות אוטומטית, סוללות ואל־פסק לשטח, ותקשורת אלחוטית בין מיצבים.</p>
-          <p data-l="en">What else you can wire in: a microphone/audio input for sound reactivity, motion/touch/distance sensors, buttons and potentiometers, automatic brightness control, batteries and UPS for the field, and wireless links between installations.</p>
-        </div>
+        <span class="chapter-tag">07</span>
+        <h2 data-l="he">רכיבים נוספים</h2>
+        <h2 data-l="en">Add-ons</h2>
+        <p class="dek" data-l="he">מה עוד אפשר לחבר למיצב — ואיזו ערכת כלים בסיסית תרצה כדי לבנות.</p>
+        <p class="dek" data-l="en">What else you can wire in — and the basic toolkit you'll want to build it.</p>
+
+        <h3><span class="h3n">A</span><span data-l="he">דברים שאפשר לחבר</span><span data-l="en">Things you can wire in</span></h3>
+        <ul>
+          <li data-l="he"><strong>חיישנים</strong> — תנועה, מגע או מרחק, כדי שהמיצב יגיב לאנשים שמתקרבים.</li>
+          <li data-l="en"><strong>Sensors</strong> — motion, touch or distance, so the piece reacts to people coming near.</li>
+          <li data-l="he"><strong>כפתורים וכפתורי סיבוב</strong> — להחליף מצבים, צבעים או בהירות ביד.</li>
+          <li data-l="en"><strong>Buttons &amp; knobs</strong> — switch modes, colors or brightness by hand.</li>
+          <li data-l="he"><strong>מיקרופון</strong> — תגובה לקול הסביבה (אם אינך מסנכרן לשיר מראש).</li>
+          <li data-l="en"><strong>Microphone</strong> — react to ambient sound (if you're not pre‑syncing to a track).</li>
+          <li data-l="he"><strong>סוללות / פאוור‑בנק</strong> — חשמל לשטח בלי גישה לשקע.</li>
+          <li data-l="en"><strong>Batteries / power bank</strong> — field power with no socket nearby.</li>
+          <li data-l="he"><strong>קשר אלחוטי</strong> — לסנכרן כמה מיצבים ביחד.</li>
+          <li data-l="en"><strong>Wireless link</strong> — to sync several pieces together.</li>
+        </ul>
+
+        <h3><span class="h3n">B</span><span data-l="he">ערכת הכלים למתחיל</span><span data-l="en">The beginner's toolkit</span></h3>
+        <p data-l="he">אין צורך בהרבה. אלה הכלים שבאמת חוזרים בכל בנייה:</p>
+        <p data-l="en">You don't need much. These are the tools that really come up in every build:</p>
+        <ul>
+          <li data-l="he"><strong>מלחם טוב</strong> (שווה את ההשקעה) + <strong>בדיל</strong> ומסיר בדיל.</li>
+          <li data-l="en"><strong>A good soldering iron</strong> (worth the investment) + <strong>solder</strong> and a desoldering tool.</li>
+          <li data-l="he"><strong>וולטמטר / מולטימטר</strong> — מודד מתח, זרם וסגירת מעגל. הכרחי וזול.</li>
+          <li data-l="en"><strong>Voltmeter / multimeter</strong> — measures voltage, current and continuity. Essential and cheap.</li>
+          <li data-l="he"><strong>חושף חוטים</strong> וקאטר / סכין יפנית.</li>
+          <li data-l="en"><strong>Wire stripper</strong> and a cutter / utility knife.</li>
+          <li data-l="he"><strong>שרוולים מתכווצים</strong> ואקדח דבק חם — לחיבורים שלא מתפרקים.</li>
+          <li data-l="en"><strong>Heat‑shrink tubing</strong> and a hot‑glue gun — for joints that don't come loose.</li>
+          <li data-l="he"><strong>ברדבורד</strong> וכבלי חיבור (ז/ז, ז/נ, נ/נ) לניסויים, סט מברגים ומברג טסטר.</li>
+          <li data-l="en"><strong>A breadboard</strong> and jumper wires (M/M, M/F, F/F) for testing, a screwdriver set and a tester screwdriver.</li>
+        </ul>
       </section>
 
-      <!-- ============ 07 · BURN (stub) ============ -->
+      <!-- ============ 08 · BURN ============ -->
       <section id="burn">
-        <div class="stub">
-          <span class="soon-badge">· בקרוב · coming soon ·</span>
-          <span class="chapter-tag" style="display:block;margin-top:6px">07</span>
-          <h2 data-l="he">פרקטיקות טובות למיצבי ברן</h2>
-          <h2 data-l="en">Good practices for Burn installations</h2>
-          <p data-l="he">לשרוד שבוע במדבר: אבק ולחות (אטימה, IP, RCD), חום ואוורור, ניהול חשמל וסוללות, עיגון נגד רוח, שחרור מאמץ והלחמות שלא מתפרקות, תיקונים בשטח בערכה מינימלית, ובטיחות קהל. המשך ישיר של הצ׳ק־ליסט בפרק <a href="#power">אלקטרוניקה וחשמל</a>.</p>
-          <p data-l="en">Surviving a week in the desert: dust and moisture (sealing, IP, RCD), heat and ventilation, power and battery management, anchoring against wind, strain relief and joints that don't fail, field repairs from a minimal kit, and crowd safety. A direct continuation of the checklist in <a href="#power">Electronics &amp; Power</a>.</p>
+        <span class="chapter-tag">08</span>
+        <h2 data-l="he">מיצבי ברן</h2>
+        <h2 data-l="en">Burn installs</h2>
+        <p class="dek" data-l="he">המדבר אוכל הכל. אבק, חום ולחות הם סביבה אכזרית — האבק נכנס להכל, חוסם, מקצר והורס. הנה איך שורדים שבוע.</p>
+        <p class="dek" data-l="en">The desert eats everything. Dust, heat and moisture are a brutal environment — dust gets into everything, blocks, shorts and destroys. Here's how to survive a week.</p>
+
+        <ul>
+          <li data-l="he"><strong>מגן על הלדים.</strong> עדיף לקנות רצועות עם שרוול סיליקון (IP65+). אם לא — ודא שאבק לא מגיע ללדים ולאלקטרוניקה שלהם.</li>
+          <li data-l="en"><strong>Protect the LEDs.</strong> Best to buy silicone‑sleeved strip (IP65+). If not — make sure dust can't reach the LEDs and their electronics.</li>
+          <li data-l="he"><strong>ספקים בקופסה.</strong> ספקים מייצרים חום, ולחלקם מאוורר — שהוא דרך מצוינת למלא את הספק באבק ולהרוג אותו. שים את החשמל הכבד בקופסה סגורה, גדולה מספיק לפזר את החום. יותר ספקים — קופסה גדולה יותר.</li>
+          <li data-l="en"><strong>Supplies in a box.</strong> Supplies make heat, and some have a fan — which is a great way to fill the supply with dust and kill it. Put the heavy power in a closed box, big enough to spread the heat. More supplies — a bigger box.</li>
+          <li data-l="he"><strong>בקרים רגישים.</strong> הבקר עדין ורגיש לאבק, שמש וחום. שים אותו בקופסה שמבודדת מחום ומשמש ישירה, ואטומה ככל האפשר לאבק.</li>
+          <li data-l="en"><strong>Controllers are delicate.</strong> The controller is sensitive to dust, sun and heat. Put it in a box that insulates it from heat and direct sun, and seals out dust as much as possible.</li>
+          <li data-l="he"><strong>חום.</strong> לדים מייצרים מעט חום — לא הרבה, אבל אם יש המון מהם במקום לא מאוורר, קח את זה בחשבון.</li>
+          <li data-l="en"><strong>Heat.</strong> LEDs make a little heat — not much, but if you have a lot of them in an unventilated spot, plan for it.</li>
+        </ul>
+
+        <div class="call danger">
+          <div class="ct" data-l="he">🎒 הכלל שמציל מיצבים — גיבויים</div>
+          <div class="ct" data-l="en">🎒 The rule that saves installations — backups</div>
+          <p data-l="he">המדבר הורס הכל: מחברים, ספקים, לדים. קח איתך <strong>גיבויים לכל דבר</strong> — לכל הפחות ספק נוסף, כמה רצועות להחלפה, ובקר להחלפה. תיקון בפלייה ב־3 לפנות בוקר הרבה יותר קל כשיש חלק חילוף בתיק.</p>
+          <p data-l="en">The desert destroys everything: connectors, supplies, LEDs. Bring <strong>backups of everything</strong> — at the very least a spare supply, a few spare strips, and a spare controller. A 3&nbsp;a.m. playa repair is a lot easier with a spare part in your bag.</p>
         </div>
       </section>
 
