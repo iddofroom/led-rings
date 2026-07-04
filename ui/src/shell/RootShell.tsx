@@ -3,6 +3,7 @@ import { SignedIn, SignedOut, SignIn, UserButton, useAuth, useUser } from '@cler
 import App from '../App'
 import { library } from '../lib/library'
 import ProjectPicker from './ProjectPicker'
+import ProjectHome from './ProjectHome'
 import SongPicker from './SongPicker'
 import MappingStage from '../mapping/MappingStage'
 
@@ -12,7 +13,7 @@ import MappingStage from '../mapping/MappingStage'
  * per-request at the Worker against KV membership records keyed by the verified email.
  */
 
-type View = 'projects' | 'songs' | 'editor' | 'mapping'
+type View = 'projects' | 'home' | 'songs' | 'editor' | 'mapping'
 type PendingLoad = { slug: string; comp: string } | 'new' | null
 
 interface ShellState {
@@ -32,7 +33,7 @@ function loadShellState(): ShellState {
       const p = JSON.parse(raw) as Partial<ShellState>
       if (p && typeof p.view === 'string') {
         return {
-          view: p.view === 'editor' || p.view === 'songs' || p.view === 'mapping' ? p.view : 'projects',
+          view: ['editor', 'songs', 'mapping', 'home'].includes(p.view as string) ? (p.view as View) : 'projects',
           projectId: typeof p.projectId === 'string' ? p.projectId : 'rings',
           projectName: typeof p.projectName === 'string' ? p.projectName : 'Rings',
           projectRole: p.projectRole === 'admin' || p.projectRole === 'member' ? p.projectRole : null,
@@ -83,7 +84,7 @@ function ShellInner() {
   useEffect(() => () => { library.setTokenGetter(null) }, [])
 
   const openProject = (id: string, name: string, role: 'admin' | 'member' | null) =>
-    patch({ projectId: id, projectName: name, projectRole: role, view: 'songs', pendingLoad: null })
+    patch({ projectId: id, projectName: name, projectRole: role, view: 'home', pendingLoad: null })
   const openSong = (slug: string, comp: string) => {
     setEditorNonce((n) => n + 1)
     patch({ pendingLoad: { slug, comp }, view: 'editor' })
@@ -105,36 +106,52 @@ function ShellInner() {
   }
 
   if (view === 'mapping') {
-    return <MappingStage projectId={projectId} projectName={projectName} onBack={() => patch({ view: 'songs' })} />
+    return <MappingStage projectId={projectId} projectName={projectName} onBack={() => patch({ view: 'home' })} />
   }
 
   return (
     <div style={shell}>
       <div style={topbar}>
-        <span style={{ fontWeight: 700, letterSpacing: '0.02em' }}>🎛️ LED Studio</span>
-        {view === 'songs' && (
-          <button
-            onClick={() => patch({ view: 'mapping' })}
-            style={{ background: 'transparent', color: '#8fb4ff', border: '1px solid #2a3140', borderRadius: 8, padding: '5px 12px', cursor: 'pointer', fontSize: 13 }}
-            title="Map the physical positions of this installation's LEDs"
-          >
-            🎯 Mapping
-          </button>
+        <button
+          onClick={() => patch({ view: 'projects', pendingLoad: null })}
+          style={{ background: 'transparent', color: '#e8eaed', border: 0, padding: 0, cursor: 'pointer', fontWeight: 700, letterSpacing: '0.02em', fontSize: 15 }}
+        >
+          🎛️ LED Studio
+        </button>
+        {(view === 'songs') && (
+          <>
+            <span style={{ color: '#4b5568' }}>/</span>
+            <button
+              onClick={() => patch({ view: 'home' })}
+              style={{ background: 'transparent', color: '#8fb4ff', border: 0, padding: 0, cursor: 'pointer', fontSize: 14 }}
+            >
+              {projectName}
+            </button>
+          </>
         )}
         <span style={{ flex: 1 }} />
         {email && <span style={{ color: '#9aa7bd', fontSize: 13 }}>{email}</span>}
         <UserButton afterSignOutUrl="/" />
       </div>
-      {view === 'projects' ? (
-        <ProjectPicker onOpen={openProject} />
-      ) : (
+      {view === 'projects' && <ProjectPicker onOpen={openProject} />}
+      {view === 'home' && (
+        <ProjectHome
+          projectId={projectId}
+          projectName={projectName}
+          projectRole={projectRole}
+          onCompose={() => patch({ view: 'songs' })}
+          onMapping={() => patch({ view: 'mapping' })}
+          onBack={() => patch({ view: 'projects', pendingLoad: null })}
+        />
+      )}
+      {view === 'songs' && (
         <SongPicker
           projectId={projectId}
           projectName={projectName}
           projectRole={projectRole}
           onOpenSong={openSong}
           onNewSong={newSong}
-          onBack={() => patch({ view: 'projects', pendingLoad: null })}
+          onBack={() => patch({ view: 'home' })}
         />
       )}
     </div>

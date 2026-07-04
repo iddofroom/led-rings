@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react'
-import { mappingApi, Controller, MappedController, MappedLed } from '../lib/mapping'
+import { mappingApi, deriveThingSegments, Controller, MappedController, MappedLed } from '../lib/mapping'
 import { lumaFromRgba, diff, averageLuma, detectBlob } from './detect'
 
 /**
@@ -46,6 +46,7 @@ export default function MappingStage({ projectId, projectName, onBack }: Props) 
   const [map, setMap] = useState<Record<string, MappedController>>({})
   const [running, setRunning] = useState(false)
   const [saving, setSaving] = useState(false)
+  const [publishing, setPublishing] = useState(false)
   const [savedAt, setSavedAt] = useState<number | null>(null)
   const [log, setLog] = useState<string[]>([])
 
@@ -255,6 +256,25 @@ export default function MappingStage({ projectId, projectName, onBack }: Props) 
     }
   }, [map, projectId, addLog])
 
+  const publishGeometry = useCallback(async () => {
+    const mapped = Object.values(map).filter((c) => c.leds.length > 0)
+    if (mapped.length === 0) { addLog('Nothing to publish.'); return }
+    if (!demoMode && !window.confirm(`Publish ${mapped.length} controller(s) to the hardware?\n\nThis REPLACES each controller's geometry with an "all" segment ordered by index, and reboots it. Use this on a new installation — not to re-map an existing one you want to keep.`)) return
+    setPublishing(true)
+    try {
+      for (const c of mapped) {
+        const cfg = deriveThingSegments(c)
+        await mappingApi.finish(c.thing, 'publish', cfg, demoMode)
+        addLog(`Published ${c.thing}: ${cfg.segments[0].pixels.length} px (numberOfPixels ${cfg.numberOfPixels})`)
+      }
+      addLog(demoMode ? 'Demo: geometry publish simulated.' : 'Geometry published to hardware.')
+    } catch (e: any) {
+      addLog(`Publish failed: ${e?.message || e}`)
+    } finally {
+      setPublishing(false)
+    }
+  }, [map, demoMode, addLog])
+
   const totalLeds = Object.values(map).reduce((n, c) => n + c.leds.length, 0)
   const controllerIndex = (thing: string) => Math.max(0, controllers.findIndex((c) => c.thing === thing))
 
@@ -340,8 +360,12 @@ export default function MappingStage({ projectId, projectName, onBack }: Props) 
           </section>
 
           <section style={S.card}>
-            <div style={S.cardTitle}>3 · Save</div>
+            <div style={S.cardTitle}>3 · Save &amp; publish</div>
             <button style={S.primaryBtn} disabled={saving || totalLeds === 0} onClick={saveMap}>{saving ? 'Saving…' : `💾 Save map (${totalLeds} LEDs)`}</button>
+            <button style={S.ghostBtn} disabled={publishing || totalLeds === 0} onClick={publishGeometry} title="Write a derived geometry back to the controllers so animations can address them">
+              {publishing ? 'Publishing…' : '📡 Publish geometry to hardware'}
+            </button>
+            <div style={{ fontSize: 12, color: '#8fa0bd' }}>Publishing replaces each controller's geometry and reboots it — for a new installation, not to re-map an existing one.</div>
           </section>
 
           <section style={{ ...S.card, flex: 1, minHeight: 0 }}>

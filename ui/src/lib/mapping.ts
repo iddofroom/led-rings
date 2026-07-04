@@ -24,6 +24,25 @@ export function controlBase(): string {
 
 export interface Hsv { hue: number; sat: number; val: number }
 
+export interface DerivedSegments {
+  numberOfPixels: number
+  segments: { name: string; pixels: { index: number; relPos: number }[] }[]
+}
+
+/**
+ * Turn a controller's detected LED map into a KivSee ThingSegments so animations
+ * can address it. MVP: one "all" segment, pixels ordered by physical index with
+ * relPos spread 0→1 along that order (gaps from missed LEDs are skipped, not left
+ * as holes). Spatial auto-clustering into rings is a later enhancement.
+ */
+export function deriveThingSegments(c: import('./library').MappedController): DerivedSegments {
+  const sorted = [...c.leds].sort((a, b) => a.index - b.index)
+  const n = sorted.length
+  const maxIndex = sorted.reduce((m, l) => Math.max(m, l.index), 0)
+  const pixels = sorted.map((l, k) => ({ index: l.index, relPos: n > 1 ? k / (n - 1) : 0 }))
+  return { numberOfPixels: maxIndex + 1, segments: [{ name: 'all', pixels }] }
+}
+
 export interface Controller {
   thing: string
   alive: boolean
@@ -46,6 +65,16 @@ async function ctl<T>(path: string, init?: RequestInit): Promise<T> {
 const post = (body: unknown): RequestInit => ({ method: 'POST', body: JSON.stringify(body) })
 
 export const mappingApi = {
+  /** Is the control-server (Raspberry Pi) reachable? Pings the brightness endpoint. */
+  ping: async (): Promise<boolean> => {
+    try {
+      const r = await fetch(`${controlBase()}/api/brightness`, { credentials: 'include' })
+      return r.ok
+    } catch {
+      return false
+    }
+  },
+
   /** Live controller roster from the RPi (MQTT thing/+/status), + pixel counts. */
   discover: (simulate = false) =>
     ctl<{ connected: boolean; controllers: Controller[] }>(
