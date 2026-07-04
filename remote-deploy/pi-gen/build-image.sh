@@ -12,7 +12,9 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"   # remote-deploy/pi-gen
 REMOTE_DEPLOY="$(cd "$HERE/.." && pwd)"                 # remote-deploy
 REPO_ROOT="$(cd "$REMOTE_DEPLOY/.." && pwd)"
 WORK="${WORK:-$REPO_ROOT/.pi-gen-work}"
-PIGEN_REF="${PIGEN_REF:-master}"
+# The arm64 image MUST be built from pi-gen's `arm64` branch — `master` produces a 32-bit armhf
+# image (no Node 22 / librosa wheels on armv7). See pi-gen README.
+PIGEN_REF="${PIGEN_REF:-arm64}"
 
 echo "[build-image] pi-gen work dir: $WORK"
 if [ ! -d "$WORK/.git" ]; then
@@ -23,6 +25,8 @@ fi
 cp "$HERE/config" "$WORK/config"
 rm -rf "$WORK/stage-ledrings"
 cp -a "$HERE/stage-ledrings" "$WORK/stage-ledrings"
+# pi-gen SKIPS run scripts that aren't executable (a Windows checkout drops the +x bit) — force it.
+chmod +x "$WORK/stage-ledrings/prerun.sh" "$WORK/stage-ledrings/"*-run.sh 2>/dev/null || true
 
 # Assemble the stage's files/ from the real host bundle so there's ONE source of truth
 # (never the actual .led-rings-secrets — only the example).

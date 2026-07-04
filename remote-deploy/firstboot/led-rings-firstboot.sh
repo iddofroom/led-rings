@@ -113,14 +113,23 @@ INSTALL_ENV=()
 [ -n "$REPO_URL" ] && INSTALL_ENV+=("LED_RINGS_REPO=$REPO_URL")
 [ -n "$BRANCH" ]   && INSTALL_ENV+=("LED_RINGS_BRANCH=$BRANCH")
 
-echo "running installer as $RUN_USER…"
-sudo -u "$RUN_USER" env "${INSTALL_ENV[@]}" bash "$HOST_DIR/led-rings-host.sh" \
-  || echo "installer returned nonzero — see the host logs"
-sudo -u "$RUN_USER" bash "$HOST_DIR/led-rings-host-enable-autostart.sh" \
-  || echo "autostart enable returned nonzero"
+# The installer runs as $RUN_USER and writes INTO $HOST_DIR (cloudflared, the git clone, logs),
+# so the whole bundle must be owned by that user first (the image ships it root-owned).
+chown -R "$RUN_USER:$RUN_USER" "$HOST_DIR" 2>/dev/null || true
 
-# ── Done: mark provisioned + disable self ──
-mkdir -p "$(dirname "$SENTINEL")"
-echo "provisioned" > "$SENTINEL"
-systemctl disable led-rings-firstboot.service >/dev/null 2>&1 || true
-echo "=== firstboot complete ==="
+# -H so sudo sets HOME=/home/$RUN_USER (else yarn/npm cache writes land in /root and fail).
+echo "running installer as $RUN_USER…"
+if sudo -u "$RUN_USER" -H env "${INSTALL_ENV[@]}" bash "$HOST_DIR/led-rings-host.sh"; then
+  # Pass RUN_USER explicitly: via `sudo -u`, SUDO_USER would be 'root' and the autostart unit
+  # would wrongly run as root.
+  sudo -u "$RUN_USER" -H env RUN_USER="$RUN_USER" bash "$HOST_DIR/led-rings-host-enable-autostart.sh" \
+    || echo "autostart enable returned nonzero"
+  # Only NOW mark provisioned + disable self — a failed install must retry on the next boot.
+  mkdir -p "$(dirname "$SENTINEL")"
+  echo "provisioned" > "$SENTINEL"
+  systemctl disable led-rings-firstboot.service >/dev/null 2>&1 || true
+  echo "=== firstboot complete ==="
+else
+  echo "installer FAILED — leaving firstboot enabled to retry on next boot"
+  exit 1
+fi

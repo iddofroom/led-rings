@@ -7,7 +7,9 @@ set -euo pipefail
 BASE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 RUN="$BASE/led-rings-host-run.sh"
 UNIT=/etc/systemd/system/led-rings-host.service
-USR="${SUDO_USER:-$USER}"
+# RUN_USER wins (the first-boot provisioner sets it): when invoked via `sudo -u pi`, SUDO_USER is
+# 'root', which would wrongly register the service as root. Manual runs leave RUN_USER unset.
+USR="${RUN_USER:-${SUDO_USER:-$USER}}"
 HOMEDIR="$(getent passwd "$USR" | cut -d: -f6)"
 
 [ -f "$RUN" ] || { echo "[led-rings] ERROR: led-rings-host-run.sh missing next to this script." >&2; exit 1; }
