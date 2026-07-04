@@ -119,19 +119,21 @@ export default function MappingStage({ projectId, projectName, onBack }: Props) 
   const discover = useCallback(async () => {
     setDiscovering(true)
     setDiscoverError(null)
+    // Demo mode is fully offline — fabricate controllers without touching the control-server,
+    // so the whole flow can be reviewed with no hardware and no Pi running.
+    if (demoMode) {
+      setControllers([
+        { thing: 'ring1', alive: true, lastSeen: Date.now(), numPixels: 144 },
+        { thing: 'ring2', alive: true, lastSeen: Date.now(), numPixels: 144 },
+      ])
+      addLog('Demo: fabricated 2 controllers (no hardware).')
+      setDiscovering(false)
+      return
+    }
     try {
-      const res = await mappingApi.discover(demoMode)
-      if (demoMode && res.controllers.length === 0) {
-        // No hardware in demo mode → fabricate a couple of controllers to exercise the UI.
-        setControllers([
-          { thing: 'ring1', alive: true, lastSeen: Date.now(), numPixels: 144 },
-          { thing: 'ring2', alive: true, lastSeen: Date.now(), numPixels: 144 },
-        ])
-        addLog('Demo: fabricated 2 controllers (no hardware).')
-      } else {
-        setControllers(res.controllers)
-        addLog(`Discovered ${res.controllers.length} controller(s)${res.connected ? '' : ' (MQTT not connected)'}.`)
-      }
+      const res = await mappingApi.discover()
+      setControllers(res.controllers)
+      addLog(`Discovered ${res.controllers.length} controller(s)${res.connected ? '' : ' (MQTT not connected)'}.`)
     } catch (e: any) {
       setDiscoverError(e?.message || 'Discovery failed')
       addLog(`Discovery failed: ${e?.message || e}`)
