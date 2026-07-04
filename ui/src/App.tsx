@@ -313,8 +313,11 @@ function App({ projectId = 'rings', initialLoad, onExitToSongs }: AppProps = {})
   const playbackSpeedRef = useRef(1.0)
   /** Control-server URL, editable at runtime via Settings (no rebuild needed to point at a different machine). */
   const [apiBase, setApiBaseState] = useState(() => {
+    // A stored value — INCLUDING an explicitly-saved empty string (= editing-only mode) — is
+    // authoritative. Only a never-set key (null) falls through to the build-time default, so a
+    // baked-in VITE_API_URL can't resurrect a URL the user deliberately cleared.
     const saved = localStorage.getItem(CONTROL_SERVER_URL_STORAGE_KEY)
-    if (saved) return saved
+    if (saved !== null) return saved
     const envUrl = (import.meta as any).env?.VITE_API_URL
     if (envUrl) return envUrl
     // A prebuilt/image dist ships with NO VITE_API_URL so one build works on every device's own
@@ -324,8 +327,8 @@ function App({ projectId = 'rings', initialLoad, onExitToSongs }: AppProps = {})
   const setApiBase = useCallback((value: string) => {
     const trimmed = value.trim()
     setApiBaseState(trimmed)
-    if (trimmed) localStorage.setItem(CONTROL_SERVER_URL_STORAGE_KEY, trimmed)
-    else localStorage.removeItem(CONTROL_SERVER_URL_STORAGE_KEY)
+    // Persist even when empty: '' records "user chose editing-only", distinct from never-set.
+    localStorage.setItem(CONTROL_SERVER_URL_STORAGE_KEY, trimmed)
   }, [])
   const [settingsOpen, setSettingsOpen] = useState(false)
   /** A stored audio file handle exists but needs a fresh permission grant (must happen from a user gesture). */

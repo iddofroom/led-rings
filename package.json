@@ -29,7 +29,7 @@
     "roundtrip": "ts-node --transpile-only scripts/roundtrip-check.ts",
     "compose": "ts-node --transpile-only scripts/compose.ts",
     "package:win": "node packaging/build.js",
-    "cf:build-ui": "yarn --cwd ui build",
+    "cf:build-ui": "yarn --cwd ui build --mode edge",
     "cf:deploy": "yarn cf:build-ui && wrangler deploy --config cf-worker/wrangler.toml",
     "cf:preview": "yarn cf:build-ui && wrangler dev --config cf-worker/wrangler.toml",
     "deploy": "wrangler deploy --config cf-worker/wrangler.toml"
