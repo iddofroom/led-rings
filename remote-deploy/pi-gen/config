@@ -1,0 +1,19 @@
+# pi-gen config for the LED Rings Raspberry Pi image (Raspberry Pi OS Lite, arm64/Bookworm).
+# 64-bit is required — Node 18+ and the librosa beat-detection stack have no 32-bit armv7 wheels.
+IMG_NAME='led-rings'
+RELEASE='bookworm'
+DEPLOY_COMPRESSION='xz'
+DEPLOY_ZIP=0
+ENABLE_SSH=1
+TARGET_HOSTNAME='ledrings'
+LOCALE_DEFAULT='en_GB.UTF-8'
+KEYBOARD_KEYMAP='us'
+KEYBOARD_LAYOUT='English (US)'
+TIMEZONE_DEFAULT='Asia/Jerusalem'
+# A default account is required by pi-gen. Users should change the password after first login
+# (or set their own before building). Wi-Fi is provisioned at first boot from ledrings-config.txt.
+FIRST_USER_NAME='pi'
+FIRST_USER_PASS='ledrings'
+DISABLE_FIRST_BOOT_USER_RENAME=1
+# stage2 = Raspberry Pi OS Lite; stage-ledrings = our thin overlay (scripts + first-boot unit).
+STAGE_LIST='stage0 stage1 stage2 stage-ledrings'

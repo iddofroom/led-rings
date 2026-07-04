@@ -1,0 +1,16 @@
+[Unit]
+Description=LED Rings first-boot provisioner (Wi-Fi + tunnel token from /boot config)
+# Runs after the base system is up. The script configures Wi-Fi itself and then
+# waits for connectivity, so we deliberately do NOT gate on network-online.target.
+After=multi-user.target
+# Skip entirely once provisioning has completed (sentinel written by the script).
+ConditionPathExists=!/var/lib/led-rings/provisioned
+
+[Service]
+Type=oneshot
+ExecStart=/opt/led-rings-host/firstboot/led-rings-firstboot.sh
+RemainAfterExit=no
+TimeoutStartSec=1800
+
+[Install]
+WantedBy=multi-user.target

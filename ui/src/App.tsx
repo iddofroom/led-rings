@@ -310,9 +310,15 @@ function App({ projectId = 'rings', initialLoad, onExitToSongs }: AppProps = {})
   const useSimSpeedRef = useRef(false)
   const playbackSpeedRef = useRef(1.0)
   /** Control-server URL, editable at runtime via Settings (no rebuild needed to point at a different machine). */
-  const [apiBase, setApiBaseState] = useState(
-    () => localStorage.getItem(CONTROL_SERVER_URL_STORAGE_KEY) ?? (import.meta as any).env?.VITE_API_URL ?? ''
-  )
+  const [apiBase, setApiBaseState] = useState(() => {
+    const saved = localStorage.getItem(CONTROL_SERVER_URL_STORAGE_KEY)
+    if (saved) return saved
+    const envUrl = (import.meta as any).env?.VITE_API_URL
+    if (envUrl) return envUrl
+    // A prebuilt/image dist ships with NO VITE_API_URL so one build works on every device's own
+    // subdomain — fall back to the current origin (the bridge serves the UI and proxies /api there).
+    return typeof window !== 'undefined' && window.location ? window.location.origin : ''
+  })
   const setApiBase = useCallback((value: string) => {
     const trimmed = value.trim()
     setApiBaseState(trimmed)

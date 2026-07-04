@@ -1,0 +1,35 @@
+name: build-image
+
+# Builds the LED Rings Raspberry Pi .img with pi-gen (Docker + QEMU). Runs on demand or on an
+# `image-v*` tag. pi-gen cannot run on Windows/macOS natively, so this is the reliable builder.
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - 'image-v*'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 150
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Register QEMU/binfmt for ARM emulation
+        run: docker run --privileged --rm tonistiigi/binfmt --install all
+
+      - name: Free up disk space
+        run: |
+          sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/lib/android || true
+          df -h
+
+      - name: Build the image
+        run: bash remote-deploy/pi-gen/build-image.sh
+
+      - name: Upload image artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: led-rings-image
+          path: .pi-gen-work/deploy/*.img.xz
+          if-no-files-found: error
+          retention-days: 14

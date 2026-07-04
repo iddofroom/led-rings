@@ -1,0 +1,34 @@
+# ── LED Rings — first-boot configuration ────────────────────────────────────
+# Edit this file in Notepad/TextEdit AFTER writing the SD card, then put the card
+# in the Raspberry Pi and power it on. On first boot the Pi reads this file to
+# join Wi-Fi and connect to your account, then starts automatically.
+#
+# Lines are KEY=VALUE. Leave a value blank to skip it. No quotes needed.
+
+# ── Wi-Fi (so the Pi can reach the internet) ─────────────────────────────────
+WIFI_SSID=
+WIFI_PASS=
+# Two-letter Wi-Fi country code (e.g. IL, US, GB) — required for Wi-Fi to enable.
+WIFI_COUNTRY=IL
+
+# ── Your installation's cloud link ───────────────────────────────────────────
+# Get these two from the website (Set up the Raspberry Pi → "Get my Pi config").
+# TUNNEL_TOKEN is a SECRET — this file is wiped of it automatically after first boot.
+TUNNEL_TOKEN=
+PUBLIC_URL=
+
+# Public login key for the app (safe to include; the website gives you this too).
+VITE_CLERK_PUBLISHABLE_KEY=
+
+# ── Advanced (usually leave blank) ───────────────────────────────────────────
+# If the KivSee LED services / MQTT broker run on a DIFFERENT device on your LAN,
+# put their IPs here. Blank = they run on this Pi (127.0.0.1).
+LEDS_OBJECT_SERVICE_IP=
+SEQUENCE_SERVICE_IP=
+TRIGGER_SERVICE_IP=
+MQTT_BROKER=
+
+# Which git repo/branch the Pi tracks (blank = project default). For pre-release
+# testing point these at the fork + branch that has the newest features.
+LED_RINGS_REPO=
+LED_RINGS_BRANCH=

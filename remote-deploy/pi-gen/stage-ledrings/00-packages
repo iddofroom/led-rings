@@ -1,0 +1,6 @@
+git
+curl
+ca-certificates
+network-manager
+rfkill
+wireless-tools
