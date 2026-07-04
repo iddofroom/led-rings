@@ -277,6 +277,17 @@ export const library = {
   saveSong: (body: SaveSongBody, projectId: string = DEFAULT_PROJECT) =>
     call<{ ok: true; slug: string; meta: LibrarySongMeta }>(scoped(`/api/library/song`, projectId), post(body)),
 
+  /**
+   * Upload a song's audio as RAW binary to R2 (via the Worker) — no base64, no size cap beyond the
+   * server's sanity limit. Call after saveSong so the slug exists; the Worker records the audio on
+   * the song's meta. `data` is the File/Blob; contentType defaults to the blob's own type.
+   */
+  uploadAudio: (slug: string, data: Blob, opts: { filename?: string; contentType?: string } = {}, projectId: string = DEFAULT_PROJECT) =>
+    call<{ ok: true; slug: string; size: number; contentType: string }>(
+      scoped(`/api/library/audio?slug=${encodeURIComponent(slug)}&filename=${encodeURIComponent(opts.filename || '')}`, projectId),
+      { method: 'POST', headers: { 'Content-Type': opts.contentType || data.type || 'audio/mpeg' }, body: data },
+    ),
+
   saveComposition: (body: SaveCompositionBody, projectId: string = DEFAULT_PROJECT) =>
     call<{ ok: true; slug: string; comp: string }>(scoped(`/api/library/composition`, projectId), post(body)),
 

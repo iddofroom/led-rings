@@ -9,7 +9,7 @@ import LiveConsole from './components/LiveConsole'
 import HistoryPanel from './components/HistoryPanel'
 import PatternLibrary, { editedTimeframes } from './components/PatternLibrary'
 import type { ImportedPattern } from './components/PatternLibrary'
-import { library, fileToBase64 } from './lib/library'
+import { library } from './lib/library'
 import { putAudio, getAudio } from './lib/audioCache'
 import { useViewRange } from './hooks/useViewRange'
 import { useUndoHistory } from './hooks/useUndoHistory'
@@ -1431,15 +1431,14 @@ function App({ projectId = 'rings', initialLoad, onExitToSongs }: AppProps = {})
     JSON.stringify([s.name, s.bpm, s.lengthSeconds, s.startOffsetMs, s.animationType, s.audioFilePath, s.beatTimestampsMs?.length])
 
   /** Fetch an audio URL (or the resolved current source) as base64 for upload to the library. */
-  const fetchAudioBase64 = async (url?: string): Promise<{ base64: string; contentType: string } | null> => {
+  const fetchAudioBlob = async (url?: string): Promise<Blob | null> => {
     const src = url || effectiveAudioSrc || audioBlobUrlRef.current || ''
     if (!src) return null
     try {
       const resp = await fetch(src)
       if (!resp.ok) return null
       const blob = await resp.blob()
-      if (blob.size === 0) return null
-      return { base64: await fileToBase64(blob), contentType: blob.type || 'audio/mpeg' }
+      return blob.size === 0 ? null : blob
     } catch {
       return null
     }
@@ -1462,18 +1461,13 @@ function App({ projectId = 'rings', initialLoad, onExitToSongs }: AppProps = {})
     setLibrarySaveState('saving')
     try {
       const existingSlug = s.librarySlug
-      let audio: { base64: string; contentType: string } | null = null
-      if (!existingSlug || opts?.forceAudio) audio = await fetchAudioBase64(opts?.audioUrl)
-      // Fail fast on oversize audio instead of uploading megabytes just to get the server's 413.
-      // The Worker caps audio at 20MB (KV value limit is 25MB); base64 is ~4/3 of raw bytes.
-      if (audio) {
-        const rawMb = (audio.base64.length * 3) / 4 / (1024 * 1024)
-        if (rawMb > 20) {
-          throw new Error(
-            `Audio file is ~${Math.round(rawMb)}MB — the library accepts up to 20MB. ` +
-            'Convert the WAV to MP3 (a 4-minute MP3 is ~5MB) and reload it.',
-          )
-        }
+      const wantAudio = !existingSlug || opts?.forceAudio
+      // Fetch the raw audio (first save or a forced refresh) so it can be streamed to R2 after the
+      // meta row exists. Binary upload — no base64, no 20MB cap (the Worker's R2 sanity cap is 200MB).
+      const blob = wantAudio ? await fetchAudioBlob(opts?.audioUrl) : null
+      if (blob) {
+        const rawMb = blob.size / (1024 * 1024)
+        if (rawMb > 200) throw new Error(`Audio file is ~${Math.round(rawMb)}MB — the library accepts up to 200MB.`)
       }
       const res = await library.saveSong({
         slug: existingSlug,
@@ -1482,13 +1476,15 @@ function App({ projectId = 'rings', initialLoad, onExitToSongs }: AppProps = {})
         lengthSeconds: s.lengthSeconds,
         startOffsetMs: s.startOffsetMs,
         animationType: s.animationType,
-        audioFilename: s.audioFilePath || (audio ? `${name}.mp3` : undefined),
-        audioBase64: audio?.base64,
-        audioContentType: audio?.contentType,
+        audioFilename: s.audioFilePath || (blob ? `${name}.mp3` : undefined),
         beatTimestampsMs: s.beatTimestampsMs,
         analysis: opts?.analysis,
       }, projectId)
       const slug = res.slug
+      if (blob) {
+        const filename = s.audioFilePath ? s.audioFilePath.replace(/^.*[\\/]/, '') : `${name}.mp3`
+        await library.uploadAudio(slug, blob, { filename, contentType: blob.type || 'audio/mpeg' }, projectId)
+      }
       if (slug !== existingSlug) setSong((prev) => ({ ...prev, librarySlug: slug }))
       lastSavedMetaRef.current = metaSnapshot({ ...s, librarySlug: slug })
       setLibrarySaveState('saved')

@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react'
-import { library, fileToBase64, type LibrarySongSummary } from '../lib/library'
+import { library, type LibrarySongSummary } from '../lib/library'
 import MembersPanel from './MembersPanel'
 import { useI18n } from '../lib/i18n'
 
@@ -87,8 +87,9 @@ export default function SongPicker({ projectId, projectName, projectRole, onOpen
           a.src = URL.createObjectURL(file)
         })
       } catch {}
-      const audioBase64 = await fileToBase64(file)
-      await library.saveSong({ name, audioFilename: file.name, audioBase64, lengthSeconds }, projectId)
+      // Create the song row, then stream the raw audio to R2 (no base64, no 20MB cap).
+      const { slug } = await library.saveSong({ name, audioFilename: file.name, lengthSeconds }, projectId)
+      await library.uploadAudio(slug, file, { filename: file.name, contentType: file.type || undefined }, projectId)
       setBusy(null)
       refreshSoon()
     } catch (err) {

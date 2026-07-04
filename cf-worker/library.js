@@ -3,16 +3,22 @@
 // Stores, per song, everything the workbench produces so progress survives across
 // machines and sessions:
 //   song:<slug>:meta            JSON  { slug, name, bpm, lengthSeconds, audioFilename,
-//                                       beatTimestampsMs?, animationType, createdAt, updatedAt }
+//                                       audioR2?, audioSize?, beatTimestampsMs?, animationType, … }
 //   song:<slug>:analysis        JSON  full analyze_music.py output
-//   song:<slug>:audio           bytes the uploaded MP3/WAV (KV metadata holds contentType)
 //   song:<slug>:working         JSON  { song, timeframes, updatedAt } — auto-saved live timeline
 //   song:<slug>:comp:<name>     JSON  named saved animation { name, method, song, timeframes }
+//
+// AUDIO lives in R2 (env.LED_AUDIO), not KV: the raw MP3/WAV is written to the object key
+// `audio/<pid>/<slug>` and served through the Worker at /api/library/audio (auth unchanged, never
+// a public R2 URL). This lifts KV's 25 MiB value cap, drops the base64 upload inflation, and lets
+// the player seek via HTTP Range. `song:<slug>:audio` KV values from before the migration are still
+// read as a fallback, so nothing already saved breaks.
 //
 // handleLibrary() returns a Response for /api/library/* routes, or null to let the
 // caller fall through to the normal host proxy.
 
-const MAX_AUDIO_BYTES = 20 * 1024 * 1024; // 20 MB hard cap per upload (KV value limit is 25 MB)
+const MAX_AUDIO_BYTES = 20 * 1024 * 1024; // legacy KV audio cap (used only when R2 is unavailable)
+const MAX_AUDIO_R2_BYTES = 200 * 1024 * 1024; // R2 upload sanity cap (R2 itself has no small-object limit)
 const MAX_JSON_BYTES = 8 * 1024 * 1024; // 8 MB cap for analysis / composition payloads
 
 const CORS = {
@@ -54,7 +60,10 @@ const projectPrefix = (pid) => (pid && pid !== 'rings' ? `proj:${pid}:` : '');
 const songListPrefix = (pid) => `${projectPrefix(pid)}song:`;
 const metaKey = (pid, slug) => `${songListPrefix(pid)}${slug}:meta`;
 const analysisKey = (pid, slug) => `${songListPrefix(pid)}${slug}:analysis`;
-const audioKey = (pid, slug) => `${songListPrefix(pid)}${slug}:audio`;
+const audioKey = (pid, slug) => `${songListPrefix(pid)}${slug}:audio`; // legacy KV audio (fallback reads only)
+// R2 object key for a song's audio. pid is always normalized (never blank), so this is unambiguous
+// across the built-in "rings" project and named projects.
+const audioR2Key = (pid, slug) => `audio/${pid}/${slug}`;
 const workingKey = (pid, slug) => `${songListPrefix(pid)}${slug}:working`;
 const compKey = (pid, slug, comp) => `${songListPrefix(pid)}${slug}:comp:${comp}`;
 const compPrefix = (pid, slug) => `${songListPrefix(pid)}${slug}:comp:`;
@@ -163,6 +172,7 @@ export async function handleLibrary(request, env, url, auth) {
 
   const KV = env && env.LED_LIBRARY;
   if (!KV) return err('Library storage not configured (KV binding missing)', 500);
+  const R2 = (env && env.LED_AUDIO) || null; // audio bucket; null on older deploys → KV fallback
 
   // Which installation/project this request targets (defaults to the built-in "rings").
   const pid = normProject(url.searchParams.get('project'));
@@ -199,7 +209,8 @@ export async function handleLibrary(request, env, url, auth) {
     if (request.method === 'GET' && p === '/api/library/songs') return await listSongs(KV, pid);
     if (request.method === 'GET' && p === '/api/library/song') return await getSong(KV, pid, url.searchParams.get('slug'));
     if ((request.method === 'GET' || request.method === 'HEAD') && p === '/api/library/audio')
-      return await getAudio(KV, pid, url.searchParams.get('slug'), request.method === 'HEAD');
+      return await getAudio(KV, R2, pid, url.searchParams.get('slug'), request.method === 'HEAD', request.headers.get('Range'));
+    if (isPost && p === '/api/library/audio') return await uploadAudio(KV, R2, pid, request, url);
     if (request.method === 'GET' && p === '/api/library/analysis') {
       const slug = slugSafe(url.searchParams.get('slug'));
       if (!slug) return err('Missing slug');
@@ -229,10 +240,10 @@ export async function handleLibrary(request, env, url, auth) {
     if (request.method === 'GET' && p === '/api/library/version')
       return await getVersion(KV, pid, url.searchParams.get('slug'), url.searchParams.get('id'));
 
-    if (request.method === 'POST' && p === '/api/library/song') return await upsertSong(KV, pid, request);
+    if (request.method === 'POST' && p === '/api/library/song') return await upsertSong(KV, R2, pid, request);
     if (request.method === 'POST' && p === '/api/library/composition') return await upsertComposition(KV, pid, request);
     if (request.method === 'POST' && p === '/api/library/version') return await createVersion(KV, pid, request);
-    if (request.method === 'POST' && p === '/api/library/delete') return await deleteEntry(KV, pid, request);
+    if (request.method === 'POST' && p === '/api/library/delete') return await deleteEntry(KV, R2, pid, request);
 
     return err('Unknown library route: ' + p, 404);
   } catch (e) {
@@ -259,8 +270,10 @@ async function listSongs(KV, pid) {
       if (!songs.has(slug)) songs.set(slug, { slug, compositions: [], hasAnalysis: false, hasAudio: false, hasWorking: false });
       const entry = songs.get(slug);
       const md = k.metadata || {};
-      if (tail === 'meta') Object.assign(entry, md, { slug });
-      else if (tail === 'analysis') entry.hasAnalysis = true;
+      if (tail === 'meta') {
+        Object.assign(entry, md, { slug });
+        if (md.audioR2) entry.hasAudio = true; // audio lives in R2, recorded on the meta
+      } else if (tail === 'analysis') entry.hasAnalysis = true;
       else if (tail === 'audio') {
         entry.hasAudio = true;
         if (md.size) entry.audioSize = md.size;
@@ -294,16 +307,78 @@ async function getSong(KV, pid, slugRaw) {
     cursor = res.list_complete ? undefined : res.cursor;
   } while (cursor);
   const meta = await KV.get(metaKey(pid, slug), 'json');
+  if (meta && meta.audioR2) flags.hasAudio = true; // audio in R2 (no KV `audio` key to list)
   if (!meta && !flags.hasAudio && comps.length === 0) return err('Song not found', 404);
   comps.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
   return json({ slug, meta, ...flags, compositions: comps });
 }
 
-async function getAudio(KV, pid, slugRaw, headOnly) {
+// Access-controlled per project — audio must NOT be shared/edge-cacheable, or a cached URL could
+// serve one project's audio to a non-member. `private` = the user's own browser only.
+const AUDIO_CACHE = 'private, max-age=3600';
+
+// Parse a single-range HTTP Range header ("bytes=start-end") into an R2 range object. Returns null
+// for an absent/unsatisfiable/multi-range header (→ serve the whole object as 200). `size` is the
+// object's total byte length, needed to resolve open-ended and suffix ranges.
+function parseR2Range(header, size) {
+  if (!header) return null;
+  const m = /^bytes=(\d*)-(\d*)$/.exec(String(header).trim());
+  if (!m) return null;
+  const hasStart = m[1] !== '';
+  const hasEnd = m[2] !== '';
+  if (!hasStart && !hasEnd) return null;
+  if (!hasStart) {
+    // suffix: last N bytes
+    const suffix = Math.min(Number(m[2]), size);
+    if (!suffix) return null;
+    return { offset: size - suffix, length: suffix };
+  }
+  const start = Number(m[1]);
+  if (start >= size) return { unsatisfiable: true };
+  const end = hasEnd ? Math.min(Number(m[2]), size - 1) : size - 1;
+  if (end < start) return { unsatisfiable: true };
+  return { offset: start, length: end - start + 1 };
+}
+
+async function getAudio(KV, R2, pid, slugRaw, headOnly, rangeHeader) {
   const slug = slugSafe(slugRaw);
   if (!slug) return err('Missing slug');
+
+  // ── R2 (current storage) ──
+  if (R2) {
+    const key = audioR2Key(pid, slug);
+    const head = await R2.head(key);
+    if (head) {
+      const ct = (head.httpMetadata && head.httpMetadata.contentType) || 'audio/mpeg';
+      const size = head.size;
+      if (headOnly) {
+        return new Response(null, {
+          status: 200,
+          headers: { 'Content-Type': ct, 'Content-Length': String(size), 'Accept-Ranges': 'bytes', 'Cache-Control': AUDIO_CACHE, ...CORS },
+        });
+      }
+      const rng = parseR2Range(rangeHeader, size);
+      if (rng && rng.unsatisfiable) {
+        return new Response(null, { status: 416, headers: { 'Content-Range': `bytes */${size}`, 'Accept-Ranges': 'bytes', ...CORS } });
+      }
+      const obj = await R2.get(key, rng ? { range: { offset: rng.offset, length: rng.length } } : undefined);
+      if (obj == null) return err('Audio not found', 404); // raced with a delete
+      const baseHeaders = { 'Content-Type': ct, 'Accept-Ranges': 'bytes', 'Cache-Control': AUDIO_CACHE, 'Access-Control-Allow-Origin': '*' };
+      if (rng) {
+        const off = rng.offset;
+        const len = rng.length;
+        return new Response(obj.body, {
+          status: 206,
+          headers: { ...baseHeaders, 'Content-Length': String(len), 'Content-Range': `bytes ${off}-${off + len - 1}/${size}` },
+        });
+      }
+      return new Response(obj.body, { status: 200, headers: { ...baseHeaders, 'Content-Length': String(size) } });
+    }
+    // Not in R2 → fall through to the legacy KV read below (pre-migration songs).
+  }
+
+  // ── Legacy KV audio (pre-R2 songs; whole-value reads, no true Range) ──
   if (headOnly) {
-    // Cheap existence check — list the exact key for its metadata, never read the 5 MB value.
     const res = await KV.list({ prefix: audioKey(pid, slug), limit: 1 });
     const k = res.keys.find((x) => x.name === audioKey(pid, slug));
     if (!k) return new Response(null, { status: 404, headers: CORS });
@@ -321,15 +396,74 @@ async function getAudio(KV, pid, slugRaw, headOnly) {
       'Content-Type': ct,
       'Content-Length': String(value.byteLength),
       'Accept-Ranges': 'bytes',
-      // Access-controlled per project — must NOT be shared/edge-cacheable, or a cached URL could
-      // serve one project's audio to a non-member. `private` = the user's own browser only.
-      'Cache-Control': 'private, max-age=3600',
+      'Cache-Control': AUDIO_CACHE,
       'Access-Control-Allow-Origin': '*',
     },
   });
 }
 
-async function upsertSong(KV, pid, request) {
+// Binary audio upload → R2. Body is the raw MP3/WAV bytes (no base64); filename + content type
+// come from the query string / Content-Type header. Records the audio's presence + size on the
+// song meta so listings don't need a per-song R2 probe. Requires the R2 binding.
+async function uploadAudio(KV, R2, pid, request, url) {
+  const slug = slugSafe(url.searchParams.get('slug'));
+  if (!slug) return err('Missing slug');
+  if (!R2) return err('Audio storage not configured (R2 binding missing)', 500);
+
+  const buf = await request.arrayBuffer();
+  const size = buf.byteLength;
+  if (size === 0) return err('Empty audio body');
+  if (size > MAX_AUDIO_R2_BYTES) return err(`Audio too large (max ${Math.round(MAX_AUDIO_R2_BYTES / 1024 / 1024)}MB)`, 413);
+
+  const filename = url.searchParams.get('filename') || '';
+  const ct = request.headers.get('Content-Type') || guessAudioType(filename) || 'audio/mpeg';
+
+  await R2.put(audioR2Key(pid, slug), buf, {
+    httpMetadata: { contentType: ct },
+    customMetadata: { filename: filename.slice(0, 200), slug },
+  });
+
+  // Reflect the audio on the meta (create a minimal one if the song was never saved first) so
+  // listSongs/getSong report hasAudio without probing R2, and the legacy KV copy (if any) is retired.
+  const existing = (await KV.get(metaKey(pid, slug), 'json')) || {};
+  const now = Date.now();
+  const meta = {
+    ...existing,
+    slug,
+    name: existing.name || slug,
+    bpm: numOr(existing.bpm, 120),
+    lengthSeconds: numOr(existing.lengthSeconds, 0),
+    animationType: existing.animationType || 'song',
+    audioFilename: filename || existing.audioFilename || '',
+    audioContentType: ct,
+    audioR2: true,
+    audioSize: size,
+    createdAt: existing.createdAt || now,
+    updatedAt: now,
+  };
+  await Promise.all([
+    KV.put(metaKey(pid, slug), JSON.stringify(meta), { metadata: songMetaSummary(meta) }),
+    KV.delete(audioKey(pid, slug)).catch(() => {}), // drop any stale legacy KV audio for this slug
+  ]);
+  return json({ ok: true, slug, size, contentType: ct });
+}
+
+// The compact summary stored as KV metadata alongside the meta value, so listSongs can render a
+// song row (and know it has audio + how big) without reading every meta/audio value.
+function songMetaSummary(meta) {
+  const s = {
+    name: meta.name,
+    bpm: meta.bpm,
+    lengthSeconds: meta.lengthSeconds,
+    audioFilename: meta.audioFilename || '',
+    updatedAt: meta.updatedAt,
+  };
+  if (meta.audioR2) s.audioR2 = true;
+  if (meta.audioSize) s.audioSize = meta.audioSize;
+  return s;
+}
+
+async function upsertSong(KV, R2, pid, request) {
   const body = await readJson(request);
   if (!body) return err('Invalid JSON');
   const slug = body.slug ? slugify(body.slug) : slugify(body.name || body.audioFilename || '');
@@ -346,6 +480,8 @@ async function upsertSong(KV, pid, request) {
     animationType: body.animationType || existing.animationType || 'song',
     audioFilename: body.audioFilename != null ? String(body.audioFilename) : existing.audioFilename,
     audioContentType: existing.audioContentType,
+    audioR2: existing.audioR2,
+    audioSize: existing.audioSize,
     beatTimestampsMs: Array.isArray(body.beatTimestampsMs) ? body.beatTimestampsMs : existing.beatTimestampsMs,
     createdAt: existing.createdAt || now,
     updatedAt: now,
@@ -353,16 +489,29 @@ async function upsertSong(KV, pid, request) {
 
   const writes = [];
 
+  // Backward-compat path: a client may still send audio inline as base64 here. Route it to R2
+  // (the primary /api/library/audio binary endpoint is preferred), or KV when R2 is unavailable.
   if (typeof body.audioBase64 === 'string' && body.audioBase64.length > 0) {
     const bytes = base64ToBytes(body.audioBase64);
-    if (bytes.byteLength > MAX_AUDIO_BYTES) return err('Audio too large (max 20MB)', 413);
     const ct = body.audioContentType || guessAudioType(meta.audioFilename) || 'audio/mpeg';
     meta.audioContentType = ct;
-    writes.push(
-      KV.put(audioKey(pid, slug), bytes, {
-        metadata: { contentType: ct, filename: meta.audioFilename || '', size: bytes.byteLength },
-      }),
-    );
+    if (R2) {
+      if (bytes.byteLength > MAX_AUDIO_R2_BYTES) return err(`Audio too large (max ${Math.round(MAX_AUDIO_R2_BYTES / 1024 / 1024)}MB)`, 413);
+      meta.audioR2 = true;
+      meta.audioSize = bytes.byteLength;
+      writes.push(R2.put(audioR2Key(pid, slug), bytes, {
+        httpMetadata: { contentType: ct },
+        customMetadata: { filename: meta.audioFilename || '', slug },
+      }));
+      writes.push(KV.delete(audioKey(pid, slug)).catch(() => {})); // retire any legacy KV copy
+    } else {
+      if (bytes.byteLength > MAX_AUDIO_BYTES) return err('Audio too large (max 20MB)', 413);
+      writes.push(
+        KV.put(audioKey(pid, slug), bytes, {
+          metadata: { contentType: ct, filename: meta.audioFilename || '', size: bytes.byteLength },
+        }),
+      );
+    }
   }
 
   if (body.analysis && typeof body.analysis === 'object') {
@@ -371,14 +520,7 @@ async function upsertSong(KV, pid, request) {
     writes.push(KV.put(analysisKey(pid, slug), aStr));
   }
 
-  const summary = {
-    name: meta.name,
-    bpm: meta.bpm,
-    lengthSeconds: meta.lengthSeconds,
-    audioFilename: meta.audioFilename || '',
-    updatedAt: meta.updatedAt,
-  };
-  writes.push(KV.put(metaKey(pid, slug), JSON.stringify(meta), { metadata: summary }));
+  writes.push(KV.put(metaKey(pid, slug), JSON.stringify(meta), { metadata: songMetaSummary(meta) }));
 
   await Promise.all(writes);
   return json({ ok: true, slug, meta });
@@ -568,7 +710,7 @@ async function getVersion(KV, pid, slugRaw, idRaw) {
   return v == null ? err('Version not found', 404) : rawJson(v);
 }
 
-async function deleteEntry(KV, pid, request) {
+async function deleteEntry(KV, R2, pid, request) {
   const body = await readJson(request);
   if (!body) return err('Invalid JSON');
   const slug = slugSafe(body.slug);
@@ -590,6 +732,7 @@ async function deleteEntry(KV, pid, request) {
   // Delete the fixed keys unconditionally (KV `list` is eventually consistent and can miss
   // freshly-written keys, which would orphan them); enumerate the dynamic comp + ver keys.
   const dels = [metaKey(pid, slug), analysisKey(pid, slug), audioKey(pid, slug), workingKey(pid, slug)].map((k) => KV.delete(k));
+  if (R2) dels.push(R2.delete(audioR2Key(pid, slug)).catch(() => {})); // audio object (current storage)
   for (const prefix of [compPrefix(pid, slug), verPrefix(pid, slug)]) {
     let cursor;
     do {

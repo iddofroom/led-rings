@@ -28,8 +28,17 @@ run_worker_first = true
 pattern = "kivsee.iddofroom.co.il/*"
 zone_name = "iddofroom.co.il"
 
-# Song library storage (MP3s, analysis, AI compositions, saved animations).
+# Song library storage (analysis, AI compositions, saved animations, metadata).
 # Served by the Worker under /api/library/* (everything else proxies to the host).
 [[kv_namespaces]]
 binding = "LED_LIBRARY"
 id = "9acd91c3ffc54c20b0aa0136fd8a719e"
+
+# Audio files (MP3/WAV) live in R2, NOT KV: KV's 25 MiB value cap couldn't hold a big WAV, and
+# base64 in a JSON body inflated every upload by a third. R2 has no small-object cap, takes the
+# raw bytes directly, and supports HTTP Range so the player can seek without downloading the whole
+# file. Metadata/compositions stay in KV above. Served through the Worker (auth unchanged) at
+# /api/library/audio, never via public R2 URLs. Legacy audio still in KV is read back as a fallback.
+[[r2_buckets]]
+binding = "LED_AUDIO"
+bucket_name = "led-library-audio"
