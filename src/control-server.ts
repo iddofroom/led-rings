@@ -12,6 +12,9 @@ import { sendSequence } from "./services/sequence";
 import { startSong, stop, trigger } from "./services/trigger";
 import { initMqttBrightness, getBrightnessState, setBrightness } from "./mqtt-brightness";
 import { initMqttTrigger, publishTrigger } from "./mqtt-trigger";
+import { initMqttThings, getThingsState } from "./mqtt-things";
+import { getThingConfig } from "./services/object";
+import * as mapping from "./mapping";
 
 const PORT = parseInt(process.env.CONTROL_SERVER_PORT || "3080", 10);
 const ROOT = process.cwd();
@@ -337,6 +340,122 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
+  // ── Mapping stage: discover controllers + drive single-LED lighting for a
+  // camera to map physical LED positions. See src/mapping/index.ts. ──
+
+  // GET /api/mapping/controllers — live roster (from MQTT thing/+/status),
+  // enriched (best-effort) with each controller's pixel count from object-service.
+  if (req.method === "GET" && pathname === "/api/mapping/controllers") {
+    const state = getThingsState();
+    const controllers = await Promise.all(
+      state.things.map(async (t) => {
+        let numPixels: number | null = null;
+        try {
+          const cfg = await getThingConfig(t.thing);
+          numPixels = typeof cfg?.numberOfPixels === "number" ? cfg.numberOfPixels : null;
+        } catch {
+          /* object-service unreachable or thing not defined yet */
+        }
+        return { ...t, numPixels };
+      })
+    );
+    send(res, 200, JSON.stringify({ connected: state.connected, controllers }));
+    return;
+  }
+
+  // POST /api/mapping/prepare {thing, cap?, simulate?} — push single-pixel
+  // segments (one ESP reboot; awaits rejoin).
+  if (req.method === "POST" && pathname === "/api/mapping/prepare") {
+    const body = await parseBody(req);
+    let payload: { thing?: string; cap?: number; simulate?: boolean };
+    try {
+      payload = JSON.parse(body);
+    } catch {
+      send(res, 400, JSON.stringify({ error: "Invalid JSON" }));
+      return;
+    }
+    if (typeof payload.thing !== "string" || !payload.thing.trim()) {
+      send(res, 400, JSON.stringify({ error: "Missing thing" }));
+      return;
+    }
+    try {
+      const result = await mapping.prepareController(payload.thing.trim(), payload.cap, !!payload.simulate);
+      send(res, 200, JSON.stringify({ ok: true, ...result }));
+    } catch (e) {
+      console.error("mapping.prepare failed", e);
+      send(res, 500, JSON.stringify({ error: "prepare failed", detail: String((e as Error)?.message || e) }));
+    }
+    return;
+  }
+
+  // POST /api/mapping/light {thing, index, color?, simulate?} — light one LED.
+  if (req.method === "POST" && pathname === "/api/mapping/light") {
+    const body = await parseBody(req);
+    let payload: { thing?: string; index?: number; color?: { hue: number; sat: number; val: number }; simulate?: boolean };
+    try {
+      payload = JSON.parse(body);
+    } catch {
+      send(res, 400, JSON.stringify({ error: "Invalid JSON" }));
+      return;
+    }
+    if (typeof payload.thing !== "string" || typeof payload.index !== "number") {
+      send(res, 400, JSON.stringify({ error: "Missing thing/index" }));
+      return;
+    }
+    try {
+      const result = await mapping.lightLed(payload.thing.trim(), payload.index, payload.color, !!payload.simulate);
+      send(res, 200, JSON.stringify({ ok: true, ...result }));
+    } catch (e) {
+      console.error("mapping.light failed", e);
+      send(res, 500, JSON.stringify({ error: "light failed", detail: String((e as Error)?.message || e) }));
+    }
+    return;
+  }
+
+  // POST /api/mapping/blank {simulate?} — clear all controllers (baseline frame).
+  if (req.method === "POST" && pathname === "/api/mapping/blank") {
+    const body = await parseBody(req);
+    let payload: { simulate?: boolean };
+    try {
+      payload = body ? JSON.parse(body) : {};
+    } catch {
+      payload = {};
+    }
+    try {
+      const result = await mapping.blank(!!payload.simulate);
+      send(res, 200, JSON.stringify({ ok: true, ...result }));
+    } catch (e) {
+      console.error("mapping.blank failed", e);
+      send(res, 500, JSON.stringify({ error: "blank failed" }));
+    }
+    return;
+  }
+
+  // POST /api/mapping/finish {thing, action:'restore'|'publish', config?, simulate?}
+  if (req.method === "POST" && pathname === "/api/mapping/finish") {
+    const body = await parseBody(req);
+    let payload: { thing?: string; action?: "restore" | "publish"; config?: any; simulate?: boolean };
+    try {
+      payload = JSON.parse(body);
+    } catch {
+      send(res, 400, JSON.stringify({ error: "Invalid JSON" }));
+      return;
+    }
+    if (typeof payload.thing !== "string" || !payload.thing.trim()) {
+      send(res, 400, JSON.stringify({ error: "Missing thing" }));
+      return;
+    }
+    const action = payload.action === "publish" ? "publish" : "restore";
+    try {
+      const result = await mapping.finishController(payload.thing.trim(), action, payload.config, !!payload.simulate);
+      send(res, 200, JSON.stringify({ ok: true, ...result }));
+    } catch (e) {
+      console.error("mapping.finish failed", e);
+      send(res, 500, JSON.stringify({ error: "finish failed", detail: String((e as Error)?.message || e) }));
+    }
+    return;
+  }
+
   if (req.method === "POST" && pathname === "/api/parse-song") {
     const body = await parseBody(req);
     let payload: { songCode?: string; fileName?: string };
@@ -643,6 +762,7 @@ server.on("clientError", (_err, socket) => { try { socket.destroy(); } catch {} 
 
 initMqttBrightness();
 initMqttTrigger();
+initMqttThings();
 
 server.listen(PORT, () => {
   console.log(`Control server listening on http://localhost:${PORT}`);

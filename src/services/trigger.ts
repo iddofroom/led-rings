@@ -44,3 +44,13 @@ export const trigger = async (triggerName: string, startOffsetSeconds?: number) 
         console.error(err);
     }
 };
+
+/**
+ * Fire a trigger to play NOW, THROWING on failure (unlike `trigger` which logs
+ * and swallows). Used by the mapping stage's tight per-LED loop so a failed
+ * publish surfaces to the UI. No start offset — playback starts immediately.
+ */
+export const postTrigger = async (triggerName: string): Promise<number> => {
+    const res = await axios.post(`${triggerUrlBase}/trigger/${triggerName}`, {}, { timeout: 3000 });
+    return res.status;
+};
