@@ -12,7 +12,7 @@
 # For start-on-every-boot:  bash led-rings-host-enable-autostart.sh
 set -euo pipefail
 
-PUBLIC_URL='https://leds.iddofroom.co.il'
+PUBLIC_URL='https://kivsee.iddofroom.co.il'
 BASE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SOURCE_FILE="$BASE/.led-rings-source"   # remembers which repo/branch this host tracks
 

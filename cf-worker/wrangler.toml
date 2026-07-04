@@ -14,7 +14,7 @@ workers_dev = false
 # The publishable key lives in the UI build env (VITE_CLERK_PUBLISHABLE_KEY), not here.
 
 [[routes]]
-pattern = "leds.iddofroom.co.il/*"
+pattern = "kivsee.iddofroom.co.il/*"
 zone_name = "iddofroom.co.il"
 
 # Song library storage (MP3s, analysis, AI compositions, saved animations).

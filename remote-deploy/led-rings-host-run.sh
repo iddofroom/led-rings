@@ -7,7 +7,7 @@
 # A supervisor (systemd) that kills this process's cgroup reaps the node children too.
 set -uo pipefail
 
-PUBLIC_URL='https://leds.iddofroom.co.il'
+PUBLIC_URL='https://kivsee.iddofroom.co.il'
 BASE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # ---- Cloudflare Tunnel token (SECRET — never committed to git) ----

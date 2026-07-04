@@ -20,7 +20,7 @@ renderer plays back on the hardware.
 | **Pattern library** | Browse/curate a library of reusable patterns (presets), edit a pattern's name/speed/colors, and build a per-song animation set. |
 | **Live Console** | Fullscreen VJ surface: pattern pads, a multi-lane timeline, drag-to-paint, speed curves, a spectrogram strip with section lines, and auto-push to the LEDs. |
 | **Cloud library** (`cf-worker/`) | Every uploaded MP3, its analysis, AI output and saved animations stored in Cloudflare KV — shared between local dev and the live tool. |
-| **Remote access** (`cf-worker/`, `remote-deploy/`) | Operate the rings from `https://leds.iddofroom.co.il` via a Cloudflare Worker + tunnel; a friend runs a tiny host bundle. |
+| **Remote access** (`cf-worker/`, `remote-deploy/`) | Operate the rings from `https://kivsee.iddofroom.co.il` via a Cloudflare Worker + tunnel; a friend runs a tiny host bundle. |
 | **Control server** (`src/control-server.ts`) | HTTP bridge the UI talks to: analyze/translate audio, run/stop sequences, beat detection, brightness (MQTT), save files. |
 
 ---
@@ -159,7 +159,7 @@ Open http://localhost:5173 → 🎵 Compose / 📚 Library / ⛶ Live Console.
 
 ### 4. Remote access
 
-The live tool runs at `https://leds.iddofroom.co.il` (Cloudflare Worker + tunnel). The host
+The live tool runs at `https://kivsee.iddofroom.co.il` (Cloudflare Worker + tunnel). The host
 bundle (`remote-deploy/`, served from the Worker's gated `/download`) is what a friend runs on
 the PC wired to the rings. See `remote-deploy/FRIEND-SETUP.md`.
 

@@ -211,7 +211,7 @@ export default function LibraryPanel({ onClose, projectId = DEFAULT_PROJECT, act
           </div>
         )}
         <div style={{ fontSize: 11, color: '#6b7280', marginTop: 12, textAlign: 'center' }}>
-          Stored in your Cloudflare library · shared between this machine and leds.iddofroom.co.il
+          Stored in your Cloudflare library · shared between this machine and kivsee.iddofroom.co.il
         </div>
       </div>
     </div>

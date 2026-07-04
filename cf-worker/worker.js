@@ -1,4 +1,4 @@
-// Front-door Worker for leds.iddofroom.co.il
+// Front-door Worker for kivsee.iddofroom.co.il
 // - Host (friend's PC) DOWN  -> serve a landing page (password-gated download + setup steps)
 // - Host UP                  -> transparently proxy the live app (same URL = the bridge)
 // The Worker reaches the host via an internal hostname (ORIGIN) that the tunnel serves.

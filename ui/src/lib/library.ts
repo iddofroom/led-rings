@@ -4,7 +4,7 @@
  * every uploaded MP3, its analysis, the AI output, and saved animations persist across
  * machines and sessions.
  *
- * Base URL: VITE_LIBRARY_URL (absolute, e.g. https://leds.iddofroom.co.il). Empty =
+ * Base URL: VITE_LIBRARY_URL (absolute, e.g. https://kivsee.iddofroom.co.il). Empty =
  * same-origin, which is correct when the UI is served through the Worker itself.
  */
 const LIBRARY_BASE: string = (import.meta as any).env?.VITE_LIBRARY_URL ?? ''
