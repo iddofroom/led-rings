@@ -286,6 +286,24 @@
   ol.body li::marker { color: var(--brand); font-weight: 700; }
   .sub-lead { font-weight: 700; color: var(--ink); margin: 22px 0 8px; }
 
+  /* power calculator */
+  .calc { background: var(--panel); border: 1px solid var(--border-2); border-radius: 14px; padding: 20px; max-width: 66ch; }
+  .calc-inputs { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 14px; margin: 0 0 18px; align-items: end; }
+  .calc-field label { display: block; font-size: 11px; text-transform: uppercase; letter-spacing: .08em; color: var(--ink-faint); font-weight: 700; margin: 0 0 6px; }
+  .calc-field input, .calc-field select { width: 100%; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--border-2); background: var(--bg); color: var(--ink); font: inherit; font-size: 15px; }
+  .calc-field input:focus, .calc-field select:focus { outline: none; border-color: var(--brand); }
+  .calc-seg { display: inline-flex; padding: 3px; gap: 2px; background: var(--bg); border: 1px solid var(--border-2); border-radius: 10px; flex-wrap: wrap; }
+  .calc-seg button { appearance: none; border: 0; cursor: pointer; font: inherit; font-size: 13px; font-weight: 700; padding: 8px 12px; border-radius: 8px; color: var(--ink-soft); background: transparent; }
+  .calc-seg button[aria-pressed="true"] { color: #fff; background: var(--brand-grad); }
+  .calc-out { display: grid; grid-template-columns: repeat(auto-fit, minmax(118px, 1fr)); gap: 10px; }
+  .calc-tile { background: var(--panel-2); border: 1px solid var(--border); border-radius: 12px; padding: 14px 15px; }
+  .calc-tile .k { font-size: 11px; text-transform: uppercase; letter-spacing: .08em; color: var(--ink-faint); margin: 0 0 6px; }
+  .calc-tile .v { font: 700 21px/1.1 ui-monospace, monospace; color: var(--ink); font-variant-numeric: tabular-nums; }
+  .calc-tile .v small { font-size: 12px; color: var(--ink-soft); font-weight: 600; }
+  .calc-tile.hi { background: color-mix(in oklab, var(--brand) 10%, var(--panel-2)); border-color: color-mix(in oklab, var(--brand) 35%, var(--border)); }
+  .calc-note { font-size: 13px; color: var(--ink-faint); margin: 16px 0 0; }
+  a.calc-link { display: inline-flex; align-items: center; gap: 6px; font-weight: 700; }
+
   /* coming-soon stub */
   .stub {
     border: 1px dashed var(--border-2); border-radius: var(--radius);
@@ -335,6 +353,7 @@
         <li><a href="#story" class="toclink"><span class="n">06</span><span data-l="he">סיפוריות</span><span data-l="en">Storytelling</span></a></li>
         <li><a href="#addons" class="toclink"><span class="n">07</span><span data-l="he">רכיבים נוספים</span><span data-l="en">Add-ons</span></a></li>
         <li><a href="#burn" class="toclink"><span class="n">08</span><span data-l="he">מיצבי ברן</span><span data-l="en">Burn installs</span></a></li>
+        <li><a href="#calc" class="toclink"><span class="n">09</span><span data-l="he">🧮 מחשבון</span><span data-l="en">🧮 Calculator</span></a></li>
       </ol>
     </aside>
 
@@ -343,12 +362,10 @@
       <div class="hero">
         <p class="eyebrow" data-l="he">מדריך הבנייה</p>
         <p class="eyebrow" data-l="en">The Build Guide</p>
-        <h1 data-l="he">בונים מיצב לדים מוזיקלי — מהחוט הראשון ועד הפלייה</h1>
-        <h1 data-l="en">Build a music-reactive LED installation — from the first wire to the playa</h1>
-        <p data-l="he">מדריך פרקטי לבניית מיצבי אור מבוססי לדים כתובתיים (WS2812 ודומיהם): איך מזינים אותם בחשמל בבטחה, איך מחווטים בקר, ואיך שורדים אבק, לחות ולילה שלם של אנימציות.</p>
-        <p data-l="en">A hands-on guide to building light art with addressable LEDs (WS2812 &amp; friends): how to power them safely, how to wire the controller, and how to survive dust, moisture and a full night of animation.</p>
-        <span class="free" data-l="he">🔓 <span><b>פתוח לכולם</b> — לא צריך חשבון כדי לקרוא</span></span>
-        <span class="free" data-l="en">🔓 <span><b>Open to everyone</b> — no account needed to read</span></span>
+        <h1 data-l="he">בונים אור פועם</h1>
+        <h1 data-l="en">Build light that beats</h1>
+        <p data-l="he">מדריך פרקטי לבניית מיצבי לדים מכותבים ומסונכרנים לאודיו (WS2812 ודומיהם): איזה לדים בוחרים, איזה שנאי מתאים, כבלים של חשמל, מחברים, תוכנה — ויצירה.</p>
+        <p data-l="en">A hands-on guide to building addressable, audio‑synced LED installations (WS2812 &amp; friends): which LEDs to pick, which power supply fits, power cables, connectors, software — and the art.</p>
       </div>
 
       <!-- ============ 01 · OVERVIEW ============ -->
@@ -362,9 +379,9 @@
         <p data-l="he"><span class="lead-in">ארבעה דברים</span> הופכים ערימת רכיבים למיצב חי:</p>
         <p data-l="en"><span class="lead-in">Four things</span> turn a pile of parts into a living installation:</p>
         <ul>
-          <li data-l="he"><strong>הלדים</strong> — רצועות או פיקסלים כתובתיים שכל נורה בהם נשלטת בנפרד (WS2812B, WS2815 ועוד).</li>
+          <li data-l="he"><strong>הלדים</strong> — רצועות או פיקסלים של לדים מכותבים שבהם כל נורה נשלטת בנפרד (WS2812B, WS2815 ועוד).</li>
           <li data-l="en"><strong>The LEDs</strong> — addressable strips or pixels where every light is controlled individually (WS2812B, WS2815, etc.).</li>
-          <li data-l="he"><strong>חשמל</strong> — ספק כוח שמאכיל את הלדים במתח ובזרם הנכונים, בלי שהקצה יתעמעם או משהו יישרף.</li>
+          <li data-l="he"><strong>חשמל</strong> — ספק כוח המספק ללדים את המתח והזרם הנכונים, בלי שהקצה יתעמעם או משהו יישרף.</li>
           <li data-l="en"><strong>Power</strong> — a supply that feeds the LEDs the right voltage and current, without dim ends or fried parts.</li>
           <li data-l="he"><strong>בקר</strong> — ה״מוח״ (Raspberry Pi / ESP32 / בקר ייעודי) ששולח לכל פיקסל את הצבע שלו, בזמן.</li>
           <li data-l="en"><strong>Controller</strong> — the "brain" (Raspberry Pi / ESP32 / dedicated controller) that tells each pixel its color, in time.</li>
@@ -375,8 +392,8 @@
         <div class="call tip">
           <div class="ct" data-l="he">💡 מאיפה מתחילים</div>
           <div class="ct" data-l="en">💡 Where to start</div>
-          <p data-l="he">אם זה המיצב הראשון שלך — קרא את פרק <a href="#power">אלקטרוניקה וחשמל</a> לפני שאתה קונה משהו. הבחירה של הלדים קובעת את המתח, והמתח קובע את הספק, את החיווט ואת התקציב.</p>
-          <p data-l="en">First build? Read <a href="#power">Electronics &amp; Power</a> before you buy anything. Your LED choice sets the voltage, and voltage decides the power supply, the wiring and the budget.</p>
+          <p data-l="he">אם זה המיצב הראשון שלך — מומלץ להתחיל לעבוד קודם עם <a href="https://kivsee.iddofroom.co.il/guide/wled" target="_blank" rel="noopener">WLED</a>, ולחלק את הלימוד לשני פרויקטים.</p>
+          <p data-l="en">First build? We recommend starting with <a href="https://kivsee.iddofroom.co.il/guide/wled" target="_blank" rel="noopener">WLED</a> first, and splitting the learning into two projects.</p>
         </div>
       </section>
 
@@ -391,8 +408,8 @@
         <div class="call tip">
           <div class="ct" data-l="he">⚡ התשובה הקצרה</div>
           <div class="ct" data-l="en">⚡ The short answer</div>
-          <p data-l="he">למיצב ברן ראשון: רצועות <strong>WS2812B</strong>, <strong>5V</strong>, צפיפות <strong>60 לד/מ׳</strong>, ודירוג IP לפי איפה זה גר. זה הקיט מהפרק הקודם, וזה עובד כמעט לכל דבר. השאר כאן הוא ״למה״ ומתי לסטות.</p>
-          <p data-l="en">For a first Burn piece: <strong>WS2812B</strong> strips, <strong>5V</strong>, <strong>60 LEDs/m</strong>, and an IP rating to match where it lives. That's the kit from the last chapter, and it works for almost anything. The rest here is the "why" and when to deviate.</p>
+          <p data-l="he">למיצב ברן ראשון: רצועות <strong>WS2812B</strong>, <strong>5V</strong>, צפיפות <strong>60 לד/מ׳</strong>, ודירוג <strong>IP65</strong>. כל שאר הטקסט בפרק הוא ״למה״ ומתי לסטות.</p>
+          <p data-l="en">For a first Burn piece: <strong>WS2812B</strong> strips, <strong>5V</strong>, <strong>60 LEDs/m</strong>, and <strong>IP65</strong>. Everything else in this chapter is the "why" and when to deviate.</p>
         </div>
 
         <!-- density -->
@@ -403,7 +420,7 @@
           <table>
             <thead><tr><th>צפיפות</th><th>איך זה נראה</th><th>מתי לבחור</th></tr></thead>
             <tbody>
-              <tr><th>30 / מ׳</th><td>נקודות בולטות, גס</td><td>ריצות ארוכות, צפייה מרחוק, חיסכון בחשמל</td></tr>
+              <tr><th>30 / מ׳</th><td>נקודות בולטות</td><td>דפיוזר מרוחק, מרחקים ארוכים, צפייה מרחוק, חיסכון בחשמל</td></tr>
               <tr><th>60 / מ׳</th><td>מאוזן — ברירת המחדל</td><td class="good">רוב המיצבים</td></tr>
               <tr><th>144 / מ׳</th><td>כמעט רציף, רזולוציה גבוהה</td><td>פרטים קרובים, טקסט, אפקטים עדינים (הרבה חשמל וחום)</td></tr>
               <tr><th>COB</th><td>בלי נקודות בכלל — קו אור רציף</td><td>מראה חלק, צפייה מקרוב, דיפיוזר מובנה</td></tr>
@@ -414,39 +431,39 @@
           <table>
             <thead><tr><th>Density</th><th>How it looks</th><th>When to pick</th></tr></thead>
             <tbody>
-              <tr><th>30 / m</th><td>Obvious dots, coarse</td><td>Long runs, viewed from afar, saving power</td></tr>
+              <tr><th>30 / m</th><td>Obvious dots</td><td>Far diffuser, long distances, viewed from afar, saving power</td></tr>
               <tr><th>60 / m</th><td>Balanced — the default</td><td class="good">Most installations</td></tr>
               <tr><th>144 / m</th><td>Near-continuous, high-res</td><td>Close-up detail, text, fine effects (lots of power &amp; heat)</td></tr>
               <tr><th>COB</th><td>No dots at all — a solid line of light</td><td>Smooth look, close viewing, built-in diffuser</td></tr>
             </tbody>
           </table>
         </div>
-        <p class="lead-in" data-l="he">הכלל: בחר את הצפיפות <strong>הנמוכה ביותר</strong> שעדיין משרתת את האפקט שאתה רוצה.</p>
-        <p class="lead-in" data-l="en">The rule: pick the <strong>lowest</strong> density that still serves the effect you want.</p>
+        <p class="lead-in" data-l="he">הכלל: בחרו את הצפיפות <strong>הנמוכה ביותר</strong> שעדיין משרתת את האפקט שאתם רוצים. <a class="calc-link" href="#calc">🧮 בדקו כמה חשמל זה דורש</a></p>
+        <p class="lead-in" data-l="en">The rule: pick the <strong>lowest</strong> density that still serves the effect you want. <a class="calc-link" href="#calc">🧮 check how much power it needs</a></p>
 
         <!-- voltage -->
         <h3><span class="h3n">B</span><span data-l="he">מתח — 5V מול 12V</span><span data-l="en">Voltage — 5V vs 12V</span></h3>
-        <p data-l="he">לדים עובדים ב־5V או ב־12V. שניהם טובים; ההבדל הוא בעיקר בחיים שלך כשמחברים.</p>
-        <p data-l="en">LEDs run at 5V or 12V. Both are fine; the difference is mostly in how easy your life is when wiring.</p>
+        <p data-l="he">לדים עובדים ב־5V או ב־12V. שניהם טובים.</p>
+        <p data-l="en">LEDs run at 5V or 12V. Both are fine.</p>
         <div class="proscons">
           <div class="pc pro">
-            <h4><span class="pill v5">5V</span> <span data-l="he">— הקיט הזה</span><span data-l="en">— this kit</span></h4>
+            <h4><span class="pill v5">5V</span></h4>
             <ul>
               <li data-l="he">הכי פשוט מול ESP32 + WLED</li>
               <li data-l="en">Simplest with ESP32 + WLED</li>
               <li data-l="he">זול ונפוץ, כל לד נשלט בנפרד</li>
               <li data-l="en">Cheap, common, every LED controllable</li>
-              <li data-l="he">חיסרון: נפילת מתח → הזרקה תכופה, ריצות קצרות</li>
-              <li data-l="en">Downside: voltage drop → inject often, shorter runs</li>
+              <li data-l="he">חיסרון: נפילת מתח</li>
+              <li data-l="en">Downside: voltage drop</li>
             </ul>
           </div>
           <div class="pc con">
-            <h4><span class="pill v12">12V</span> <span data-l="he">— למתקדמים</span><span data-l="en">— advanced</span></h4>
+            <h4><span class="pill v12">12V</span></h4>
             <ul>
-              <li data-l="he">פחות מחצי מהזרם → נפילת מתח קטנה בהרבה</li>
-              <li data-l="en">Less than half the current → far less voltage drop</li>
-              <li data-l="he">ריצות ארוכות, פחות הזרקות — מצוין למיצב גדול</li>
-              <li data-l="en">Long runs, fewer injections — great for a big piece</li>
+              <li data-l="he">פחות מחצי מהזרם</li>
+              <li data-l="en">Less than half the current</li>
+              <li data-l="he">ריצות ארוכות, פחות הזרקות</li>
+              <li data-l="en">Long runs, fewer injections</li>
               <li data-l="he">חיסרון: מסבך את הצד של הבקר (לכן לא במדריך הזה)</li>
               <li data-l="en">Downside: complicates the controller side (so not in this guide)</li>
             </ul>
@@ -644,6 +661,8 @@
         </div>
         <p data-l="he">כלל לתכנון: <strong>~15W לכל רצועת 5 מטר</strong> (ואפקטים מושכים אפילו פחות — עד עשירית מזה). כלומר <strong>100 מטר לדים ≈ 300W</strong>. ספק אחד של 5V/60A מזין 20–60 רצועות; צריך יותר — מוסיפים ספק.</p>
         <p data-l="en">Planning rule: <strong>~15W per 5‑metre strip</strong> (and animations pull even less — down to a tenth of that). So <strong>100m of LEDs ≈ 300W</strong>. One 5V/60A supply runs 20–60 strips; need more — add another supply.</p>
+        <p class="lead-in" data-l="he">👉 <a class="calc-link" href="#calc">חשבו את המספרים המדויקים במחשבון החשמל</a></p>
+        <p class="lead-in" data-l="en">👉 <a class="calc-link" href="#calc">Get the exact numbers in the power calculator</a></p>
 
         <!-- the power supply -->
         <h3><span class="h3n">E</span><span data-l="he">ספק הכוח</span><span data-l="en">The power supply</span></h3>
@@ -1126,6 +1145,79 @@
           <p data-l="en">The desert destroys everything: connectors, supplies, LEDs. Bring <strong>backups of everything</strong> — at the very least a spare supply, a few spare strips, and a spare controller. A 3&nbsp;a.m. playa repair is a lot easier with a spare part in your bag.</p>
         </div>
       </section>
+
+      <!-- ============ 09 · POWER CALCULATOR ============ -->
+      <section id="calc">
+        <span class="chapter-tag">09</span>
+        <h2 data-l="he">מחשבון חשמל</h2>
+        <h2 data-l="en">Power calculator</h2>
+        <p class="dek" data-l="he">כמה חשמל צריך המיצב שלכם, ואיזה שנאי לקנות? הזינו את המספרים.</p>
+        <p class="dek" data-l="en">How much power does your piece need, and which supply to buy? Punch in the numbers.</p>
+        <div class="calc">
+          <div class="calc-inputs">
+            <div class="calc-field">
+              <label data-l="he">מטרים של רצועה</label><label data-l="en">Metres of strip</label>
+              <input id="c-m" type="number" min="0" step="1" value="20" inputmode="numeric">
+            </div>
+            <div class="calc-field">
+              <label data-l="he">צפיפות (לד/מ׳)</label><label data-l="en">Density (LED/m)</label>
+              <select id="c-d"><option value="30">30</option><option value="60" selected>60</option><option value="144">144</option></select>
+            </div>
+            <div class="calc-field">
+              <label data-l="he">בהירות</label><label data-l="en">Brightness</label>
+              <div class="calc-seg" id="c-b" role="group" aria-label="brightness">
+                <button type="button" data-f="1" aria-pressed="false"><span data-l="he">לבן מלא</span><span data-l="en">Full white</span></button>
+                <button type="button" data-f="0.4" aria-pressed="true"><span data-l="he">אנימציה</span><span data-l="en">Animation</span></button>
+                <button type="button" data-f="0.15" aria-pressed="false"><span data-l="he">רגוע</span><span data-l="en">Chill</span></button>
+              </div>
+            </div>
+          </div>
+          <div class="calc-out" id="c-out"></div>
+          <p class="calc-note" data-l="he">הערכה ל־5V. ״לבן מלא״ הוא התקרה המוחלטת; אנימציה אמיתית מושכת הרבה פחות. ספק מומלץ = MEAN WELL 5V/60A (300W), עם מרווח של 20%. הזרקת מתח: הערכה של כל ~1.5 מ׳.</p>
+          <p class="calc-note" data-l="en">A 5V estimate. "Full white" is the absolute ceiling; real animation draws far less. Recommended supply = MEAN WELL 5V/60A (300W), with 20% headroom. Injection: estimated every ~1.5m.</p>
+        </div>
+      </section>
+
+      <script>
+        (function () {
+          var m = document.getElementById('c-m'), d = document.getElementById('c-d'),
+              bseg = document.getElementById('c-b'), out = document.getElementById('c-out');
+          if (!m || !out) return;
+          var factor = 0.4;
+          function fmt(n) { return Math.round(n).toLocaleString('en-US'); }
+          function tile(he, en, v, unit, hi) {
+            return '<div class="calc-tile' + (hi ? ' hi' : '') + '"><p class="k"><span data-l="he">' + he +
+              '</span><span data-l="en">' + en + '</span></p><p class="v">' + v +
+              (unit ? ' <small>' + unit + '</small>' : '') + '</p></div>';
+          }
+          function upd() {
+            var metres = Math.max(0, parseFloat(m.value) || 0);
+            var dens = parseInt(d.value, 10) || 60;
+            var leds = Math.round(metres * dens);
+            var peakW = leds * 0.3;
+            var tgtW = peakW * factor;
+            var tgtA = tgtW / 5;
+            var supplies = leds ? Math.max(1, Math.ceil(tgtW / 240)) : 0;
+            var inj = leds ? Math.max(2, Math.ceil(metres / 1.5)) : 0;
+            out.innerHTML =
+              tile('לדים סה״כ', 'Total LEDs', fmt(leds), '', false) +
+              tile('לבן מלא', 'Full white', fmt(peakW), 'W', false) +
+              tile('הצריכה שלכם', 'Your draw', fmt(tgtW), 'W · ' + fmt(tgtA) + 'A', true) +
+              tile('ספקים 5V/60A', '5V/60A supplies', supplies, '×', true) +
+              tile('נקודות הזרקה', 'Injection pts', inj, '', false);
+          }
+          if (bseg) bseg.querySelectorAll('button').forEach(function (b) {
+            b.addEventListener('click', function () {
+              factor = parseFloat(b.dataset.f);
+              bseg.querySelectorAll('button').forEach(function (x) { x.setAttribute('aria-pressed', x === b ? 'true' : 'false'); });
+              upd();
+            });
+          });
+          m.addEventListener('input', upd);
+          d.addEventListener('change', upd);
+          upd();
+        })();
+      </script>
 
       <footer>
         <span data-l="he">מדריך הבנייה של LED Studio · פתוח וחופשי לקריאה · נבנה עם ❤️ לקהילת האור</span>
