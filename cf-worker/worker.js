@@ -4,6 +4,7 @@
 // The Worker reaches the host via an internal hostname (ORIGIN) that the tunnel serves.
 import { BUNDLE_B64 } from './bundle.js';
 import { GUIDE_HTML } from './guide.js';
+import { WLED_HTML } from './wled.js';
 import { handleLibrary, roleOf } from './library.js';
 import { verifyClerkRequest, hasLibraryKey } from './auth.js';
 
@@ -45,6 +46,12 @@ export default {
     // the host proxy below. Content is baked into guide.js for a buildless deploy.
     if (request.method === 'GET' && (url.pathname === '/guide' || url.pathname === '/guide/')) {
       return new Response(GUIDE_HTML, {
+        headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'public, max-age=300' },
+      });
+    }
+    // Standalone WLED page (for non-music-synced setups) — also public/edge-served.
+    if (request.method === 'GET' && (url.pathname === '/guide/wled' || url.pathname === '/wled')) {
+      return new Response(WLED_HTML, {
         headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'public, max-age=300' },
       });
     }

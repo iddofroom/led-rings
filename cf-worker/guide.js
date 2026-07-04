@@ -287,6 +287,13 @@ export const GUIDE_HTML = `<!doctype html>
              background: linear-gradient(180deg, color-mix(in oklab, var(--brand) 6%, var(--panel)), var(--panel)); margin: 6px 0 22px; }
   .buycard a.store { display: inline-flex; align-items: center; gap: 8px; font-weight: 700; }
 
+  /* command block + numbered step list */
+  .cmd { display: block; background: var(--plate); border: 1px solid var(--border-2); border-radius: 10px;
+         padding: 12px 14px; overflow-x: auto; font: 12.5px/1.7 ui-monospace, monospace; color: var(--ink);
+         margin: 0 0 18px; max-width: 68ch; white-space: pre; }
+  ol.body li::marker { color: var(--brand); font-weight: 700; }
+  .sub-lead { font-weight: 700; color: var(--ink); margin: 22px 0 8px; }
+
   /* coming-soon stub */
   .stub {
     border: 1px dashed var(--border-2); border-radius: var(--radius);
@@ -331,7 +338,7 @@ export const GUIDE_HTML = `<!doctype html>
         <li><a href="#overview" class="toclink"><span class="n">01</span><span data-l="he">סקירה כללית</span><span data-l="en">Overview</span></a></li>
         <li><a href="#leds" class="toclink"><span class="n">02</span><span data-l="he">בחירת לדים</span><span data-l="en">Choosing LEDs</span></a></li>
         <li><a href="#power" class="toclink"><span class="n">03</span><span data-l="he">אלקטרוניקה וחשמל</span><span data-l="en">Electronics &amp; Power</span></a></li>
-        <li><a href="#software" class="toclink"><span class="n">04</span><span data-l="he">בקר ותוכנה</span><span data-l="en">Controller &amp; Software</span></a></li>
+        <li><a href="#software" class="toclink"><span class="n">04</span><span data-l="he">בקר ומערכת</span><span data-l="en">Controller &amp; system</span></a></li>
         <li><a href="#diffusers" class="toclink"><span class="n">05</span><span data-l="he">דיפיוזרים</span><span data-l="en">Diffusers</span></a></li>
         <li><a href="#story" class="toclink"><span class="n">06</span><span data-l="he">סיפוריות</span><span data-l="en">Storytelling</span></a></li>
         <li><a href="#addons" class="toclink"><span class="n">07</span><span data-l="he">רכיבים נוספים</span><span data-l="en">Add-ons</span></a></li>
@@ -876,59 +883,131 @@ export const GUIDE_HTML = `<!doctype html>
       <!-- ============ 04 · CONTROLLER & SOFTWARE ============ -->
       <section id="software">
         <span class="chapter-tag">04</span>
-        <h2 data-l="he">בקר ותוכנה</h2>
-        <h2 data-l="en">Controller &amp; Software</h2>
-        <p class="dek" data-l="he">הבקר הוא החומרה; התוכנה היא מה שהופך אותו למופע. יש שני מסלולים — בחר לפי מה שאתה בונה.</p>
-        <p class="dek" data-l="en">The controller is the hardware; the software is what turns it into a show. Two paths — pick by what you're building.</p>
+        <h2 data-l="he">בקר, מערכת והתקנה</h2>
+        <h2 data-l="en">Controller, system &amp; install</h2>
+        <p class="dek" data-l="he">בנינו את הצד הפיזי — עכשיו נותנים לו מוח. מערכת KivSee מריצה מופע מסונכרן למוזיקה, מהטלפון שלך ועד כל פיקסל. הנה כל המערכת, ואיך מתקינים אותה מקצה לקצה.</p>
+        <p class="dek" data-l="en">We built the physical side — now we give it a brain. The KivSee system runs a music‑synced show, from your phone all the way to each pixel. Here's the whole system, and how to install it end to end.</p>
 
-        <div class="proscons">
-          <div class="pc pro">
-            <h4 data-l="he">🎵 מסונכרן למוזיקה — LED Studio</h4>
-            <h4 data-l="en">🎵 Music-synced — LED Studio</h4>
-            <ul>
-              <li data-l="he">מלחין שיר → הלדים רוקדים איתו: ביט, דרופ, מבנה.</li>
-              <li data-l="en">Compose a song → the LEDs move with it: beat, drops, structure.</li>
-              <li data-l="he">זה מה שכל המדריך והכלי הזה נבנו בשבילו.</li>
-              <li data-l="en">This is what this whole guide and tool are built for.</li>
-              <li data-l="he">איך: בקר KivSee + אפליקציית LED Studio (הדף שאתה בו).</li>
-              <li data-l="en">How: a KivSee controller + the LED Studio app (the site you're on).</li>
-            </ul>
-          </div>
-          <div class="pc con" style="border-color:var(--border)">
-            <h4 style="color:var(--brand)" data-l="he">💡 רק אורות — WLED</h4>
-            <h4 style="color:var(--brand)" data-l="en">💡 Just lights — WLED</h4>
-            <ul>
-              <li data-l="he">לא צריך סנכרון למוזיקה? רק אפקטים, צבעים ותבניות מהטלפון?</li>
-              <li data-l="en">Don't need music sync? Just effects, colors and patterns from your phone?</li>
-              <li data-l="he"><strong>WLED</strong> היא הדרך הקלה, החינמית והנפוצה. רצה על אותו ESP32.</li>
-              <li data-l="en"><strong>WLED</strong> is the easy, free, popular way. Runs on the same ESP32.</li>
-              <li data-l="he">התקנה תוך דקות מהדפדפן — ההוראות למטה.</li>
-              <li data-l="en">Installs in minutes from the browser — steps below.</li>
-            </ul>
-          </div>
-        </div>
+        <!-- A: system at a glance -->
+        <h3><span class="h3n">A</span><span data-l="he">המערכת במבט־על</span><span data-l="en">The system at a glance</span></h3>
+        <p data-l="he">ארבעה חלקים, משורשרים מהדפדפן שלך ועד הלדים:</p>
+        <p data-l="en">Four parts, chained from your browser all the way to the LEDs:</p>
+        <ul>
+          <li data-l="he"><strong>📱 LED Studio</strong> — האפליקציה בדפדפן שבה אתה מלחין ושולט (הדף שאתה בו).</li>
+          <li data-l="en"><strong>📱 LED Studio</strong> — the browser app where you compose and control (the site you're on).</li>
+          <li data-l="he"><strong>☁️ הענן</strong> — <span class="mono">kivsee.iddofroom.co.il</span>: שער כניסה מאובטח (התחברות עם Google) + ספריית השירים.</li>
+          <li data-l="en"><strong>☁️ The cloud</strong> — <span class="mono">kivsee.iddofroom.co.il</span>: a secure gateway (Google sign‑in) + your song library.</li>
+          <li data-l="he"><strong>🍓 Raspberry Pi</strong> — ה״מארח״ שיושב ליד המיצב: מריץ את שירותי KivSee ומתחבר לענן במנהרה מאובטחת.</li>
+          <li data-l="en"><strong>🍓 Raspberry Pi</strong> — the on‑site "host": runs the KivSee services and links to the cloud over a secure tunnel.</li>
+          <li data-l="he"><strong>🔌 ESP32</strong> — הבקר שמחווט ללדים; מקבל את הפקודות ומצייר את הפיקסלים.</li>
+          <li data-l="en"><strong>🔌 ESP32</strong> — the controller wired to the LEDs; it receives the commands and paints the pixels.</li>
+        </ul>
 
-        <h3><span class="h3n">A</span><span data-l="he">התקנת WLED — הדרך המהירה</span><span data-l="en">Installing WLED — the fast way</span></h3>
-        <p data-l="he">בחרת ב־WLED (בלי סנכרון מוזיקלי)? כל ההתקנה מהדפדפן, בלי כלים מיוחדים:</p>
-        <p data-l="en">Chose WLED (no music sync)? The whole install is from your browser, no special tools:</p>
+        <figure>
+          <div class="plate">
+            <svg viewBox="0 0 672 132" role="img" aria-labelledby="dsys">
+              <title id="dsys">Data path from the browser through the cloud and Raspberry Pi to the ESP32 and LEDs</title>
+              <g font-family="system-ui" text-anchor="middle">
+                <g><rect x="6" y="34" width="112" height="60" rx="10" fill="none" stroke="var(--plate-line)" stroke-width="2"/>
+                  <text x="62" y="60" font-size="20">📱</text><text x="62" y="82" font-size="11" fill="var(--ink-soft)">LED Studio</text></g>
+                <g><rect x="146" y="34" width="112" height="60" rx="10" fill="none" stroke="var(--plate-line)" stroke-width="2"/>
+                  <text x="202" y="60" font-size="20">☁️</text><text x="202" y="82" font-size="11" fill="var(--ink-soft)">Cloud</text></g>
+                <g><rect x="286" y="34" width="112" height="60" rx="10" fill="none" stroke="var(--plate-line)" stroke-width="2"/>
+                  <text x="342" y="60" font-size="20">🍓</text><text x="342" y="82" font-size="11" fill="var(--ink-soft)">Pi · host</text></g>
+                <g><rect x="426" y="34" width="112" height="60" rx="10" fill="none" stroke="var(--plate-line)" stroke-width="2"/>
+                  <text x="482" y="60" font-size="20">🔌</text><text x="482" y="82" font-size="11" fill="var(--ink-soft)">ESP32</text></g>
+                <g><rect x="566" y="34" width="100" height="60" rx="10" fill="none" stroke="var(--plate-line)" stroke-width="2"/>
+                  <text x="616" y="60" font-size="20">💡</text><text x="616" y="82" font-size="11" fill="var(--ink-soft)">LEDs</text></g>
+              </g>
+              <g stroke="var(--brand)" stroke-width="2.5" fill="none" marker-end="url(#ah)">
+                <path d="M118 64 H 142"/><path d="M258 64 H 282"/><path d="M398 64 H 422"/><path d="M538 64 H 562"/>
+              </g>
+              <defs><marker id="ah" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0 0 L6 3 L0 6 z" fill="var(--brand)"/></marker></defs>
+              <g font-family="ui-monospace,monospace" font-size="9" fill="var(--ink-faint)" text-anchor="middle">
+                <text x="130" y="26">HTTPS</text><text x="270" y="26" data-l="en">tunnel</text><text x="270" y="26" data-l="he">מנהרה</text>
+                <text x="410" y="26">Wi‑Fi</text><text x="550" y="26" data-l="en">data</text><text x="550" y="26" data-l="he">דאטה</text>
+              </g>
+            </svg>
+          </div>
+          <figcaption data-l="he"><b>המסלול.</b> הדפדפן מדבר עם הענן; הענן מעביר למנהרה אל ה‑Pi; ה‑Pi שולח ל‑ESP32 דרך ה‑Wi‑Fi; וה‑ESP32 מצייר את הלדים. (ספריית השירים נשמרת בענן — לא עוברת דרך ה‑Pi.)</figcaption>
+          <figcaption data-l="en"><b>The path.</b> The browser talks to the cloud; the cloud forwards through the tunnel to the Pi; the Pi sends to the ESP32 over Wi‑Fi; and the ESP32 paints the LEDs. (Your song library lives in the cloud — it never touches the Pi.)</figcaption>
+        </figure>
+
+        <!-- B: ESP flash -->
+        <h3><span class="h3n">B</span><span data-l="he">הבקר (ESP32) — צריבה מהדפדפן</span><span data-l="en">The controller (ESP32) — flash from your browser</span></h3>
+        <p data-l="he">ESP32 חדש צריך את ה‑firmware של KivSee. הקסם: צורבים אותו <strong>ישר מהדפדפן</strong>, בלי כלים ובלי קוד.</p>
+        <p data-l="en">A new ESP32 needs the KivSee firmware. The magic: you flash it <strong>straight from the browser</strong> — no tools, no code.</p>
         <ol class="body">
-          <li data-l="he">התקן דרייבר: <a href="https://www.wemos.cc/en/latest/ch340_driver.html" target="_blank" rel="noopener">CH340 ל־Windows</a> או <a href="https://www.silabs.com/developers/usb-to-uart-bridge-vcp-drivers" target="_blank" rel="noopener">הדרייבר ל־Mac</a>.</li>
-          <li data-l="en">Install a driver: <a href="https://www.wemos.cc/en/latest/ch340_driver.html" target="_blank" rel="noopener">CH340 for Windows</a> or <a href="https://www.silabs.com/developers/usb-to-uart-bridge-vcp-drivers" target="_blank" rel="noopener">the Mac driver</a>.</li>
-          <li data-l="he">חבר את ה־ESP32 בכבל micro‑USB ופתח את <a href="https://install.wled.me" target="_blank" rel="noopener">install.wled.me</a> — הצריבה רצה מתוך הדפדפן.</li>
-          <li data-l="en">Plug the ESP32 in with a micro‑USB cable and open <a href="https://install.wled.me" target="_blank" rel="noopener">install.wled.me</a> — it flashes straight from the browser.</li>
-          <li data-l="he">אתחל את הבקר, חפש רשת וויי־פיי <span class="mono">wled-ap</span> והתחבר (סיסמה <span class="mono">wled1234</span>).</li>
-          <li data-l="en">Restart the controller, find the Wi‑Fi network <span class="mono">wled-ap</span> and connect (password <span class="mono">wled1234</span>).</li>
-          <li data-l="he">בהגדרות → <span class="mono">LED settings</span>: קבע את <strong>מספר הלדים</strong> ואת <strong>data pin = 16</strong>. שמור. זהו — שליטה מלאה מהטלפון.</li>
-          <li data-l="en">In settings → <span class="mono">LED settings</span>: set the <strong>LED count</strong> and <strong>data pin = 16</strong>. Save. That's it — full control from your phone.</li>
+          <li data-l="he">ב‑LED Studio, בעמוד הפרויקט → שלב <strong>״הקמת בקרים״</strong> → <strong>״התקנת firmware״</strong>.</li>
+          <li data-l="en">In LED Studio, on the project page → the <strong>"Set up controllers"</strong> stage → <strong>"Install firmware"</strong>.</li>
+          <li data-l="he">חבר את ה‑ESP32 למחשב בכבל USB. (צריך <strong>Chrome או Edge במחשב</strong> — הצריבה עוברת דרך ה‑USB, לא עובד מהטלפון.)</li>
+          <li data-l="en">Plug the ESP32 into your computer with a USB cable. (Needs <strong>Chrome or Edge on a computer</strong> — flashing goes over USB, not from a phone.)</li>
+          <li data-l="he">לחץ <strong>״צרוב״</strong>, בחר את הפורט, וה‑firmware נצרב מעצמו. בסוף תזין את פרטי ה‑Wi‑Fi שאליו הבקר יתחבר.</li>
+          <li data-l="en">Hit <strong>"Flash"</strong>, pick the port, and the firmware installs itself. At the end you enter the Wi‑Fi it should join.</li>
+          <li data-l="he">אחר כך <strong>״הוסף בקר״</strong>: תן לו <strong>שם</strong> ורשום את <strong>פיני ה‑GPIO</strong> של יציאות הדאטה. <em>בלי מספר לדים</em> — את זה שלב המיפוי לומד לבד מהמצלמה.</li>
+          <li data-l="en">Then <strong>"Add a controller"</strong>: give it a <strong>name</strong> and list the <strong>GPIO pins</strong> of its data outputs. <em>No LED count</em> — the mapping stage learns that from the camera.</li>
         </ol>
-        <p data-l="he">להעמקה: <a href="https://kno.wled.ge/" target="_blank" rel="noopener">פרויקט WLED</a> · <a href="https://kno.wled.ge/basics/tutorials/" target="_blank" rel="noopener">מדריכים</a>.</p>
-        <p data-l="en">Go deeper: <a href="https://kno.wled.ge/" target="_blank" rel="noopener">the WLED project</a> · <a href="https://kno.wled.ge/basics/tutorials/" target="_blank" rel="noopener">tutorials</a>.</p>
+        <p data-l="he">ESP אחד = בקר אחד. יותר מ‑500–600 לדים? כמה פיני דאטה על אותו ESP (כמו ב<a href="#power">פרק החשמל</a>).</p>
+        <p data-l="en">One ESP = one controller. More than 500–600 LEDs? Several data pins on the same ESP (like in <a href="#power">Electronics</a>).</p>
 
+        <!-- C: Pi -->
+        <h3><span class="h3n">C</span><span data-l="he">המוח באתר (Raspberry Pi)</span><span data-l="en">The on‑site brain (Raspberry Pi)</span></h3>
+        <p data-l="he">ה‑Pi יושב ליד המיצב, מריץ את שירותי KivSee, ומחבר את הכל לענן. שתי דרכים להתקין — בחר אחת.</p>
+        <p data-l="en">The Pi sits next to the piece, runs the KivSee services, and links everything to the cloud. Two ways to install — pick one.</p>
+        <p class="sub-lead" data-l="he">הדרך הקלה — כרטיס מוכן (.img), בלי טרמינל</p>
+        <p class="sub-lead" data-l="en">The easy way — a ready image (.img), no terminal</p>
+        <ol class="body">
+          <li data-l="he">הורד את קובץ ה‑<span class="mono">.img</span> של KivSee, וצרוב אותו לכרטיס SD עם <a href="https://www.raspberrypi.com/software/" target="_blank" rel="noopener">Raspberry Pi Imager</a> או balenaEtcher.</li>
+          <li data-l="en">Download the KivSee <span class="mono">.img</span> and write it to an SD card with <a href="https://www.raspberrypi.com/software/" target="_blank" rel="noopener">Raspberry Pi Imager</a> or balenaEtcher.</li>
+          <li data-l="he">על מחיצת ה‑<span class="mono">boot</span> שנוצרה, פתח את <span class="mono">ledrings-config.txt</span> וערוך: <strong>שם רשת Wi‑Fi + סיסמה</strong>, <strong>טוקן המנהרה</strong> וכתובת ה‑<span class="mono">PUBLIC_URL</span>. שמור.</li>
+          <li data-l="en">On the new <span class="mono">boot</span> partition, open <span class="mono">ledrings-config.txt</span> and fill in: <strong>Wi‑Fi name + password</strong>, the <strong>tunnel token</strong> and your <span class="mono">PUBLIC_URL</span>. Save.</li>
+          <li data-l="he">הכנס את הכרטיס ל‑Pi והדלק. באתחול הראשון הוא מתחבר לבד, מוחק את הטוקן מהכרטיס, ומתקין הכל — <strong>בלי טרמינל</strong>. אחרי כמה דקות המיצב עולה לאוויר.</li>
+          <li data-l="en">Put the card in the Pi and power on. On first boot it connects, wipes the token off the card, and installs everything — <strong>no terminal</strong>. A few minutes later the piece is live.</li>
+        </ol>
+        <p class="sub-lead" data-l="he">הדרך למתקדמים — פקודה אחת (SSH)</p>
+        <p class="sub-lead" data-l="en">The advanced way — one command (SSH)</p>
+        <p data-l="he">מעדיף טרמינל? צרוב <strong>Raspberry Pi OS Lite (64‑bit)</strong>, התחבר ב‑SSH, והרץ:</p>
+        <p data-l="en">Prefer a terminal? Flash <strong>Raspberry Pi OS Lite (64‑bit)</strong>, SSH in, and run:</p>
+        <code class="cmd">curl -fsSL https://raw.githubusercontent.com/iddofroom/led-rings/iddo_AI/remote-deploy/rpi-install.sh | bash</code>
+        <p data-l="he">מתקין את הכל — שירותי KivSee (ב‑Docker), המארח והמנהרה — ומעלה לבד בכל הדלקה. יבקש ממך את טוקן המנהרה תוך כדי.</p>
+        <p data-l="en">It installs everything — the KivSee services (in Docker), the host and the tunnel — and auto‑starts on every boot. It asks for the tunnel token as it runs.</p>
+
+        <!-- D: LED Studio 5 stages -->
+        <h3><span class="h3n">D</span><span data-l="he">מפעילים ב‑LED Studio — 5 שלבים</span><span data-l="en">Bring it to life in LED Studio — 5 stages</span></h3>
+        <p data-l="he">ברגע שה‑Pi מחובר, עמוד הפרויקט ב‑LED Studio מוביל אותך בחמישה שלבים (כל שלב נצבע ✓ כשהוא מוכן):</p>
+        <p data-l="en">Once the Pi is connected, the LED Studio project page walks you through five stages (each turns ✓ when done):</p>
+        <ol class="body">
+          <li data-l="he"><strong>חבר את ה‑Pi</strong> — ״בדוק חיבור״ מראה מחובר / מנותק.</li>
+          <li data-l="en"><strong>Connect the Pi</strong> — "Test connection" shows online / offline.</li>
+          <li data-l="he"><strong>הקם בקרים</strong> — צרוב והצהר על ה‑ESP‑ים (שלב B למעלה).</li>
+          <li data-l="en"><strong>Set up controllers</strong> — flash and declare your ESPs (step B above).</li>
+          <li data-l="he"><strong>מפה את הלדים</strong> — המצלמה של הטלפון מזהה איפה כל לד נמצא במרחב, בלי לספור ידנית.</li>
+          <li data-l="en"><strong>Map the LEDs</strong> — your phone's camera figures out where each LED sits in space, with no manual counting.</li>
+          <li data-l="he"><strong>הלחן ונגן</strong> — מעלה שיר, הוא מנותח, ואתה בונה מופע (ראה <a href="#story">סיפוריות</a>).</li>
+          <li data-l="en"><strong>Compose &amp; play</strong> — upload a song, it gets analyzed, and you build the show (see <a href="#story">Storytelling</a>).</li>
+          <li data-l="he"><strong>פלואו התקנה</strong> (אופציונלי) — כללי ״כשקורה X, עשה Y״ (למטה).</li>
+          <li data-l="en"><strong>Installation flow</strong> (optional) — "when X happens, do Y" rules (below).</li>
+        </ol>
+
+        <!-- E: flow -->
+        <h3><span class="h3n">E</span><span data-l="he">פלואו התקנה — טריגר ← פעולה</span><span data-l="en">Installation flow — trigger → action</span></h3>
+        <p data-l="he">הופכים את המיצב לאינטראקטיבי: כרטיס RFID, כפתור או חיישן מפעילים פעולה. כל כלל הוא <strong>״מתי ← אז״</strong>:</p>
+        <p data-l="en">Make the piece interactive: an RFID card, a button or a sensor triggers an action. Each rule is <strong>"when → then"</strong>:</p>
+        <ul>
+          <li data-l="he"><strong>מתי</strong> — איזה קורא (box) ואיזה ערך תג (color). ריק = כל אחד.</li>
+          <li data-l="en"><strong>When</strong> — which reader (box) and which tag value (color). Blank = anything.</li>
+          <li data-l="he"><strong>אז</strong> — נגן שיר · הפעל טריגר · שנה בהירות · עצור.</li>
+          <li data-l="en"><strong>Then</strong> — play a song · fire a trigger · set brightness · stop.</li>
+        </ul>
+        <p data-l="he">מחווטים דרך MQTT: מפרסמים ל‑<code>sensors/rfid/&lt;box&gt;/chip</code> את <code>{"color":"red"}</code>, ומנוע הפלואו על ה‑Pi מזהה ומריץ את הכלל. ״החל על ההתקנה״ שולח את הכללים ל‑Pi.</p>
+        <p data-l="en">Wired over MQTT: publish <code>{"color":"red"}</code> to <code>sensors/rfid/&lt;box&gt;/chip</code>, and the flow engine on the Pi matches and runs the rule. "Apply to installation" pushes the rules to the Pi.</p>
+
+        <!-- WLED off-ramp -->
         <div class="call tip">
-          <div class="ct" data-l="he">🎵 רוצה שהלדים ירקדו למוזיקה?</div>
-          <div class="ct" data-l="en">🎵 Want the LEDs to dance to music?</div>
-          <p data-l="he">זה כבר לא WLED — זה LED Studio. קפוץ לפרק <a href="#story">סיפוריות</a> לראות איך הופכים שיר למופע אור עם נרטיב.</p>
-          <p data-l="en">That's not WLED anymore — that's LED Studio. Jump to <a href="#story">Storytelling</a> to see how a song becomes a light show with a narrative.</p>
+          <div class="ct" data-l="he">💡 רק רוצה אורות, בלי מוזיקה?</div>
+          <div class="ct" data-l="en">💡 Just want lights, no music?</div>
+          <p data-l="he">כל המערכת הזו היא למופע מסונכרן. אם אתה רק רוצה אפקטים וצבעים מהטלפון בלי סנכרון — יש דף נפרד: <a href="https://kivsee.iddofroom.co.il/guide/wled" target="_blank" rel="noopener">מדריך WLED ↗</a>.</p>
+          <p data-l="en">This whole system is for a synced show. If you only want effects and colors from your phone with no sync — there's a separate page: <a href="https://kivsee.iddofroom.co.il/guide/wled" target="_blank" rel="noopener">the WLED guide ↗</a>.</p>
         </div>
       </section>
 
