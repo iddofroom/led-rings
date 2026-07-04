@@ -3,3 +3,10 @@
 *.sh text eol=lf
 remote-deploy/.led-rings-secrets.example text eol=lf
 remote-deploy/FRIEND-SETUP.md text eol=lf
+
+# Raspberry Pi image build (pi-gen) + systemd unit + boot config file — Linux-only,
+# a CRLF checkout breaks apt package lists, the systemd unit, and file parsing.
+remote-deploy/firstboot/*.service text eol=lf
+remote-deploy/boot/* text eol=lf
+remote-deploy/pi-gen/config text eol=lf
+remote-deploy/pi-gen/stage-ledrings/* text eol=lf
