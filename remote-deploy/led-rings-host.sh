@@ -140,8 +140,10 @@ have yarn || { info "Installing yarn ..."; sudo npm install -g yarn; }
 if [ ! -d node_modules ] || [ "$CODE_CHANGED" -eq 1 ]; then
   info "Installing root dependencies ..."; yarn install --ignore-engines
 fi
-if [ ! -d ui/node_modules ] || [ "$CODE_CHANGED" -eq 1 ]; then
-  info "Installing UI dependencies ..."; ( cd ui && yarn install --ignore-engines )
+# UI deps are only needed to BUILD the UI on the Pi, which is now opt-in (the edge serves the
+# app — see the UI section below). Skip the install unless LED_RINGS_BUILD_UI=1.
+if [ "${LED_RINGS_BUILD_UI:-0}" = "1" ] && { [ ! -d ui/node_modules ] || [ "$CODE_CHANGED" -eq 1 ]; }; then
+  info "Installing UI dependencies (LED_RINGS_BUILD_UI=1) ..."; ( cd ui && yarn install --ignore-engines )
 fi
 
 # ---- LED backend service IPs (.env) ----
@@ -215,26 +217,43 @@ ensure_swap_for_build() {
   fi
 }
 
-# ---- Build the UI against the public URL (when missing, when the URL changed, or after an update) ----
-# You can skip building on the Pi entirely by shipping a prebuilt ui/dist from a beefier machine
-# and creating ui/.prebuilt — then the Pi just serves it. See FRIEND-SETUP.md ("Build on your PC").
-# The UI needs the Clerk publishable key at build time (public, but configured per-deploy). Pull
-# it from the untracked secrets file (or the environment) and write it alongside VITE_API_URL.
+# ---- UI: served from the Cloudflare edge, NOT built on the Pi by default ----
+# The front-door Worker serves the React app from Workers Static Assets and only proxies /api/*
+# to this host (bridge.js). So the slow, memory-hungry on-Pi Vite build is redundant and is
+# SKIPPED by default — removing the single most failure-prone install step (and all the swap /
+# 512MB-heap / OOM handling with it). Opt back in with LED_RINGS_BUILD_UI=1 to ALSO serve the UI
+# directly on the LAN from this Pi. A shipped prebuilt ui/dist (ui/.prebuilt) still wins.
 [ -f "$BASE/.led-rings-secrets" ] && . "$BASE/.led-rings-secrets"
-{
-  printf 'VITE_API_URL=%s\n' "$PUBLIC_URL"
-  [ -n "${VITE_CLERK_PUBLISHABLE_KEY:-}" ] && printf 'VITE_CLERK_PUBLISHABLE_KEY=%s\n' "$VITE_CLERK_PUBLISHABLE_KEY"
-} > ui/.env
-[ -z "${VITE_CLERK_PUBLISHABLE_KEY:-}" ] && warn "VITE_CLERK_PUBLISHABLE_KEY not set (add it to .led-rings-secrets) — the app will show 'Auth not configured'."
+PUBLIC_URL="${PUBLIC_URL:-https://kivsee.iddofroom.co.il}"
 if [ -f ui/.prebuilt ] && [ -f ui/dist/index.html ]; then
   info "Using prebuilt UI (ui/.prebuilt present) — skipping the on-Pi build."
-elif [ "$CODE_CHANGED" -eq 1 ] \
-   || ! { [ -f ui/dist/index.html ] && [ -f ui/.apiurl ] && [ "$(cat ui/.apiurl)" = "$PUBLIC_URL" ]; }; then
-  ensure_swap_for_build
-  info "Building UI (slow on a Pi — several minutes) ..."
-  # Cap V8 heap so Rollup swaps gracefully instead of ballooning and OOM-killing the Pi.
-  ( cd ui && NODE_OPTIONS="${NODE_OPTIONS:---max-old-space-size=512}" node node_modules/vite/bin/vite.js build )
-  printf '%s' "$PUBLIC_URL" > ui/.apiurl
+elif [ "${LED_RINGS_BUILD_UI:-0}" = "1" ]; then
+  # The UI needs the Clerk publishable key at build time (public, but configured per-deploy).
+  {
+    printf 'VITE_API_URL=%s\n' "$PUBLIC_URL"
+    [ -n "${VITE_CLERK_PUBLISHABLE_KEY:-}" ] && printf 'VITE_CLERK_PUBLISHABLE_KEY=%s\n' "$VITE_CLERK_PUBLISHABLE_KEY"
+  } > ui/.env
+  [ -z "${VITE_CLERK_PUBLISHABLE_KEY:-}" ] && warn "VITE_CLERK_PUBLISHABLE_KEY not set (add it to .led-rings-secrets) — the app will show 'Auth not configured'."
+  if [ "$CODE_CHANGED" -eq 1 ] \
+     || ! { [ -f ui/dist/index.html ] && [ -f ui/.apiurl ] && [ "$(cat ui/.apiurl)" = "$PUBLIC_URL" ]; }; then
+    ensure_swap_for_build
+    info "Building UI (LED_RINGS_BUILD_UI=1; slow on a Pi — several minutes) ..."
+    # Cap V8 heap so Rollup swaps gracefully instead of ballooning and OOM-killing the Pi.
+    ( cd ui && NODE_OPTIONS="${NODE_OPTIONS:---max-old-space-size=512}" node node_modules/vite/bin/vite.js build )
+    printf '%s' "$PUBLIC_URL" > ui/.apiurl
+  fi
+else
+  info "Skipping on-Pi UI build — the app is served from the edge ($PUBLIC_URL). Set LED_RINGS_BUILD_UI=1 to also build a local LAN copy."
+  # bridge.js only needs to proxy /api on the tunnel path, but give it a tiny placeholder so a
+  # direct-LAN hit to '/' redirects to the live app instead of a confusing 'did you build?' 404.
+  if [ ! -f ui/dist/index.html ]; then
+    mkdir -p ui/dist
+    printf '%s\n' \
+      '<!doctype html><meta charset="utf-8"><title>LED Studio</title>' \
+      "<meta http-equiv=\"refresh\" content=\"0; url=$PUBLIC_URL\">" \
+      "<body style=\"font-family:system-ui;background:#0f1218;color:#e8eaed;padding:24px\">Redirecting to <a href=\"$PUBLIC_URL\" style=\"color:#8fb4ff\">$PUBLIC_URL</a> …" \
+      > ui/dist/index.html
+  fi
 fi
 
 # ---- Single-origin bridge next to the repo ----

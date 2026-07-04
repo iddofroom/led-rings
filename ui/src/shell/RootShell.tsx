@@ -8,7 +8,7 @@ import SongPicker from './SongPicker'
 import MappingStage from '../mapping/MappingStage'
 import ControllerSetup from '../onboard/ControllerSetup'
 import FlowBuilder from '../onboard/FlowBuilder'
-import { useI18n } from '../lib/i18n'
+import { useI18n, LangToggle } from '../lib/i18n'
 
 /**
  * Top-level navigation shell: Clerk sign-in → Project picker → Song picker → Editor.
@@ -52,14 +52,46 @@ export default function RootShell() {
   return (
     <>
       <SignedOut>
-        <div style={signInWrap}>
-          <SignIn routing="hash" />
-        </div>
+        <SignedOutLanding />
       </SignedOut>
       <SignedIn>
         <ShellInner />
       </SignedIn>
     </>
+  )
+}
+
+/**
+ * First thing a brand-new visitor sees. The app installs nothing (it's edge-served), so this is
+ * the whole "front door": what the tool is, a link to the public build guide (open, no account),
+ * and the Clerk sign-in to start. Bilingual with a language toggle since there's no header yet.
+ */
+function SignedOutLanding() {
+  const { t, dir } = useI18n()
+  return (
+    <div style={landingWrap} dir={dir}>
+      <div style={{ position: 'absolute', top: 16, insetInlineEnd: 16 }}>
+        <LangToggle variant="dark" />
+      </div>
+      <div style={landingInner}>
+        <div style={landingHero}>
+          <div style={{ fontSize: 46 }}>🎛️</div>
+          <h1 style={{ margin: '10px 0 8px', fontSize: 30, fontWeight: 850, letterSpacing: '-0.02em' }}>LED Studio</h1>
+          <p style={{ margin: 0, fontSize: 17, color: '#aab6cc', lineHeight: 1.55, maxWidth: 460 }}>
+            {t({
+              en: 'Design music-synced LED light shows for your installation — right in the browser. Nothing to install.',
+              he: 'עצבו מופעי תאורת LED מסונכרנים למוזיקה למיצב שלכם — ישר מהדפדפן. בלי שום התקנה.',
+            })}
+          </p>
+          <a href="/guide" style={guideLink}>
+            📖 {t({ en: 'How it works — the build guide', he: 'איך זה עובד — מדריך הבנייה' })}
+          </a>
+        </div>
+        <div style={{ flex: '0 0 auto' }}>
+          <SignIn routing="hash" />
+        </div>
+      </div>
+    </div>
   )
 }
 
@@ -174,4 +206,7 @@ function ShellInner() {
 
 const shell: React.CSSProperties = { minHeight: '100vh', background: '#0f1218', color: '#e8eaed', display: 'flex', flexDirection: 'column' }
 const topbar: React.CSSProperties = { display: 'flex', alignItems: 'center', gap: 12, padding: '12px 20px', borderBottom: '1px solid #1e232c', background: '#12161d' }
-const signInWrap: React.CSSProperties = { minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#0f1218', padding: 24 }
+const landingWrap: React.CSSProperties = { position: 'relative', minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'radial-gradient(1100px 520px at 50% -8%, #1c2540, #0b0f1a 62%)', color: '#e8eaed', padding: 24 }
+const landingInner: React.CSSProperties = { width: 'min(920px, 100%)', display: 'flex', flexWrap: 'wrap', gap: 28, alignItems: 'center', justifyContent: 'center' }
+const landingHero: React.CSSProperties = { flex: '1 1 340px', maxWidth: 460, textAlign: 'center' }
+const guideLink: React.CSSProperties = { display: 'inline-block', marginTop: 18, color: '#8fb4ff', textDecoration: 'none', fontSize: 15, fontWeight: 600, border: '1px solid #2a3450', borderRadius: 10, padding: '9px 16px' }
