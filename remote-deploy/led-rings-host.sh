@@ -131,6 +131,28 @@ if [ "$UPDATE" -eq 1 ]; then
   fi
 fi
 
+# ---- Keep the top-level launcher scripts in sync with the repo ----
+# In the nested bundle layout (BASE holds the launcher copies, REPO = $BASE/led-rings is the git
+# checkout), --update only pulls REPO. It never refreshes the launcher copies at $BASE, which are
+# what actually runs next time (reboot, next --update, etc) — so fixes to these scripts silently
+# never take effect on hosts bootstrapped before the fix shipped. Sync them here.
+# Write-then-rename (not an in-place overwrite) so self-replacing led-rings-host.sh mid-run is
+# safe: bash keeps its open fd on the old inode until it re-execs, so this can't corrupt the
+# currently-running interpreter.
+if [ "$UPDATE" -eq 1 ] && [ "$BASE" != "$REPO" ]; then
+  for f in led-rings-host.sh led-rings-host-update.sh led-rings-host-run.sh \
+           led-rings-host-stop.sh led-rings-host-enable-autostart.sh; do
+    src="$REPO/remote-deploy/$f"
+    dst="$BASE/$f"
+    if [ -f "$src" ] && ! cmp -s "$src" "$dst" 2>/dev/null; then
+      info "Syncing $f from repo ..."
+      cp -f "$src" "$dst.new"
+      chmod +x "$dst.new"
+      mv -f "$dst.new" "$dst"
+    fi
+  done
+fi
+
 # ---- yarn + node dependencies ----
 # On a code update, package.json may have changed, so refresh deps too.
 # --ignore-engines: the root has a packaging-only devDependency (@yao-pkg/pkg) that
