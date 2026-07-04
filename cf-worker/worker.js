@@ -152,6 +152,13 @@ export default {
     try {
       const headers = new Headers(request.headers);
       headers.delete('host');
+      // Authenticate to the Access-protected origin with a service token, so o.iddofroom.co.il can
+      // deny ALL direct public traffic (the Worker is its only legitimate client). No-op until the
+      // service-token secrets are set + the Access app is enabled.
+      if (env && env.CF_ACCESS_CLIENT_ID && env.CF_ACCESS_CLIENT_SECRET) {
+        headers.set('CF-Access-Client-Id', env.CF_ACCESS_CLIENT_ID);
+        headers.set('CF-Access-Client-Secret', env.CF_ACCESS_CLIENT_SECRET);
+      }
       const init = { method: request.method, headers, redirect: 'manual' };
       if (request.method !== 'GET' && request.method !== 'HEAD') init.body = request.body;
       resp = await fetch(ORIGIN + url.pathname + url.search, init);
