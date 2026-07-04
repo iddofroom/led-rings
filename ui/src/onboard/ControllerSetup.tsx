@@ -117,7 +117,8 @@ function AddControllerForm({
 
   const nameTaken = useMemo(() => existing.some((d) => d.thing === thing.trim()), [existing, thing])
   const nameValid = THING_RE.test(thing.trim())
-  const canSave = nameValid && !nameTaken && !saving
+  const pinsValid = pins.some((p) => Number.isInteger(p.gpio) && p.gpio >= 0 && p.gpio <= 48)
+  const canSave = nameValid && !nameTaken && pinsValid && !saving
 
   const setPin = (i: number, patch: Partial<DevicePin>) => setPins((ps) => ps.map((p, k) => (k === i ? { ...p, ...patch } : p)))
   const addPin = () => setPins((ps) => [...ps, { gpio: 0 }])

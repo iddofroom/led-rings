@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react'
 import { mappingApi } from '../lib/mapping'
+import { library } from '../lib/library'
 
 /**
  * Project home: the ordered stages of building an installation, from connecting
@@ -23,12 +24,20 @@ type StageState = 'unknown' | 'checking' | 'ok' | 'todo'
 export default function ProjectHome({ projectId, projectName, projectRole, onCompose, onMapping, onSetupControllers, onBack }: Props) {
   const [pi, setPi] = useState<StageState>('unknown')
   const [controllers, setControllers] = useState<{ state: StageState; count: number }>({ state: 'unknown', count: 0 })
+  const [declared, setDeclared] = useState(0)
   const [mapInfo, setMapInfo] = useState<{ state: StageState; leds: number; controllers: number }>({ state: 'unknown', leds: 0, controllers: 0 })
 
   const refresh = useCallback(async () => {
     setPi('checking')
     setControllers({ state: 'checking', count: 0 })
     setMapInfo((m) => ({ ...m, state: 'checking' }))
+
+    // Declared controllers (registry) — independent of whether the hardware is powered on.
+    try {
+      setDeclared((await library.listDevices(projectId)).length)
+    } catch {
+      setDeclared(0)
+    }
 
     const online = await mappingApi.ping()
     setPi(online ? 'ok' : 'todo')
@@ -74,7 +83,13 @@ export default function ProjectHome({ projectId, projectName, projectRole, onCom
       desc: 'Flash each ESP32 with its thing name and power it. They announce themselves automatically.',
       state: controllers.state,
       status:
-        controllers.state === 'ok' ? `${controllers.count} online` : controllers.state === 'checking' ? 'Scanning…' : 'None found',
+        controllers.state === 'ok'
+          ? `${controllers.count} online${declared ? ` · ${declared} declared` : ''}`
+          : controllers.state === 'checking'
+            ? 'Scanning…'
+            : declared
+              ? `${declared} declared · offline`
+              : 'None yet',
       action: (
         <>
           <button style={S.primary} onClick={onSetupControllers}>Set up controllers →</button>

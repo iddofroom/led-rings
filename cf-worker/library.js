@@ -452,6 +452,10 @@ async function upsertDevice(KV, pid, request, email) {
         .map((p) => ({ gpio: Number(p && p.gpio), label: p && p.label ? String(p.label).slice(0, 40) : undefined }))
         .filter((p) => Number.isInteger(p.gpio) && p.gpio >= 0 && p.gpio <= 48)
     : [];
+  // Dedupe GPIOs (keep first occurrence) — the same pin can't drive two strips.
+  const seen = new Set();
+  const uniquePins = pins.filter((p) => (seen.has(p.gpio) ? false : seen.add(p.gpio)));
+  if (uniquePins.length === 0) return err('At least one LED output pin is required');
 
   const v = await KV.get(devicesKey(pid), 'json');
   const devices = v && Array.isArray(v.devices) ? v.devices : [];
@@ -461,7 +465,7 @@ async function upsertDevice(KV, pid, request, email) {
     thing,
     chip: body.chip ? String(body.chip).slice(0, 24) : existing ? existing.chip : null,
     mac: body.mac ? String(body.mac).slice(0, 32) : existing ? existing.mac : null,
-    pins,
+    pins: uniquePins,
     addedBy: existing ? existing.addedBy : email || 'unknown',
     addedAt: existing ? existing.addedAt : now,
     updatedAt: now,
@@ -479,7 +483,8 @@ async function removeDevice(KV, pid, request) {
   const v = await KV.get(devicesKey(pid), 'json');
   const devices = v && Array.isArray(v.devices) ? v.devices : [];
   const next = devices.filter((d) => d.thing !== thing);
-  await KV.put(devicesKey(pid), JSON.stringify({ devices: next, updatedAt: Date.now() }));
+  const now = Date.now();
+  await KV.put(devicesKey(pid), JSON.stringify({ devices: next, updatedAt: now }), { metadata: { count: next.length, updatedAt: now } });
   return json({ ok: true });
 }
 
