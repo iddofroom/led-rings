@@ -3,6 +3,7 @@
 // - Host UP                  -> transparently proxy the live app (same URL = the bridge)
 // The Worker reaches the host via an internal hostname (ORIGIN) that the tunnel serves.
 import { BUNDLE_B64 } from './bundle.js';
+import { GUIDE_HTML } from './guide.js';
 import { handleLibrary, roleOf } from './library.js';
 import { verifyClerkRequest, hasLibraryKey } from './auth.js';
 
@@ -13,6 +14,18 @@ const forbidden = () => new Response('Forbidden', { status: 403, headers: noStor
 const ORIGIN = 'https://o.iddofroom.co.il'; // internal tunnel hostname (not user-facing)
 const BUNDLE_NAME = 'led-rings-host-bundle.zip';
 const PASSWORD = 'RFID'; // download password (case-insensitive)
+
+// esp-web-tools manifest for browser flashing. `builds` is empty until real KivSee binaries are
+// published (see firmware/README.md for the build + config contract); the flash UI degrades
+// gracefully on an empty builds array. Replace with per-chip merged-bin @ offset 0 when ready.
+const FIRMWARE_MANIFEST = {
+  name: 'KivSee LED Controller',
+  version: '0.0.0-placeholder',
+  new_install_prompt_erase: true,
+  builds: [],
+  status: 'no-firmware-yet',
+  note: 'Firmware binaries are not published yet. See firmware/README.md for the build + config contract.',
+};
 
 function isDown(resp) {
   // Cloudflare returns 530 (1033) when the tunnel has no healthy connector,
@@ -26,6 +39,15 @@ export default {
   async fetch(request, env) {
     const url = new URL(request.url);
     const ownerEmail = String((env && env.OWNER_EMAIL) || '').toLowerCase();
+
+    // Public build guide — served from the edge, no auth, even when the host PC is down.
+    // Open to everyone (no account needed), so it short-circuits BEFORE the Clerk gate and
+    // the host proxy below. Content is baked into guide.js for a buildless deploy.
+    if (request.method === 'GET' && (url.pathname === '/guide' || url.pathname === '/guide/')) {
+      return new Response(GUIDE_HTML, {
+        headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'public, max-age=300' },
+      });
+    }
 
     // Clerk gates the API surface only. Static app assets (everything not under /api/* and not
     // /download) proxy through UNAUTHENTICATED so the React app + Clerk sign-in page can load;
@@ -111,6 +133,20 @@ export default {
       return txt('סיסמה שגויה.', 403);
     }
 
+    // Firmware for browser-based ESP flashing (esp-web-tools). Served same-origin from the edge
+    // (never proxied to the Pi, works even when it's down) so no CORS proxy is needed. The manifest
+    // ships with an empty `builds` array until real KivSee binaries are published — the flash UI
+    // detects that and degrades to a "firmware not published yet / flash manually" panel.
+    if (url.pathname === '/firmware/manifest.json') {
+      return new Response(JSON.stringify(FIRMWARE_MANIFEST), {
+        headers: { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store', 'Access-Control-Allow-Origin': '*' },
+      });
+    }
+    if (url.pathname.startsWith('/firmware/')) {
+      // .bin parts will be served here (from R2/KV) once firmware is published.
+      return new Response('Firmware binary not published yet', { status: 404, headers: { 'Cache-Control': 'no-store' } });
+    }
+
     // Try the live host (tunnel origin).
     let resp = null;
     try {
@@ -186,6 +222,7 @@ const LANDING_HTML = `<!doctype html>
       <li>אופציונלי, שיעלה לבד בכל הדלקה: <code>bash led-rings-host-enable-autostart.sh</code>.</li>
     </ol>
     <div class="foot"><span class="dot"></span> ברגע שהתוכנה תרוץ, הדף הזה יתחלף אוטומטית לכלי השליטה.</div>
+    <p style="margin:18px 0 0;font-size:13.5px"><a class="inline" href="/guide">📖 מדריך הבנייה — איך בונים מיצב לדים מוזיקלי (פתוח לכולם)</a></p>
   </div>
   <script>
     async function dl() {
