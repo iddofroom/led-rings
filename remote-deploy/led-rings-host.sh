@@ -156,14 +156,13 @@ fi
 # ---- yarn + node dependencies ----
 # On a code update, package.json may have changed, so refresh deps too.
 # --production: the Pi only ever runs `ts-node-dev src/control-server.ts` directly (see
-# led-rings-host-run.sh) — none of the root devDependencies (@yao-pkg/pkg, concurrently) are
-# needed here, they're dev-machine-only tooling for package:win/yarn-dev. wrangler used to live
-# here too and its transitive workerd dependency (prebuilt per-platform binaries, no 32-bit ARM
-# build) hard-failed the whole install (`Unsupported platform: linux arm LE`) — it's now its own
-# package.json under cf-worker/, so the root install never resolves it at all regardless of this
-# flag. Kept --production anyway as a general safety net against future dev-only deps.
-# --ignore-engines: @yao-pkg/pkg requires Node >=22 (Pi's armv7 build tops out at Node 20); moot
-# once devDependencies are skipped, but harmless to keep as a safety net.
+# led-rings-host-run.sh) — root devDependencies (just concurrently, for dev-machine `yarn dev`)
+# aren't needed here. Heavy deploy/packaging tools live in their own sub-packages precisely so
+# the root install stays Pi-safe: wrangler in cf-worker/ (its workerd dep ships per-platform
+# binaries with no 32-bit ARM build and used to hard-fail the whole install with `Unsupported
+# platform: linux arm LE`), @yao-pkg/pkg in packaging/ (needs Node >=22; drags in esbuild's ~20
+# per-platform binaries). Keep --production as a safety net against future dev-only deps.
+# --ignore-engines: harmless safety net for engine-pinned deps on the Pi's older Node.
 have yarn || { info "Installing yarn ..."; sudo npm install -g yarn; }
 if [ ! -d node_modules ] || [ "$CODE_CHANGED" -eq 1 ]; then
   info "Installing root dependencies ..."; yarn install --ignore-engines --production

@@ -77,7 +77,14 @@ copyDir(UI_DIST, PACKAGING_DIST)
 
 // Invoke the locally-installed devDependency directly rather than via `npx`, which
 // doesn't reliably find it from packaging/'s own package.json and re-fetches it instead.
-const pkgBin = path.join(ROOT, 'node_modules', '.bin', process.platform === 'win32' ? 'pkg.cmd' : 'pkg')
+// @yao-pkg/pkg lives in packaging/'s own package.json (not the root): it needs Node >=22 and
+// pulls esbuild's ~20 per-platform binaries — keeping it here means a root `yarn install`
+// (e.g. on the Raspberry Pi host) never fetches any of that.
+const pkgBin = path.join(PACKAGING_DIR, 'node_modules', '.bin', process.platform === 'win32' ? 'pkg.cmd' : 'pkg')
+if (!fs.existsSync(pkgBin)) {
+  console.error('pkg not found — run `yarn install` in packaging/ first.')
+  process.exit(1)
+}
 fs.mkdirSync(RELEASE_DIR, { recursive: true })
 
 try {

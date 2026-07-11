@@ -28,7 +28,7 @@
     "gen-ui-song": "ts-node src/generate-category-ui-song.ts",
     "roundtrip": "ts-node --transpile-only scripts/roundtrip-check.ts",
     "compose": "ts-node --transpile-only scripts/compose.ts",
-    "package:win": "node packaging/build.js",
+    "package:win": "yarn --cwd packaging install && node packaging/build.js",
     "cf:build-ui": "yarn --cwd ui build --mode edge",
     "cf:deploy": "yarn cf:build-ui && yarn --cwd cf-worker deploy",
     "cf:preview": "yarn cf:build-ui && yarn --cwd cf-worker preview",
@@ -49,7 +49,6 @@
     "diff": ">=4.0.4"
   },
   "devDependencies": {
-    "@yao-pkg/pkg": "^6.20.0",
     "concurrently": "^9.2.1"
   }
 }
