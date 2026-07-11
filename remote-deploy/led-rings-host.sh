@@ -155,12 +155,18 @@ fi
 
 # ---- yarn + node dependencies ----
 # On a code update, package.json may have changed, so refresh deps too.
-# --ignore-engines: the root has a packaging-only devDependency (@yao-pkg/pkg) that
-# requires Node >=22, which the Pi's armv7 build can't have (Node 20 is the last armv7).
-# It's never used on the Pi, so skip the engine check instead of failing the install.
+# --production: the Pi only ever runs `ts-node-dev src/control-server.ts` directly (see
+# led-rings-host-run.sh) — none of the root devDependencies (@yao-pkg/pkg, concurrently) are
+# needed here, they're dev-machine-only tooling for package:win/yarn-dev. wrangler used to live
+# here too and its transitive workerd dependency (prebuilt per-platform binaries, no 32-bit ARM
+# build) hard-failed the whole install (`Unsupported platform: linux arm LE`) — it's now its own
+# package.json under cf-worker/, so the root install never resolves it at all regardless of this
+# flag. Kept --production anyway as a general safety net against future dev-only deps.
+# --ignore-engines: @yao-pkg/pkg requires Node >=22 (Pi's armv7 build tops out at Node 20); moot
+# once devDependencies are skipped, but harmless to keep as a safety net.
 have yarn || { info "Installing yarn ..."; sudo npm install -g yarn; }
 if [ ! -d node_modules ] || [ "$CODE_CHANGED" -eq 1 ]; then
-  info "Installing root dependencies ..."; yarn install --ignore-engines
+  info "Installing root dependencies ..."; yarn install --ignore-engines --production
 fi
 # UI deps are only needed to BUILD the UI on the Pi, which is now opt-in (the edge serves the
 # app — see the UI section below). Skip the install unless LED_RINGS_BUILD_UI=1.

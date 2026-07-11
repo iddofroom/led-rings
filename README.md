@@ -120,7 +120,9 @@ live tool. Per song it stores `meta`, `analysis`, the `audio` (MP3 bytes), the a
 - `cf-worker/worker.js` — front door (proxy live host / landing page / gated host-bundle
   download) **+** intercepts the library API at the edge.
 - `cf-worker/library.js` — the KV-backed library (`handleLibrary`).
-- Deploy: `cd cf-worker && npx wrangler deploy`. (`cf-worker/` is not part of the npm build.)
+- Deploy: `cd cf-worker && yarn install && npx wrangler deploy` (or `yarn deploy`/`yarn --cwd
+  cf-worker deploy` from root). `cf-worker/` has its own `package.json` + lockfile — `wrangler`
+  lives there, not in the root install, so the Pi never has to fetch it.
 
 ---
 

@@ -30,9 +30,9 @@
     "compose": "ts-node --transpile-only scripts/compose.ts",
     "package:win": "node packaging/build.js",
     "cf:build-ui": "yarn --cwd ui build --mode edge",
-    "cf:deploy": "yarn cf:build-ui && wrangler deploy --config cf-worker/wrangler.toml",
-    "cf:preview": "yarn cf:build-ui && wrangler dev --config cf-worker/wrangler.toml",
-    "deploy": "wrangler deploy --config cf-worker/wrangler.toml"
+    "cf:deploy": "yarn cf:build-ui && yarn --cwd cf-worker deploy",
+    "cf:preview": "yarn cf:build-ui && yarn --cwd cf-worker preview",
+    "deploy": "yarn --cwd cf-worker deploy"
   },
   "dependencies": {
     "@types/node": "^22.10.10",
@@ -50,7 +50,6 @@
   },
   "devDependencies": {
     "@yao-pkg/pkg": "^6.20.0",
-    "concurrently": "^9.2.1",
-    "wrangler": "^4.107.0"
+    "concurrently": "^9.2.1"
   }
 }

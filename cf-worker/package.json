@@ -1,0 +1,12 @@
+{
+  "name": "led-rings-cf-worker",
+  "version": "0.0.1",
+  "private": true,
+  "scripts": {
+    "deploy": "wrangler deploy --config wrangler.toml",
+    "preview": "wrangler dev --config wrangler.toml"
+  },
+  "devDependencies": {
+    "wrangler": "^4.107.0"
+  }
+}
